@@ -2,7 +2,7 @@
 
 ## Part 1: Prepare the Product Repository
 
-1. Create a new product repository and complete all requirements under **Required Starting Assignment 2** in the [Product Repository Requirements](Repository_Requirements.md#required-starting-assignment-2).
+1. Create a new product repository and complete all requirements under **Required Starting Assignment 2** in the [Product Repository Requirements](https://gitlab.pg.innopolis.university/swp_26/swp_26/-/blob/main/Repository_Requirements.md#required-starting-assignment-2).
 
 2. Create the following report structure:
 
