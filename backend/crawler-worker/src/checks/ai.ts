@@ -98,7 +98,7 @@ Example:
 \`\`\`
 
 === VISITS ===
-It's more preferable if you will visit as more pages if you wish. Do not visit multiple times the same page.
+It's more preferable if you will visit as more pages as you wish. Do not visit multiple times the same page.
 Find links <a href=...> and open it. If the main page doesn't exist you can finish chat without error messages in the response.
 
 === Host ===
