@@ -1,0 +1,13 @@
+.git
+node_modules
+.gitignore
+.env
+*.md
+reports/
+frontend/
+api/
+PDn-control/
+ai_studio_code.txt
+Assignment_02.md
+LICENSE
+UserStories.xlsx
