@@ -285,12 +285,9 @@ export async function checkAi(sr: Data) {
       // Clean common JSON issues from AI models
       jsonStr = jsonStr
         .replace(/,\s*([\]}])/g, '$1')   // trailing commas
-        .replace(/:\s*'([^']*)'/g, ':"$1"') // single quotes to double
-        .replace(/\\n/g, ' ')             // literal newlines in strings
-        .replace(/\\t/g, ' ')             // literal tabs in strings
         .replace(/\u003c/g, '<')
         .replace(/\u003e/g, '>')
-        .replace(/[\x00-\x1f]/g, ' ');    // control characters
+        .replace(/\t/g, ' ');             // tabs to spaces
 
       try {
         const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
@@ -299,7 +296,7 @@ export async function checkAi(sr: Data) {
         }
       } catch (e) {
         console.error('Failed to parse AI response:', e);
-        console.error('Raw JSON (first 1000 chars):', jsonStr.substring(0, 1000));
+        console.error('Raw JSON (first 1500 chars):', jsonStr.substring(0, 1500));
       }
     }
 
