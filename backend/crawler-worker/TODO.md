@@ -3,7 +3,7 @@
 У тебя тут нескольк задач по работе! Я написал этот код и реализовал ключевые идеи. Теперь твоя задача все это оформить и где то даже улучшить реализацию.
 
 1. Файл настроек ./config.json
-2. Создать HTTP сервер-worker. Максимальное кол-во одновременных процессов дожно быть установлена в настройках. Создать POST /check method. Который принимает URL сайта и тип проверки: 'fast' or 'detail', request id для получения прогресса и secret для защиты API. Пример { "url": "https://example.com", "type": "fast", "secret": "top-secret-...", "req-id": "req-id-...", "fallback": "https://127.0.0.1:5555/api/progress_example" }
+2. Создать HTTP сервер-worker. Максимальное кол-во одновременных процессов дожно быть установлена в настройках. Создать POST /check method. Который принимает URL сайта и тип проверки: 'fast' or 'detail', request id для получения прогресса и secret для защиты API. Пример { "url": "https://example.com", "type": "fast", "secret": "top-secret-...", "req-id": "req-id-...", "fallback": "http s://127.0.0.1:5555/api/progress_example" }
 3. Учитывать краевые случаи. Возвращать ошибки в формате { 'code': ERR_SOMETHING, "req-id": "...", 'msg': 'ERROR_MSG' } если все ок возвращает { 'code': ERR_OK, "req-id": "...", 'data': ... } после создании запроса и при выполнении запроса на fallback.
 4. Создать таблицу кодов |code| и сообщения |msg| к ним. ERR_OK - ok, ERR_INTERNAL - internal error, ERR_PAGE_OPEN_TIMEOUT - page open timeout, ERR_AI_FAILED - ai ошибка фатальная и тд
 5. Установить какие проверки будут проводиться для fast и detail. AI для detail. остальное в fast.
