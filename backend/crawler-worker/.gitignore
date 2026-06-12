@@ -1,0 +1,4 @@
+node_modules
+.vs-code
+package-lock.json
+example.png
