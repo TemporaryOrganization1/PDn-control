@@ -72,27 +72,23 @@ func (s *Server) lookupIP(c echo.Context) error {
 
 	reader := s.updater.GetReader()
 	if reader == nil {
-		return c.JSON(http.StatusServiceUnavailable, map[string]interface{}{
-			"ip": ipStr, "found": false, "message": "GeoIP database not loaded yet",
+		return c.JSON(http.StatusServiceUnavailable, map[string]string{
+			"country_code": "unknown", "message": "GeoIP database not loaded yet",
 		})
 	}
 
 	var record models.GeoIPRecord
 	if err := reader.Lookup(parsedIP, &record); err != nil {
 		log.Printf("[API] Lookup error for %s: %v", ipStr, err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "lookup failed"})
+		return c.JSON(http.StatusOK, map[string]string{"country_code": "unknown"})
 	}
 
 	if record.Country.GeonameID == 0 {
-		return c.JSON(http.StatusNotFound, map[string]interface{}{
-			"ip": ipStr, "found": false, "message": "IP not found",
-		})
+		return c.JSON(http.StatusOK, map[string]string{"country_code": "unknown"})
 	}
 
-	return c.JSON(http.StatusOK, models.LookupResult{
-		IP: ipStr, Found: true,
-		Country: record.Country.Names.En, CountryISO: record.Country.ISOCode,
-		GeonameID: record.Country.GeonameID, Continent: record.Continent.Code,
+	return c.JSON(http.StatusOK, map[string]string{
+		"country_code": record.Country.ISOCode,
 	})
 }
 
