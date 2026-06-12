@@ -49,7 +49,7 @@ export async function runCheck(
   await prepare(sr);
 
   if (await sr.checkConnection()) {
-    await check(sr);
+    await check(sr, type);
   } else {
     throw new Error('Failed to connect to ' + baseUrl);
   }
