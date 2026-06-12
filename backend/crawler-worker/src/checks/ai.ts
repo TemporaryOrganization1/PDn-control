@@ -1,5 +1,8 @@
-import { OpenRouter } from "@openrouter/sdk";
-import type { Data } from "../data.js";
+import { readFileSync } from 'node:fs';
+import { OpenRouter } from '@openrouter/sdk';
+import type { Data } from '../data.js';
+
+const config = JSON.parse(readFileSync('./config.json', 'utf-8'));
 
 const prompt = `You are a legal compliance auditor for Russian Federation laws (152-FZ, 38-FZ, 168-FZ, 420-FZ).
 
@@ -77,13 +80,13 @@ Example:
 [
     {
         "id": "minors-data",
-        "result': "fail",
+        "result": "fail",
         "pages": ["https://example.com/fitness", "https://example.com/personal-data"],
         "about": "has no parental consent mechanism"
     },
     {
         "id": "privacy-policy",
-        "result': "ok",
+        "result": "ok",
         "pages": ["https://example.com/privacy-policy.pdf"],
         "about": "has no parental consent mechanism"
     },
@@ -106,169 +109,200 @@ const prompt_tries = `
 Left tries: `;
 
 type MessageType = {
-    'role': 'user'|'assistant'|'system',
-    'content': string
+  'role': 'user' | 'assistant' | 'system',
+  'content': string
 };
 
-export async function checkAi (sr: Data) {
-    const key = '';
-    const b = prompt + sr.baseUrl;
-    const tries = 10;
-    const model = 'google/gemma-4-31b-it:free';
-    const visitedPages = new Set<string>();
+export async function checkAi(sr: Data) {
+  const key = config.openrouter.apiKey || process.env.OPENROUTER_API_KEY || '';
+  const b = prompt + sr.baseUrl;
+  const tries = 10;
+  const model = config.openrouter.model || 'google/gemma-4-31b-it:free';
+  const maxTextSize = config.worker.maxTextSize || 500000;
+  const visitedPages = new Set<string>();
 
-    const messages : MessageType[] = [{
-        'role': 'system',
-        'content': b + prompt_tries + String (tries)
-    }];
+  const messages: MessageType[] = [{
+    'role': 'system',
+    'content': b + prompt_tries + String(tries)
+  }];
 
-    let openrouter = new OpenRouter ({
-        apiKey: key
+  let openrouter = new OpenRouter({ apiKey: key });
+
+  for (let i = 0; i < tries; i++) {
+    const stream = await openrouter.chat.send({
+      "chatRequest": {
+        "model": model,
+        "messages": messages,
+        "stream": false,
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "read",
+              "description": "Read rendered page content by URL |url| from browser Google Chrome. For large pages (>500KB), only a range of characters is returned. The page is treated as a file if it exceeds maxTextSize. You can specify start/end character range for large files.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "description": "The URL of the webpage to fetch and render"
+                  },
+                  "start": {
+                    "type": "number",
+                    "description": "Start character offset for large pages (optional, default 0)"
+                  },
+                  "end": {
+                    "type": "number",
+                    "description": "End character offset for large pages (optional, default is end of content)"
+                  },
+                  "memory": {
+                    "type": "array",
+                    "description": "Save data here of output in JSON format [ { \"id\": ..., \"about\": ... } ] only for result with 'fail' or 'warn'",
+                    "items": {
+                      "type": "object",
+                      "description": "violation data with error or warn result",
+                      "properties": {
+                        "id": { "type": "string", "description": "Check identifier" },
+                        "result": { "type": "string", "enum": ["fail", "warn"], "description": "Status of the check" },
+                        "about": { "type": "string", "description": "Detailed description of the issue found" },
+                        "pages": { "type": "array", "description": "URLs where this issue was found", "items": { "type": "string" } }
+                      },
+                      "required": ["id", "result", "about", "pages"]
+                    }
+                  },
+                  "visited": {
+                    "type": "array",
+                    "description": "List of already visited URLs to prevent duplicate scanning",
+                    "items": { "type": "string" }
+                  }
+                },
+                "required": ["url", "memory", "visited"]
+              }
+            }
+          },
+          {
+            "type": "function",
+            "function": {
+              "name": "eval_js",
+              "description": "Execute JavaScript code on the current page and return the result",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "description": "JavaScript code to execute on the page (e.g. document.title, document.querySelectorAll('a').length)"
+                  }
+                },
+                "required": ["code"]
+              }
+            }
+          }
+        ]
+      }
     });
 
-    for (let i = 0; i < tries; i++) {
-        const stream = await openrouter.chat.send ({
-            "chatRequest": {
-                "model": model,
-                "messages": messages,
-                "stream": false,
-                "tools": [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "read",
-                            "description": "Read next rendered page content by URL |url| from browser Google Chrome. Save data of output in JSON format [ { \"id\": ..., \"about\": ... } ] only for result with 'fail' or 'warn' because you will forget about previous message. Save visited pages in |visited| to don't visit them again.",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "url": {
-                                        "type": "string",
-                                        "description": "The URL of the webpage to fetch and render"
-                                    },
-                                    "memory": {
-                                        "type": "array",
-                                        "description": "Save data here of output in JSON format [ { \"id\": ..., \"about\": ... } ] only for result with 'fail' or 'warn' because you will forget about previous page source. \"about\" is required here for each check.",
-                                        "items": {
-                                            "type": "object",
-                                            "description": "violation data with error or warn result",
-                                            "properties": {
-                                                "id": {
-                                                    "type": "string",
-                                                    "description": "Check identifier (e.g., 'cookie-banner', 'consent-forms')"
-                                                },
-                                                "result": {
-                                                    "type": "string",
-                                                    "enum": ["fail", "warn"],  
-                                                    "description": "Status of the check"
-                                                },
-                                                "about": {
-                                                    "type": "string",
-                                                    "description": "Detailed description of the issue found"
-                                                },
-                                                "pages": {
-                                                    "type": "array",
-                                                    "description": "URLs where this issue was found",
-                                                    "items": {
-                                                        "type": "string"
-                                                    }
-                                                }
-                                            },
-                                            "required": ["id", "result", "about", "pages"]
-                                        }
-                                    },
-                                    "visited": {
-                                        "type": "array",
-                                        "description": "List of already visited URLs to prevent duplicate scanning",
-                                        "items": {
-                                            "type": "string"
-                                        }
-                                    }
-                                },
-                                "required": ["url", "memory", "visited"]
-                            }
-                        }
-                    }
-                ]
-            }
-        });
+    const msg = stream.choices[0]?.message;
+    if (!msg) break;
 
-        //console.log (JSON.stringify (stream));
-        const msg = stream.choices[0]?.message;
+    if (msg.toolCalls) {
+      let sz = msg.toolCalls.length;
 
-        if (!msg) {
-            break;
-        }
+      while (msg.toolCalls.length) {
+        const toolCall = msg.toolCalls[msg.toolCalls.length - 1];
+        msg.toolCalls.pop();
 
-        if (msg.toolCalls) {
-            let sz = msg.toolCalls.length;
+        if (toolCall && toolCall.type == "function") {
+          const func = toolCall.function;
 
-            while (msg.toolCalls.length) {
-                const toolCall = msg.toolCalls[msg.toolCalls.length - 1];
-                msg.toolCalls.pop();
+          if (func.name == "read") {
+            if (messages.length > 1) messages.pop();
+            messages.push({ 'role': 'assistant', 'content': func.arguments });
 
-                if (toolCall) {
-                    if (toolCall.type == "function") {
-                        const func = toolCall.function;
-                        if (func.name == "read") {
-                            if (messages.length > 1) {
-                                messages.pop();
-                            }
-                            messages.push ({
-                                'role': 'assistant',
-                                'content': func.arguments
-                            })
-                            const args = JSON.parse (func.arguments) as {"url": string, "memory": object, "visited": any[]};
-                            let content = `=== REQUEST URL ===\nurl:${args.url}\n` +  prompt_tries + String (tries - i);
-                            console.log (`Visit ${args.url}`);
-                            console.log(JSON.stringify(args.memory));
-                            if (visitedPages.has (args.url)) {
-                                content += `\n === ALREADY VISITED ===\n\n\n`;
-                            }
-                            else {
-                                visitedPages.add(args.url);
-                                if (await sr.open (args.url)) {
-                                    const z = await sr.page.content();
-                                    content += `\n === CONTENT ===\n\n\n`;
-                                    content += z;
-                                }
-                                else {
-                                    content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
-                                }
-                            }
-                            messages.push ({
-                                'role': 'system',
-                                'content': content
-                            });
-                        }
-                    }
+            const args = JSON.parse(func.arguments) as { url: string; memory: object; visited: any[]; start?: number; end?: number };
+            let content = `=== REQUEST URL ===\nurl:${args.url}\n` + prompt_tries + String(tries - i);
+
+            console.log(`Visit ${args.url}`);
+
+            if (visitedPages.has(args.url)) {
+              content += `\n === ALREADY VISITED ===\n\n\n`;
+            } else {
+              visitedPages.add(args.url);
+              if (await sr.open(args.url)) {
+                const fullContent = await sr.page.content();
+                const isLargeFile = fullContent.length > maxTextSize;
+
+                if (isLargeFile) {
+                  const start = args.start || 0;
+                  const end = args.end || Math.min(maxTextSize, fullContent.length);
+                  content += `\n === LARGE FILE (${fullContent.length} chars, treating as file) ===\n Range: ${start}-${end} of ${fullContent.length}\n\n`;
+                  content += fullContent.substring(start, end);
+                } else {
+                  content += `\n === CONTENT ===\n\n\n`;
+                  content += fullContent;
                 }
+              } else {
+                content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
+              }
             }
+            messages.push({ 'role': 'system', 'content': content });
 
-            if (sz)
-                continue;
+          } else if (func.name == "eval_js") {
+            if (messages.length > 1) messages.pop();
+            messages.push({ 'role': 'assistant', 'content': func.arguments });
+
+            const args = JSON.parse(func.arguments) as { code: string };
+            let result = '';
+            try {
+              const pageResult = await sr.page.evaluate(args.code);
+              result = JSON.stringify(pageResult, null, 2);
+            } catch (e: any) {
+              result = `JS Error: ${e.message || String(e)}`;
+            }
+            messages.push({ 'role': 'system', content: ' === JS EVAL RESULT ===\n' + result + '\n === END ===' });
+          }
         }
+      }
 
-        let response = stream.choices[0]?.message.content;
-
-        if (response) {
-            const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
-            if (jsonMatch) {
-                response = jsonMatch[1];
-            }
-
-            const z = JSON.parse (response) as { 'id': string, 'result': 'ok'|'fail'|'warn', 'pages'?: string[], 'about'?: string}[];
-            for (const p of z) {
-                sr.result.checks.push ({
-                    'id': p.id,
-                    'result': p.result,
-                    'data': {
-                        'pages': p.pages,
-                        'about': p.about
-                    }
-                });
-            }
-        }
-
-        break;
+      if (sz) continue;
     }
+
+    let response = stream.choices[0]?.message.content;
+    if (response) {
+      // Try to extract JSON array from the response
+      let jsonStr = response;
+      
+      // First try to find ```json ... ``` code block
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) jsonStr = codeBlockMatch[1];
+      
+      // Find the first [ and last ] to extract array
+      const firstBracket = jsonStr.indexOf('[');
+      const lastBracket = jsonStr.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
+      }
+
+      // Clean common JSON issues from AI models
+      jsonStr = jsonStr
+        .replace(/,\s*([\]}])/g, '$1')   // trailing commas
+        .replace(/:\s*'([^']*)'/g, ':"$1"') // single quotes to double
+        .replace(/\\n/g, ' ')             // literal newlines in strings
+        .replace(/\\t/g, ' ')             // literal tabs in strings
+        .replace(/\u003c/g, '<')
+        .replace(/\u003e/g, '>')
+        .replace(/[\x00-\x1f]/g, ' ');    // control characters
+
+      try {
+        const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
+        for (const p of z) {
+          sr.result.checks.push({ id: p.id, result: p.result, data: { pages: p.pages, about: p.about } });
+        }
+      } catch (e) {
+        console.error('Failed to parse AI response:', e);
+        console.error('Raw JSON (first 1000 chars):', jsonStr.substring(0, 1000));
+      }
+    }
+
+    break;
+  }
 }

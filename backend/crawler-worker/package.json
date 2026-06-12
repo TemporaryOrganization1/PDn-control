@@ -5,15 +5,14 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "npx tsx src/index.ts",
-    "start": "node dist/index.ts"
+    "dev": "npx tsx src/server.ts",
+    "start": "npx tsx src/server.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@maxmind/geoip2-node": "github:maxmind/geoip2-node",
     "@openrouter/sdk": "^0.12.79",
     "puppeteer": "^25.1.0"
   },

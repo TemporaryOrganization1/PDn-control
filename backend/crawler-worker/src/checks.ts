@@ -7,10 +7,6 @@ import { prepareCountryChecks } from "./checks/country.js";
 import { prepareCookieChecks } from "./checks/cookies.js";
 import { checkAi } from "./checks/ai.js";
 
-const checks = [
-    checkAi
-];
-
 const prepares = [
     prepareHttpsConnection,
     prepareSslConnection,
@@ -24,8 +20,9 @@ export async function prepare (sr: Data) {
     }
 }
 
-export async function check (sr: Data) {
-    for (const fn of checks) {
-        await fn (sr);
+export async function check (sr: Data, type: string) {
+    // Run AI check only for "detail" mode
+    if (type === "detail") {
+        await checkAi(sr);
     }
 }
