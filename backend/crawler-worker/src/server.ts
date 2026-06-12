@@ -55,6 +55,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
   // Report progress via fallback
   const reportProgress = async (progress: number, status: string, completed: string[] = [], errors: string[] = [], resultData?: any) => {
     if (!fallback) return;
+    console.log (resultData);
     try {
       const payload = JSON.stringify({
         code: errorCodes.ERR_OK,
@@ -103,6 +104,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
 }
 
 async function main() {
+  console.log("hello world!");
     await initBrowser();
 
   const server = http.createServer(async (req, res) => {

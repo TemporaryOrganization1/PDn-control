@@ -7,15 +7,15 @@ import (
 )
 
 type Task struct {
-	ReqID     string        `json:"req-id"`
-	URL       string        `json:"url"`
-	Type      string        `json:"type"`
-	Status    string        `json:"status"`
-	Worker    string        `json:"worker,omitempty"`
-	Progress  int           `json:"progress"`
-	Results   []Result      `json:"results"`
-	Errors    []string      `json:"errors"`
-	CreatedAt time.Time     `json:"created_at"`
+	ReqID     string    `json:"req-id"`
+	URL       string    `json:"url"`
+	Type      string    `json:"type"`
+	Status    string    `json:"status"`
+	Worker    string    `json:"worker,omitempty"`
+	Progress  int       `json:"progress"`
+	Results   []Result  `json:"results"`
+	Errors    []string  `json:"errors"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Result struct {
@@ -23,6 +23,7 @@ type Result struct {
 	Result string   `json:"result"`
 	Pages  []string `json:"pages,omitempty"`
 	About  string   `json:"about,omitempty"`
+	Data   any      `json:"data,omitempty"`
 }
 
 type MemoryStore struct {

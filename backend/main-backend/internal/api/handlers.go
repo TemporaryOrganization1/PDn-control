@@ -28,17 +28,23 @@ type Worker struct {
 }
 
 type Server struct {
-	echo     *echo.Echo
-	store    *store.MemoryStore
-	pool     *workerpool.Pool
-	config   Config
-	mu       sync.RWMutex
+	echo   *echo.Echo
+	store  *store.MemoryStore
+	pool   *workerpool.Pool
+	config Config
+	mu     sync.RWMutex
 }
 
 func NewServer(cfg Config) *Server {
-	workerDefs := make([]struct{ URL string; MaxLoad int }, len(cfg.Workers))
+	workerDefs := make([]struct {
+		URL     string
+		MaxLoad int
+	}, len(cfg.Workers))
 	for i, w := range cfg.Workers {
-		workerDefs[i] = struct{ URL string; MaxLoad int }{URL: w.URL, MaxLoad: w.MaxLoad}
+		workerDefs[i] = struct {
+			URL     string
+			MaxLoad int
+		}{URL: w.URL, MaxLoad: w.MaxLoad}
 	}
 
 	s := &Server{
@@ -140,9 +146,16 @@ func (s *Server) dispatchTask(req models.CheckRequest, worker *workerpool.Worker
 		if checkResults, ok := data.([]any); ok {
 			for _, cr := range checkResults {
 				if crMap, ok := cr.(map[string]any); ok {
+					about, ok := crMap["about"].(string)
+					if !ok {
+						about = ""
+					}
 					s.store.AddResult(req.ReqID, store.Result{
 						ID:     fmt.Sprintf("%v", crMap["id"]),
 						Result: fmt.Sprintf("%v", crMap["result"]),
+						Pages:  toStringSlice(crMap["pages"]),
+						About:  about,
+						Data:   crMap["data"],
 					})
 				}
 			}
@@ -176,8 +189,8 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 		if results, ok := update.Data.([]any); ok {
 			for _, r := range results {
 				if rm, ok := r.(map[string]any); ok {
-					about := fmt.Sprintf("%v", rm["about"])
-					if about == "<nil>" {
+					about, ok := rm["about"].(string)
+					if !ok {
 						about = ""
 					}
 					s.store.AddResult(update.ReqID, store.Result{
@@ -185,6 +198,7 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 						Result: fmt.Sprintf("%v", rm["result"]),
 						Pages:  toStringSlice(rm["pages"]),
 						About:  about,
+						Data:   rm["data"],
 					})
 				}
 			}
@@ -217,7 +231,11 @@ func toStringSlice(v any) []string {
 	if arr, ok := v.([]any); ok {
 		result := make([]string, 0, len(arr))
 		for _, item := range arr {
-			result = append(result, fmt.Sprintf("%v", item))
+			z, ok := item.(string)
+			if !ok {
+				z = ""
+			}
+			result = append(result, z)
 		}
 		return result
 	}

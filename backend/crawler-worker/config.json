@@ -2,7 +2,7 @@
   "port": 3000,
   "openrouter": {
     "apiKey": "",
-    "model": "google/gemma-4-31b-it:free"
+    "model": "google/gemma-4-31b-it"
   },
   "worker": {
     "pageTimeout": 30000,

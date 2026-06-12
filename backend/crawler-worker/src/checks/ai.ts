@@ -35,8 +35,9 @@ ONLY check for the presence of a cookie banner with specific buttons.
    - id - "cookie-banner"
    - Look for: A banner/widget that appears on page load asking about cookies.
    - REQUIRED BUTTONS: "Принять" (Accept) AND "Отказаться" (Reject) OR "Настроить" (Settings).
-   - FAIL: No cookie banner. Banner has only "Accept" button without "Reject" button. Banner uses implied consent text ("Продолжая использование сайта...").
+   - FAIL: Banner has only "Accept" button without "Reject" button. Banner uses implied consent text ("Продолжая использование сайта..."). Different colors: "Accept" is green and "Reject" is gray.
    - PASS: Banner exists with both Accept and Reject/Configure buttons.
+   - WARN: No cookie banner.
 
 5. "Consent in Web Forms (152-FZ Art. 9)"
    - id - "consent-forms"
@@ -98,7 +99,7 @@ Example:
 \`\`\`
 
 === VISITS ===
-It's more preferable if you will visit as more pages if you wish. Do not visit multiple times the same page.
+It's more preferable if you will visit as more pages if you wish.
 Find links <a href=...> and open it. If the main page doesn't exist you can finish chat without error messages in the response.
 
 === Host ===
@@ -117,7 +118,7 @@ export async function checkAi(sr: Data) {
   const key = config.openrouter.apiKey || process.env.OPENROUTER_API_KEY || '';
   const b = prompt + sr.baseUrl;
   const tries = 10;
-  const model = config.openrouter.model || 'google/gemma-4-31b-it:free';
+  const model = config.openrouter.model || 'google/gemma-4-31b-it';
   const maxTextSize = config.worker.maxTextSize || 500000;
   const visitedPages = new Set<string>();
 
@@ -127,6 +128,7 @@ export async function checkAi(sr: Data) {
   }];
 
   let openrouter = new OpenRouter({ apiKey: key });
+  let zzp = 0;
 
   for (let i = 0; i < tries; i++) {
     const stream = await openrouter.chat.send({
@@ -138,45 +140,17 @@ export async function checkAi(sr: Data) {
           {
             "type": "function",
             "function": {
-              "name": "read",
-              "description": "Read rendered page content by URL |url| from browser Google Chrome. For large pages (>500KB), only a range of characters is returned. The page is treated as a file if it exceeds maxTextSize. You can specify start/end character range for large files.",
+              "name": "open",
+              "description": "Open rendered page content by URL |url| from browser Google Chrome. The page is treated as a file if it exceeds maxTextSize. Use it to open page.",
               "parameters": {
                 "type": "object",
                 "properties": {
                   "url": {
                     "type": "string",
                     "description": "The URL of the webpage to fetch and render"
-                  },
-                  "start": {
-                    "type": "number",
-                    "description": "Start character offset for large pages (optional, default 0)"
-                  },
-                  "end": {
-                    "type": "number",
-                    "description": "End character offset for large pages (optional, default is end of content)"
-                  },
-                  "memory": {
-                    "type": "array",
-                    "description": "Save data here of output in JSON format [ { \"id\": ..., \"about\": ... } ] only for result with 'fail' or 'warn'",
-                    "items": {
-                      "type": "object",
-                      "description": "violation data with error or warn result",
-                      "properties": {
-                        "id": { "type": "string", "description": "Check identifier" },
-                        "result": { "type": "string", "enum": ["fail", "warn"], "description": "Status of the check" },
-                        "about": { "type": "string", "description": "Detailed description of the issue found" },
-                        "pages": { "type": "array", "description": "URLs where this issue was found", "items": { "type": "string" } }
-                      },
-                      "required": ["id", "result", "about", "pages"]
-                    }
-                  },
-                  "visited": {
-                    "type": "array",
-                    "description": "List of already visited URLs to prevent duplicate scanning",
-                    "items": { "type": "string" }
                   }
                 },
-                "required": ["url", "memory", "visited"]
+                "required": ["url"]
               }
             }
           },
@@ -190,7 +164,7 @@ export async function checkAi(sr: Data) {
                 "properties": {
                   "code": {
                     "type": "string",
-                    "description": "JavaScript code to execute on the page (e.g. document.title, document.querySelectorAll('a').length)"
+                    "description": "JavaScript code to execute on the page (e.g. document.title, document.querySelectorAll('a').length). Example: (function () { return 5; })(); - returns 5"
                   }
                 },
                 "required": ["code"]
@@ -214,43 +188,31 @@ export async function checkAi(sr: Data) {
         if (toolCall && toolCall.type == "function") {
           const func = toolCall.function;
 
-          if (func.name == "read") {
-            if (messages.length > 1) messages.pop();
+          if (func.name == "open") {
             messages.push({ 'role': 'assistant', 'content': func.arguments });
 
-            const args = JSON.parse(func.arguments) as { url: string; memory: object; visited: any[]; start?: number; end?: number };
+            const args = JSON.parse(func.arguments) as { url: string; };
             let content = `=== REQUEST URL ===\nurl:${args.url}\n` + prompt_tries + String(tries - i);
 
             console.log(`Visit ${args.url}`);
 
-            if (visitedPages.has(args.url)) {
-              content += `\n === ALREADY VISITED ===\n\n\n`;
+            if (await sr.open(args.url)) {
+              const fullContent = await sr.page.content();
+              const isLargeFile = fullContent.length > maxTextSize;
+              
+              content += `\n === OPENED ${args.url} ===\n`;
+              content += `\n isLargeFile=${isLargeFile}\n\n\n`;
             } else {
-              visitedPages.add(args.url);
-              if (await sr.open(args.url)) {
-                const fullContent = await sr.page.content();
-                const isLargeFile = fullContent.length > maxTextSize;
-
-                if (isLargeFile) {
-                  const start = args.start || 0;
-                  const end = args.end || Math.min(maxTextSize, fullContent.length);
-                  content += `\n === LARGE FILE (${fullContent.length} chars, treating as file) ===\n Range: ${start}-${end} of ${fullContent.length}\n\n`;
-                  content += fullContent.substring(start, end);
-                } else {
-                  content += `\n === CONTENT ===\n\n\n`;
-                  content += fullContent;
-                }
-              } else {
-                content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
-              }
+              content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
             }
+            
             messages.push({ 'role': 'system', 'content': content });
 
           } else if (func.name == "eval_js") {
-            if (messages.length > 1) messages.pop();
             messages.push({ 'role': 'assistant', 'content': func.arguments });
 
             const args = JSON.parse(func.arguments) as { code: string };
+            console.log (args.code);
             let result = '';
             try {
               const pageResult = await sr.page.evaluate(args.code);
@@ -274,23 +236,6 @@ export async function checkAi(sr: Data) {
       // First try to find ```json ... ``` code block
       const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) jsonStr = codeBlockMatch[1];
-      
-      // Find the first [ and last ] to extract array
-      const firstBracket = jsonStr.indexOf('[');
-      const lastBracket = jsonStr.lastIndexOf(']');
-      if (firstBracket !== -1 && lastBracket > firstBracket) {
-        jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
-      }
-
-      // Clean common JSON issues from AI models
-      jsonStr = jsonStr
-        .replace(/,\s*([\]}])/g, '$1')   // trailing commas
-        .replace(/:\s*'([^']*)'/g, ':"$1"') // single quotes to double
-        .replace(/\\n/g, ' ')             // literal newlines in strings
-        .replace(/\\t/g, ' ')             // literal tabs in strings
-        .replace(/\u003c/g, '<')
-        .replace(/\u003e/g, '>')
-        .replace(/[\x00-\x1f]/g, ' ');    // control characters
 
       try {
         const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
@@ -300,6 +245,8 @@ export async function checkAi(sr: Data) {
       } catch (e) {
         console.error('Failed to parse AI response:', e);
         console.error('Raw JSON (first 1000 chars):', jsonStr.substring(0, 1000));
+        messages.push({ 'role': 'system', 'content': 'Invalid output. Output must be in JSON format.' });
+        continue;
       }
     }
 
