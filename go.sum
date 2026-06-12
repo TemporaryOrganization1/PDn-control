@@ -1,0 +1,20 @@
+Unable to find image 'golang:1.22-alpine' locally
+1.22-alpine: Pulling from library/golang
+4f4fb700ef54: Pulling fs layer
+5f837c998576: Pulling fs layer
+1f3e46996e29: Pulling fs layer
+4d75fd4b7386: Pulling fs layer
+afa154b433c7: Pulling fs layer
+4f4fb700ef54: Download complete
+5f837c998576: Download complete
+4d75fd4b7386: Download complete
+1f3e46996e29: Download complete
+1f3e46996e29: Pull complete
+4d75fd4b7386: Pull complete
+afa154b433c7: Download complete
+4f4fb700ef54: Pull complete
+5f837c998576: Pull complete
+afa154b433c7: Pull complete
+Digest: sha256:1699c10032ca2582ec89a24a1312d986a3f094aed3d5c1147b19880afe40e052
+Status: Downloaded newer image for golang:1.22-alpine
+go: go.mod file not found in current directory or any parent directory; see 'go help modules'
