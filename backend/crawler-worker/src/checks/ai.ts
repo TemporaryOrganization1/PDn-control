@@ -268,16 +268,32 @@ export async function checkAi(sr: Data) {
 
     let response = stream.choices[0]?.message.content;
     if (response) {
-      const jsonMatch = response.match(/```json\n([\s\S]*?)\n```/);
-      if (jsonMatch) response = jsonMatch[1];
+      // Try to extract JSON from ```json ... ``` block first
+      let jsonStr = response;
+      const jsonMatch = response.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
+      if (jsonMatch) jsonStr = jsonMatch[1];
+      
+      // If no code block, try to extract array directly
+      const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+      if (arrayMatch) jsonStr = arrayMatch[0];
+
+      // Clean common JSON issues
+      jsonStr = jsonStr
+        .replace(/,\s*}/g, '}')        // trailing commas in objects
+        .replace(/,\s*\]/g, ']')        // trailing commas in arrays
+        .replace(/(['"])?([a-zA-Z0-9_\-]+)(['"])?\s*:/g, '"$2":') // unquoted keys
+        .replace(/:\s*'([^']*)'/g, ':"$1"') // single quotes to double
+        .replace(/\u003c/g, '<')        // decode <
+        .replace(/\u003e/g, '>');       // decode >
 
       try {
-        const z = JSON.parse(response) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
+        const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
         for (const p of z) {
           sr.result.checks.push({ id: p.id, result: p.result, data: { pages: p.pages, about: p.about } });
         }
       } catch (e) {
         console.error('Failed to parse AI response:', e);
+        console.error('Raw response:', jsonStr.substring(0, 500));
       }
     }
 
