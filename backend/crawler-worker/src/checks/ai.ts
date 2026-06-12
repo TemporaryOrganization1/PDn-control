@@ -268,35 +268,77 @@ export async function checkAi(sr: Data) {
 
     let response = stream.choices[0]?.message.content;
     if (response) {
-      // Try to extract JSON array from the response
       let jsonStr = response;
       
-      // First try to find ```json ... ``` code block
+      // Extract from ```json ... ``` code block
       const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (codeBlockMatch) jsonStr = codeBlockMatch[1];
       
-      // Find the first [ and last ] to extract array
+      // Find the first [ and last ] to extract JSON array
       const firstBracket = jsonStr.indexOf('[');
       const lastBracket = jsonStr.lastIndexOf(']');
       if (firstBracket !== -1 && lastBracket > firstBracket) {
         jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
       }
 
-      // Clean common JSON issues from AI models
-      jsonStr = jsonStr
-        .replace(/,\s*([\]}])/g, '$1')   // trailing commas
-        .replace(/\u003c/g, '<')
-        .replace(/\u003e/g, '>')
-        .replace(/\t/g, ' ');             // tabs to spaces
+      // Robust sanitizer: walk char-by-char, tracking string state
+      let sanitized = '';
+      let inString = false;
+      let escaped = false;
+      for (let c = 0; c < jsonStr.length; c++) {
+        const ch = jsonStr[c];
+        if (escaped) {
+          sanitized += ch;
+          escaped = false;
+          continue;
+        }
+        if (inString) {
+          if (ch === '\\') {
+            sanitized += ch;
+            escaped = true;
+            continue;
+          }
+          if (ch === '"') {
+            inString = false;
+            sanitized += ch;
+            continue;
+          }
+          // Inside a string: replace control chars and newlines with space
+          const code = ch.charCodeAt(0);
+          if (code < 0x20) {
+            sanitized += ' ';
+          } else {
+            sanitized += ch;
+          }
+          continue;
+        }
+        // Outside a string: skip whitespace, keep structure
+        if (ch === '"') {
+          inString = true;
+          sanitized += ch;
+          continue;
+        }
+        // Remove trailing commas before ] or }
+        if (ch === ',' && c + 1 < jsonStr.length) {
+          const rest = jsonStr.substring(c + 1).trimStart();
+          if (rest[0] === ']' || rest[0] === '}') continue;
+        }
+        sanitized += ch;
+      }
 
       try {
-        const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
+        const z = JSON.parse(sanitized) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string; data?: any }[];
         for (const p of z) {
-          sr.result.checks.push({ id: p.id, result: p.result, data: { pages: p.pages, about: p.about } });
+          sr.result.checks.push({ 
+            id: p.id, 
+            result: p.result, 
+            data: p.data ?? { pages: p.pages ?? null, about: p.about ?? null } 
+          });
         }
       } catch (e) {
         console.error('Failed to parse AI response:', e);
-        console.error('Raw JSON (first 1500 chars):', jsonStr.substring(0, 1500));
+        console.error('Sanitized (first 1500):', sanitized.substring(0, 1500));
+        console.error('Raw (first 1500):', jsonStr.substring(0, 1500));
       }
     }
 
