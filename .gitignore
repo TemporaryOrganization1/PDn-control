@@ -4,5 +4,4 @@ dist/
 *.log
 go.sum
 backend/geoip-service/go.sum
-".env"  
-".env"  
+.env
