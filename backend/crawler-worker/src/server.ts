@@ -1,7 +1,6 @@
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
 import { runCheck, initBrowser } from './runner.js';
-import { initReader } from './checks/country.js';
 
 interface Config {
   port: number;
@@ -104,8 +103,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
 }
 
 async function main() {
-  await initReader();
-  await initBrowser();
+    await initBrowser();
 
   const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/check') {
