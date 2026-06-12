@@ -1,14 +1,12 @@
 import type { Data } from "../data.js";
 import { getDomain } from "../url.js";
-import Reader from 'maxmind';
+import { readFileSync } from "node:fs";
 
-let reader: Reader.Reader<Reader.CountryResponse>;
-
-export async function initReader () {
-    reader = await Reader.open('ip2country.mmdb');
-}
+const config = JSON.parse(readFileSync('./config.json', 'utf-8'));
+const geoipServiceUrl = config.geoip?.serviceUrl || "http://geoip-service:8080";
 
 type CountryData = { 'services': {[key: string]: Set<string>} };
+
 export async function prepareCountryChecks (sr: Data) {
     sr.subs.response.push ({
         'cb': (resp, data: CountryData) => {
@@ -19,12 +17,11 @@ export async function prepareCountryChecks (sr: Data) {
                     if (data.services[domain] instanceof Set == false) {
                         data.services[domain] = new Set();
                     }
-
                     data.services[domain].add (address.ip);
                 }
             }
         },
-        'fin': (data: CountryData) => {
+        'fin': async (data: CountryData) => {
             let res : 'ok'|'fail' = 'ok';
             let services: {'country': string[], 'ip': string[], 'domain': string}[] = [];
 
@@ -34,15 +31,15 @@ export async function prepareCountryChecks (sr: Data) {
 
                 for (const ip of zips) {
                     try {
-                        const resp = reader.get(ip);
-                        if (resp && resp.country) {
-                            const isoCode = resp.country.iso_code.toLowerCase();
-                            if (isoCode != 'ru' && res == 'ok') {
+                        const geoResp = await fetch(`${geoipServiceUrl}/api/v1/lookup/${ip}`);
+                        if (geoResp.ok) {
+                            const geoData = await geoResp.json() as { country_code?: string; country?: string };
+                            const isoCode = (geoData.country_code || geoData.country || "").toLowerCase();
+                            if (isoCode && isoCode != 'ru' && res == 'ok') {
                                 res = 'fail';
                             }
-                            countries.push (isoCode);
-                        }
-                        else {
+                            countries.push (isoCode || 'unknown');
+                        } else {
                             countries.push ('localhost');
                         }
                     }
@@ -50,6 +47,7 @@ export async function prepareCountryChecks (sr: Data) {
                         if (e instanceof Error) {
                             console.log (e.message);
                         }
+                        countries.push ('localhost');
                     }
                 }
 

@@ -2,9 +2,6 @@ import puppeteer from 'puppeteer';
 import { check, prepare } from './checks.js';
 import { Data } from './data.js';
 import { getDomain } from './url.js';
-import { initReader } from './checks/country.js';
-
-export { initReader };
 
 export async function initBrowser() {
   const browser = await puppeteer.launch({
