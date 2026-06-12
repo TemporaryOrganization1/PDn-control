@@ -1,0 +1,243 @@
+{
+    "info": {
+      "name": "PDn-control API",
+      "description": "Postman collection for PDn-control API (FL-152 compliance checker).",
+      "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+      {
+        "name": "Initiate Check - Success",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"url\": \"https://example.com\",\n    \"type\": \"fl152\",\n    \"secret\": \"my-secret-key\"\n}"
+          },
+          "url": {
+            "raw": "{{base_url}}/api/check",
+            "host": ["{{base_url}}"],
+            "path": ["api", "check"]
+          }
+        },
+        "response": [
+          {
+            "name": "Success Response",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"code\": \"ERR_OK\",\n    \"req-id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"msg\": \"Task initiated successfully\"\n}"
+          }
+        ]
+      },
+      {
+        "name": "Initiate Check - Error Invalid URL",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"url\": \"invalid-url\",\n    \"type\": \"fl152\",\n    \"secret\": \"my-secret-key\"\n}"
+          },
+          "url": {
+            "raw": "{{base_url}}/api/check",
+            "host": ["{{base_url}}"],
+            "path": ["api", "check"]
+          }
+        },
+        "response": [
+          {
+            "name": "Invalid URL Response",
+            "status": "Bad Request",
+            "code": 400,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"code\": \"ERR_INVALID_URL\",\n    \"msg\": \"invalid URL\"\n}"
+          }
+        ]
+      },
+      {
+        "name": "Initiate Check - Error Unauthorized",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"url\": \"https://example.com\",\n    \"type\": \"fl152\",\n    \"secret\": \"wrong-secret\"\n}"
+          },
+          "url": {
+            "raw": "{{base_url}}/api/check",
+            "host": ["{{base_url}}"],
+            "path": ["api", "check"]
+          }
+        },
+        "response": [
+          {
+            "name": "Unauthorized Response",
+            "status": "Unauthorized",
+            "code": 401,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"code\": \"ERR_UNAUTHORIZED\",\n    \"msg\": \"invalid secret\"\n}"
+          }
+        ]
+      },
+      {
+        "name": "Initiate Check - Error Concurrency Limit",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"url\": \"https://example.com\",\n    \"type\": \"fl152\",\n    \"secret\": \"my-secret-key\"\n}"
+          },
+          "url": {
+            "raw": "{{base_url}}/api/check",
+            "host": ["{{base_url}}"],
+            "path": ["api", "check"]
+          }
+        },
+        "response": [
+          {
+            "name": "Concurrency Limit Response",
+            "status": "Service Unavailable",
+            "code": 503,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"code\": \"ERR_CONCURRENCY_LIMIT\",\n    \"msg\": \"max concurrency reached\"\n}"
+          }
+        ]
+      },
+      {
+        "name": "Get Progress - Success",
+        "request": {
+          "method": "GET",
+          "header": [],
+          "url": {
+            "raw": "{{base_url}}/api/progress/123e4567-e89b-12d3-a456-426614174000",
+            "host": ["{{base_url}}"],
+            "path": ["api", "progress", "123e4567-e89b-12d3-a456-426614174000"]
+          }
+        },
+        "response": [
+          {
+            "name": "Success Response",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"req-id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"url\": \"https://example.com\",\n    \"type\": \"fl152\",\n    \"status\": \"completed\",\n    \"worker\": \"worker-1\",\n    \"progress\": 100,\n    \"results\": [\n        {\n            \"id\": \"privacy_policy\",\n            \"result\": \"pass\",\n            \"pages\": [\"https://example.com/privacy\"],\n            \"about\": \"Privacy policy found and complies with FL-152.\"\n        }\n    ],\n    \"errors\": []\n}"
+          }
+        ]
+      },
+      {
+        "name": "Get Progress - Error Not Found",
+        "request": {
+          "method": "GET",
+          "header": [],
+          "url": {
+            "raw": "{{base_url}}/api/progress/non-existent-id",
+            "host": ["{{base_url}}"],
+            "path": ["api", "progress", "non-existent-id"]
+          }
+        },
+        "response": [
+          {
+            "name": "Not Found Response",
+            "status": "Not Found",
+            "code": 404,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"code\": \"ERR_INTERNAL\",\n    \"msg\": \"task not found\"\n}"
+          }
+        ]
+      },
+      {
+        "name": "Update Progress (Internal)",
+        "request": {
+          "method": "POST",
+          "header": [{"key": "Content-Type", "value": "application/json"}],
+          "body": {
+            "mode": "raw",
+            "raw": "{\n    \"code\": \"ERR_OK\",\n    \"req-id\": \"123e4567-e89b-12d3-a456-426614174000\",\n    \"status\": \"in_progress\",\n    \"progress\": 50\n}"
+          },
+          "url": {
+            "raw": "{{base_url}}/api/progress",
+            "host": ["{{base_url}}"],
+            "path": ["api", "progress"]
+          }
+        },
+        "response": [
+          {
+            "name": "Success Response",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"code\": \"ERR_OK\",\n    \"msg\": \"progress updated\"\n}"
+          }
+        ]
+      },
+      {
+        "name": "Get Workers Status",
+        "request": {
+          "method": "GET",
+          "header": [],
+          "url": {
+            "raw": "{{base_url}}/api/workers",
+            "host": ["{{base_url}}"],
+            "path": ["api", "workers"]
+          }
+        },
+        "response": [
+          {
+            "name": "Success Response",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"total_workers\": 10,\n    \"active_workers\": 3,\n    \"idle_workers\": 7\n}"
+          }
+        ]
+      },
+      {
+        "name": "Health Check",
+        "request": {
+          "method": "GET",
+          "header": [],
+          "url": {
+            "raw": "{{base_url}}/api/health",
+            "host": ["{{base_url}}"],
+            "path": ["api", "health"]
+          }
+        },
+        "response": [
+          {
+            "name": "Success Response",
+            "status": "OK",
+            "code": 200,
+            "_postman_previewlanguage": "json",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "cookie": [],
+            "body": "{\n    \"status\": \"ok\"\n}"
+          }
+        ]
+      }
+    ],
+    "variable": [
+      {
+        "key": "base_url",
+        "value": "http://localhost:8080",
+        "type": "string"
+      }
+    ]
+  }
