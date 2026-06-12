@@ -103,7 +103,7 @@ func (s *Server) handleCheck(c echo.Context) error {
 		return s.errResponse(c, http.StatusServiceUnavailable, "ERR_WORKER_UNAVAILABLE", req.ReqID, "no workers available")
 	}
 
-	s.store.Create(req.URL, req.URL, req.Type)
+	s.store.Create(req.ReqID, req.URL, req.Type)
 	s.store.UpdateProgress(req.ReqID, 0, "queued", nil, nil)
 
 	go s.dispatchTask(req, worker)
@@ -176,11 +176,15 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 		if results, ok := update.Data.([]any); ok {
 			for _, r := range results {
 				if rm, ok := r.(map[string]any); ok {
+					about := fmt.Sprintf("%v", rm["about"])
+					if about == "<nil>" {
+						about = ""
+					}
 					s.store.AddResult(update.ReqID, store.Result{
 						ID:     fmt.Sprintf("%v", rm["id"]),
 						Result: fmt.Sprintf("%v", rm["result"]),
 						Pages:  toStringSlice(rm["pages"]),
-						About:  fmt.Sprintf("%v", rm["about"]),
+						About:  about,
 					})
 				}
 			}
