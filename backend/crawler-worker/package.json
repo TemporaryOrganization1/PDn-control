@@ -1,0 +1,24 @@
+{
+  "name": "zz",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "npx tsx src/index.ts",
+    "start": "node dist/index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@maxmind/geoip2-node": "github:maxmind/geoip2-node",
+    "@openrouter/sdk": "^0.12.79",
+    "puppeteer": "^25.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "typescript": "^6.0.3"
+  }
+}
