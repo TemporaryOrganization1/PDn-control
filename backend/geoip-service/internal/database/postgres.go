@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Config holds the PostgreSQL connection parameters.
 type Config struct {
 	Host     string
 	Port     string
@@ -18,12 +17,10 @@ type Config struct {
 	DBName   string
 }
 
-// Store wraps the pgx connection pool and provides DB operations.
 type Store struct {
 	pool *pgxpool.Pool
 }
 
-// NewStore creates a new Store with a connection pool.
 func NewStore(ctx context.Context, cfg Config) (*Store, error) {
 	dsn := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
@@ -52,13 +49,11 @@ func NewStore(ctx context.Context, cfg Config) (*Store, error) {
 	return &Store{pool: pool}, nil
 }
 
-// Close closes the connection pool.
 func (s *Store) Close() {
 	s.pool.Close()
 	log.Println("[DB] Connection pool closed")
 }
 
-// Migrate creates the geoip_updates table if it does not exist.
 func (s *Store) Migrate(ctx context.Context) error {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS geoip_updates (
@@ -79,7 +74,6 @@ func (s *Store) Migrate(ctx context.Context) error {
 	return nil
 }
 
-// RecordUpdate logs an update event into PostgreSQL.
 func (s *Store) RecordUpdate(ctx context.Context, tag, status string, filesize int64) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO geoip_updates (tag, status, filesize) VALUES ($1, $2, $3)`,
@@ -88,7 +82,6 @@ func (s *Store) RecordUpdate(ctx context.Context, tag, status string, filesize i
 	return err
 }
 
-// GetUpdateHistory returns the last N update records.
 func (s *Store) GetUpdateHistory(ctx context.Context, limit int) ([]struct {
 	ID        int
 	Tag       string

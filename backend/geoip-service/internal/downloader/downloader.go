@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-// DownloadMMDB downloads the GeoLite2 Country MMDB file from the GitHub release.
-// It writes to destPath atomically (download to temp file, then rename).
 func DownloadMMDB(ctx context.Context, baseURL, tag, destPath string) error {
 	url := fmt.Sprintf("%s/%s/GeoLite2-Country.mmdb", baseURL, tag)
 	log.Printf("[Downloader] Downloading MMDB from: %s", url)
@@ -34,13 +32,11 @@ func DownloadMMDB(ctx context.Context, baseURL, tag, destPath string) error {
 		return fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
-	// Ensure destination directory exists
 	dir := filepath.Dir(destPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create dir: %w", err)
 	}
 
-	// Download to a temp file in the same directory for atomic rename
 	tmpFile := destPath + ".tmp"
 	f, err := os.Create(tmpFile)
 	if err != nil {
@@ -55,7 +51,6 @@ func DownloadMMDB(ctx context.Context, baseURL, tag, destPath string) error {
 	}
 	f.Close()
 
-	// Atomic rename
 	if err := os.Rename(tmpFile, destPath); err != nil {
 		os.Remove(tmpFile)
 		return fmt.Errorf("rename temp file: %w", err)
@@ -65,7 +60,6 @@ func DownloadMMDB(ctx context.Context, baseURL, tag, destPath string) error {
 	return nil
 }
 
-// EnsureDirExists creates the directory for a file path if it doesn't exist.
 func EnsureDirExists(path string) error {
 	dir := filepath.Dir(path)
 	return os.MkdirAll(dir, 0755)
