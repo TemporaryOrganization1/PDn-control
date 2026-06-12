@@ -1,0 +1,101 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: geoip
+      POSTGRES_PASSWORD: geoip_secret
+      POSTGRES_DB: geoip
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geoip -d geoip"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  geoip-service:
+    build:
+      context: ./backend/geoip-service
+      dockerfile: Dockerfile
+    container_name: geoip-service
+    ports:
+      - "8080:8080"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: geoip
+      POSTGRES_PASSWORD: geoip_secret
+      POSTGRES_DB: geoip
+      SERVER_PORT: 8080
+      GEOIP_RELEASE_TAG: "20260605"
+      GEOIP_MMDB_URL: "https://github.com/Skiddle-ID/geoip2-mirror/releases/download"
+      UPDATE_INTERVAL: 168h
+      FIRST_UPDATE_DELAY: 30s
+      MMDB_DIR: /data/geoip
+    volumes:
+      - geoip-mmdb:/data/geoip
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  main-backend:
+    build:
+      context: ./backend/main-backend
+      dockerfile: Dockerfile
+    container_name: main-backend
+    ports:
+      - "4000:4000"
+    environment:
+      SERVER_PORT: 4000
+      API_SECRET: top-secret-key
+      CONFIG_PATH: /app/config.json
+    depends_on:
+      - crawler-worker-1
+      - crawler-worker-2
+      - crawler-worker-3
+    restart: unless-stopped
+
+  crawler-worker-1:
+    build:
+      context: ./backend/crawler-worker
+      dockerfile: Dockerfile
+    container_name: crawler-worker-1
+    ports:
+      - "3001:3000"
+    environment:
+      PORT: 3000
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    restart: unless-stopped
+
+  crawler-worker-2:
+    build:
+      context: ./backend/crawler-worker
+      dockerfile: Dockerfile
+    container_name: crawler-worker-2
+    ports:
+      - "3002:3000"
+    environment:
+      PORT: 3000
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    restart: unless-stopped
+
+  crawler-worker-3:
+    build:
+      context: ./backend/crawler-worker
+      dockerfile: Dockerfile
+    container_name: crawler-worker-3
+    ports:
+      - "3003:3000"
+    environment:
+      PORT: 3000
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  geoip-mmdb:
