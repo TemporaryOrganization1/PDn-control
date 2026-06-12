@@ -268,23 +268,29 @@ export async function checkAi(sr: Data) {
 
     let response = stream.choices[0]?.message.content;
     if (response) {
-      // Try to extract JSON from ```json ... ``` block first
+      // Try to extract JSON array from the response
       let jsonStr = response;
-      const jsonMatch = response.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/);
-      if (jsonMatch) jsonStr = jsonMatch[1];
       
-      // If no code block, try to extract array directly
-      const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-      if (arrayMatch) jsonStr = arrayMatch[0];
+      // First try to find ```json ... ``` code block
+      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) jsonStr = codeBlockMatch[1];
+      
+      // Find the first [ and last ] to extract array
+      const firstBracket = jsonStr.indexOf('[');
+      const lastBracket = jsonStr.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        jsonStr = jsonStr.substring(firstBracket, lastBracket + 1);
+      }
 
-      // Clean common JSON issues
+      // Clean common JSON issues from AI models
       jsonStr = jsonStr
-        .replace(/,\s*}/g, '}')        // trailing commas in objects
-        .replace(/,\s*\]/g, ']')        // trailing commas in arrays
-        .replace(/(['"])?([a-zA-Z0-9_\-]+)(['"])?\s*:/g, '"$2":') // unquoted keys
+        .replace(/,\s*([\]}])/g, '$1')   // trailing commas
         .replace(/:\s*'([^']*)'/g, ':"$1"') // single quotes to double
-        .replace(/\u003c/g, '<')        // decode <
-        .replace(/\u003e/g, '>');       // decode >
+        .replace(/\\n/g, ' ')             // literal newlines in strings
+        .replace(/\\t/g, ' ')             // literal tabs in strings
+        .replace(/\u003c/g, '<')
+        .replace(/\u003e/g, '>')
+        .replace(/[\x00-\x1f]/g, ' ');    // control characters
 
       try {
         const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
@@ -293,7 +299,7 @@ export async function checkAi(sr: Data) {
         }
       } catch (e) {
         console.error('Failed to parse AI response:', e);
-        console.error('Raw response:', jsonStr.substring(0, 500));
+        console.error('Raw JSON (first 1000 chars):', jsonStr.substring(0, 1000));
       }
     }
 
