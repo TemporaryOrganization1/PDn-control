@@ -57,7 +57,6 @@ func NewServer(cfg Config) *Server {
 	s.echo.Use(middleware.Logger())
 	s.echo.Use(middleware.Recover())
 	s.echo.Use(middleware.CORS())
-
 	s.registerRoutes()
 	return s
 }
@@ -81,6 +80,7 @@ func (s *Server) Shutdown() error {
 
 func (s *Server) handleCheck(c echo.Context) error {
 	var req models.CheckRequest
+	fmt.Println(req.Secret, "secret key")
 	if err := c.Bind(&req); err != nil {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", err.Error())
 	}
