@@ -56,11 +56,10 @@ AI analysis should be used to detect violations and suggest fixes. Must balance 
 ## US-04: Selectable violation list
 
 **Requirement Status:** Active
-**MoSCoW priority:** Could Have
+**MoSCoW priority:** Must Have
 
-As an admin,
-I want to select from a list of violations to check,
-so that I can customise which requirements to verify against.
+As an user,
+I want a free demo-version of the app to test how it words
 
 ---
 
