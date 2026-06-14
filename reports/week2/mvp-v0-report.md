@@ -75,8 +75,7 @@ MVP v0 bridges the gap between the non-functional prototype and the feature-comp
 
 ### Placeholders & Mocks
 
-- **Account/Payment API endpoints:** Return HTTP 501 (Not Implemented) with a JSON message indicating the feature is planned for MVP v1.
-- **Scan history endpoint:** Returns an empty array with a message: `"History feature coming in MVP v1"`.
+- **Account/Payment API endpoints:** No mocks.
 
 ---
 
