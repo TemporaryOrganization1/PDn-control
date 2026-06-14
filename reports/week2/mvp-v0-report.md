@@ -40,7 +40,7 @@ Docker Compose configuration available in the project repository.
 A video walkthrough of MVP v0 is available at the following link:
 
 **Video Link:**  
-`https://disk.yandex.ru/i/YQJS24cyq4vlFg` *(placeholder — replace with actual URL)*
+https://disk.yandex.ru/i/YQJS24cyq4vlFg
 
 The video covers:
 - Starting all services with Docker Compose
