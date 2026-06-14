@@ -138,8 +138,6 @@ MVP v0 is a product foundation and does not need to implement complete user stor
 - [Customer Meeting Notes](customer-meeting-notes.md)
 - [Customer Meeting Transcript](customer-meeting-transcript.md)
 
-> The transcript and notes are included in these files. If recording or private sharing was refused, see the customer notes instead.
-
 ## Analysis
 
 - [Week 2 Analysis](analysis.md)
