@@ -1,0 +1,48 @@
+services:
+  geoip-db:
+    image: postgres:16-alpine
+    container_name: geoip-db
+    environment:
+      POSTGRES_USER: geoip
+      POSTGRES_PASSWORD: geoip_secret
+      POSTGRES_DB: geoip
+    ports:
+      - "5432:5432"
+    volumes:
+      - geoip-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geoip -d geoip"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  geoip-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: geoip-service
+    ports:
+      - "8080:8080"
+    environment:
+      POSTGRES_HOST: geoip-db
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: geoip
+      POSTGRES_PASSWORD: geoip_secret
+      POSTGRES_DB: geoip
+      SERVER_PORT: 8080
+      GEOIP_RELEASE_TAG: "20260605"
+      GEOIP_MMDB_URL: "https://github.com/Skiddle-ID/geoip2-mirror/releases/download"
+      UPDATE_INTERVAL: 168h
+      FIRST_UPDATE_DELAY: 30s
+      MMDB_DIR: /data/geoip
+    volumes:
+      - geoip-mmdb:/data/geoip
+    depends_on:
+      geoip-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  geoip-pgdata:
+  geoip-mmdb:

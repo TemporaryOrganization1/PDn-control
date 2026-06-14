@@ -1,0 +1,11 @@
+{
+  "server": {
+    "serverPort": "4000",
+    "secret": "top-secret-key",
+    "workers": [
+      { "url": "http://crawler-worker-1:3000", "maxLoad": 1 },
+      { "url": "http://crawler-worker-2:3000", "maxLoad": 1 },
+      { "url": "http://crawler-worker-3:3000", "maxLoad": 1 }
+    ]
+  }
+}

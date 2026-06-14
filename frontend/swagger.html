@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>API Test Console</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            margin: 20px; 
+            background: #f4f6f8; 
+            color: #333; 
+            font-size: 14px; 
+            line-height: 1.5;
+        }
+        h1 { 
+            font-size: 20px; 
+            color: #2c3e50; 
+            border-bottom: 2px solid #3498db; 
+            padding-bottom: 8px; 
+            margin-bottom: 20px;
+        }
+        fieldset { 
+            border: 1px solid #d1d9e6; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            background: #ffffff; 
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        legend { 
+            background: #3498db; 
+            color: white; 
+            padding: 4px 12px; 
+            border-radius: 4px; 
+            font-weight: bold; 
+            font-size: 13px;
+        }
+        
+        label { 
+            display: block; 
+            margin-top: 10px; 
+            font-weight: 600; 
+            font-size: 12px; 
+            color: #555;
+        }
+        input[type="text"], input[type="number"], select, textarea { 
+            width: 100%; 
+            padding: 6px 8px; 
+            border: 1px solid #bdc3c7; 
+            border-radius: 4px; 
+            font-family: monospace; 
+            box-sizing: border-box; 
+            font-size: 13px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus, select:focus, textarea:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+        }
+        textarea { height: 80px; resize: vertical; }
+        
+        .btn { 
+            font-family: sans-serif; 
+            font-weight: 600;
+            padding: 7px 16px; 
+            margin-top: 12px; 
+            margin-right: 8px;
+            cursor: pointer; 
+            background: #3498db; 
+            color: white;
+            border: 1px solid #2980b9; 
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #2980b9; }
+        .btn:active { background: #1f618d; }
+        .btn-secondary { background: #95a5a6; border-color: #7f8c8d; }
+        .btn-secondary:hover { background: #7f8c8d; }
+
+        .io-container { display: flex; gap: 15px; margin-top: 15px; }
+        .io-box { flex: 1; min-width: 0; }
+        .io-box h3 { 
+            margin: 0 0 6px 0; 
+            font-size: 12px; 
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .req-header { color: #d35400; }
+        .res-header { color: #27ae60; }
+        
+        pre { 
+            background: #fafafa; 
+            border: 1px solid #e0e6ed; 
+            border-left: 3px solid #bdc3c7;
+            padding: 10px; 
+            margin: 0; 
+            overflow: auto; 
+            max-height: 350px; 
+            white-space: pre-wrap; 
+            word-wrap: break-word; 
+            font-size: 12px;
+            font-family: "Courier New", Courier, monospace;
+            border-radius: 0 4px 4px 0;
+        }
+        .io-box:first-child pre { border-left-color: #e67e22; background: #fffcf8; }
+        .io-box:last-child pre { border-left-color: #2ecc71; background: #f8fdf9; }
+        
+        .status-ok { color: #27ae60; font-weight: bold; }
+        .status-err { color: #e74c3c; font-weight: bold; }
+        
+        .row { display: flex; gap: 15px; }
+        .row > div { flex: 1; }
+        .hint { font-size: 11px; color: #7f8c8d; margin-top: 2px; }
+    </style>
+</head>
+<body>
+
+<h1>🚀 PDn-control API Test Console</h1>
+
+<fieldset>
+    <legend>Global Config</legend>
+    <label>Base URL:</label>
+    <input type="text" id="baseUrl" value="http://localhost:4000">
+</fieldset>
+
+<!-- 1. HEALTH -->
+<fieldset>
+    <legend>1. GET /api/health</legend>
+    <button class="btn" onclick="executeSimpleGet('/api/health', 'req1', 'res1')">Build & Send Request</button>
+    <div class="io-container">
+        <div class="io-box"><h3 class="req-header">Constructed Request</h3><pre id="req1">Click button to construct...</pre></div>
+        <div class="io-box"><h3 class="res-header">Server Response</h3><pre id="res1">Waiting...</pre></div>
+    </div>
+</fieldset>
+
+<!-- 2. WORKERS -->
+<fieldset>
+    <legend>2. GET /api/workers</legend>
+    <button class="btn" onclick="executeSimpleGet('/api/workers', 'req2', 'res2')">Build & Send Request</button>
+    <div class="io-container">
+        <div class="io-box"><h3 class="req-header">Constructed Request</h3><pre id="req2">Click button to construct...</pre></div>
+        <div class="io-box"><h3 class="res-header">Server Response</h3><pre id="res2">Waiting...</pre></div>
+    </div>
+</fieldset>
+
+<!-- 3. CHECK -->
+<fieldset>
+    <legend>3. POST /api/check</legend>
+    <div class="row">
+        <div>
+            <label>Secret Key *</label>
+            <input type="text" id="chk_secret" value="my-super-secret">
+        </div>
+        <div>
+            <label>Check Type *</label>
+            <select id="chk_type">
+                <option value="fast">fast</option>
+                <option value="detail">detail</option>
+            </select>
+        </div>
+    </div>
+    <label>Target URL *</label>
+    <input type="text" id="chk_url" value="https://example.com">
+    <div class="row">
+        <div>
+            <label>Request ID (Optional)</label>
+            <input type="text" id="chk_reqid" placeholder="Auto-generated if empty">
+        </div>
+        <div>
+            <label>Fallback URL (Optional)</label>
+            <input type="text" id="chk_fallback" placeholder="http://main-backend:4000/api/progress">
+        </div>
+    </div>
+    
+    <button class="btn" onclick="executeCheck()">Build & Send Request</button>
+    <div class="io-container">
+        <div class="io-box"><h3 class="req-header">Constructed Request</h3><pre id="req3">Click button to construct...</pre></div>
+        <div class="io-box"><h3 class="res-header">Server Response</h3><pre id="res3">Waiting...</pre></div>
+    </div>
+</fieldset>
+
+<!-- 4. GET PROGRESS -->
+<fieldset>
+    <legend>4. GET /api/progress/{req-id}</legend>
+    <label>Request ID *</label>
+    <input type="text" id="prog_reqid" placeholder="req-123456789">
+    <button class="btn" onclick="executeGetProgress()">Build & Send Request</button>
+    <div class="io-container">
+        <div class="io-box"><h3 class="req-header">Constructed Request</h3><pre id="req4">Click button to construct...</pre></div>
+        <div class="io-box"><h3 class="res-header">Server Response</h3><pre id="res4">Waiting...</pre></div>
+    </div>
+</fieldset>
+
+<!-- 5. POST PROGRESS (Worker Callback) -->
+<fieldset>
+    <legend>5. POST /api/progress (Worker Callback)</legend>
+    <div class="row">
+        <div>
+            <label>Request ID *</label>
+            <input type="text" id="up_reqid" value="req-test-123">
+        </div>
+        <div>
+            <label>Progress (0-100)</label>
+            <input type="number" id="up_progress" value="50" min="0" max="100">
+        </div>
+        <div>
+            <label>Status</label>
+            <input type="text" id="up_status" value="processing">
+        </div>
+    </div>
+    <div class="row">
+        <div>
+            <label>Completed Steps/URLs (comma separated)</label>
+            <input type="text" id="up_completed" placeholder="e.g., /, /about, ssl-check">
+            <div class="hint">Maps to Go: `Completed []string`</div>
+        </div>
+        <div>
+            <label>Errors (comma separated)</label>
+            <input type="text" id="up_errors" placeholder="e.g., timeout, invalid cert">
+        </div>
+    </div>
+    <label>Result Data (JSON Array)</label>
+    <div class="hint">Leave blank for no data, or click "Use Sample" to auto-fill.</div>
+    <textarea id="up_data" placeholder="[]"></textarea>
+    <button class="btn btn-secondary" onclick="fillSampleData()" style="margin-top: 5px; font-size: 12px; padding: 4px 10px;">Use Sample Data</button>
+    
+    <br>
+    <button class="btn" onclick="executePostProgress()">Build & Send Request</button>
+    <div class="io-container">
+        <div class="io-box"><h3 class="req-header">Constructed Request</h3><pre id="req5">Click button to construct...</pre></div>
+        <div class="io-box"><h3 class="res-header">Server Response</h3><pre id="res5">Waiting...</pre></div>
+    </div>
+</fieldset>
+
+<script>
+    function getBase() {
+        return document.getElementById('baseUrl').value.replace(/\/$/, '');
+    }
+
+    function formatJson(obj) {
+        if (obj === undefined || obj === null) return "";
+        try {
+            return JSON.stringify(obj, null, 2);
+        } catch(e) {
+            return String(obj);
+        }
+    }
+
+    async function sendRequest(method, path, bodyObj, reqBoxId, resBoxId) {
+        const baseUrl = getBase();
+        const url = baseUrl + path;
+        const reqEl = document.getElementById(reqBoxId);
+        const resEl = document.getElementById(resBoxId);
+
+        // 1. Construct and display the outgoing request
+        let reqText = `${method} ${url}\n`;
+        if (bodyObj) {
+            reqText += `Content-Type: application/json\n\n`;
+            reqText += formatJson(bodyObj);
+        } else {
+            reqText += `\n(No Body)`;
+        }
+        reqEl.textContent = reqText;
+        resEl.textContent = "Sending request...";
+
+        // 2. Execute the actual fetch
+        try {
+            const fetchOpts = { method: method };
+            if (bodyObj) {
+                fetchOpts.headers = { 'Content-Type': 'application/json' };
+                fetchOpts.body = JSON.stringify(bodyObj);
+            }
+
+            const response = await fetch(url, fetchOpts);
+            const contentType = response.headers.get('content-type');
+            let resBody = "";
+            
+            if (contentType && contentType.includes('application/json')) {
+                const json = await response.json();
+                resBody = formatJson(json);
+            } else {
+                resBody = await response.text();
+            }
+
+            // 3. Display the response
+            const statusClass = response.ok ? 'status-ok' : 'status-err';
+            let resText = `<span class="${statusClass}">HTTP ${response.status} ${response.statusText}</span>\n`;
+            resText += `Content-Type: ${contentType || 'unknown'}\n\n`;
+            resText += resBody;
+            
+            resEl.innerHTML = resText;
+
+            // Auto-fill the Request ID into other forms if a new one was created
+            if (path === '/api/check' && response.ok) {
+                try {
+                    const json = JSON.parse(resBody);
+                    if (json["req-id"]) {
+                        document.getElementById('prog_reqid').value = json["req-id"];
+                        document.getElementById('up_reqid').value = json["req-id"];
+                    }
+                } catch(e) {}
+            }
+
+        } catch (error) {
+            resEl.innerHTML = `<span class="status-err">NETWORK ERROR</span>\n\n${error.message}\n\nMake sure the server is running at ${baseUrl} and CORS is configured.`;
+        }
+    }
+
+    // --- Endpoint Handlers ---
+
+    function executeSimpleGet(path, reqId, resId) {
+        sendRequest('GET', path, null, reqId, resId);
+    }
+
+    function executeCheck() {
+        const body = {
+            secret: document.getElementById('chk_secret').value,
+            url: document.getElementById('chk_url').value,
+            type: document.getElementById('chk_type').value
+        };
+        
+        const reqId = document.getElementById('chk_reqid').value.trim();
+        if (reqId) body["req-id"] = reqId; // Matches json:"req-id"
+        
+        const fallback = document.getElementById('chk_fallback').value.trim();
+        if (fallback) body.fallback = fallback;
+
+        sendRequest('POST', '/api/check', body, 'req3', 'res3');
+    }
+
+    function executeGetProgress() {
+        const reqId = document.getElementById('prog_reqid').value.trim();
+        if (!reqId) { 
+            alert("Please enter a Request ID"); 
+            return; 
+        }
+        sendRequest('GET', `/api/progress/${reqId}`, null, 'req4', 'res4');
+    }
+
+    function fillSampleData() {
+        const sample = [
+            {
+                "id": "check_001",
+                "result": "passed",
+                "pages": ["/", "/about", "/contact"],
+                "about": "Basic connectivity and SSL check"
+            }
+        ];
+        document.getElementById('up_data').value = JSON.stringify(sample, null, 2);
+    }
+
+    function executePostProgress() {
+        const reqId = document.getElementById('up_reqid').value.trim();
+        if (!reqId) {
+            alert("Please enter a Request ID");
+            return;
+        }
+
+        const completedStr = document.getElementById('up_completed').value.trim();
+        const errorsStr = document.getElementById('up_errors').value.trim();
+        const dataStr = document.getElementById('up_data').value.trim();
+
+        // Construct the object strictly matching models.ProgressUpdate
+        const body = {
+            "req-id": reqId,
+            progress: parseInt(document.getElementById('up_progress').value) || 0,
+            status: document.getElementById('up_status').value,
+            // FIX: Now correctly sends an array of strings to match `Completed []string`
+            completed: completedStr ? completedStr.split(',').map(s => s.trim()).filter(s => s !== "") : [],
+            // FIX: Always sends an array to match `Errors []string`
+            errors: errorsStr ? errorsStr.split(',').map(s => s.trim()).filter(s => s !== "") : []
+        };
+
+        // Parse JSON data if provided
+        if (dataStr) {
+            try {
+                body.data = JSON.parse(dataStr);
+            } catch (e) {
+                alert("Invalid JSON in Result Data field. Please fix it or clear it.\nError: " + e.message);
+                return;
+            }
+        }
+
+        sendRequest('POST', '/api/progress', body, 'req5', 'res5');
+    }
+</script>
+
+</body>
+</html>

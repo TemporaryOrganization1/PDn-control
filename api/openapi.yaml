@@ -1,0 +1,236 @@
+openapi: 3.0.3
+info:
+  title: PDn-control API
+  description: API for website compliance checker for Federal Law No. 152 (FL-152).
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+paths:
+  /api/check:
+    post:
+      summary: Initiate a compliance check task
+      description: Submits a URL to be checked for FL-152 compliance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckRequest'
+      responses:
+        '200':
+          description: Task successfully initiated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+        '400':
+          description: Invalid URL or check type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+        '401':
+          description: Invalid secret
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+        '503':
+          description: Max concurrency reached or no workers available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+
+  /api/progress/{reqId}:
+    get:
+      summary: Get task progress
+      description: Retrieves the current status and results of a specific task.
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The unique request ID returned from the /api/check endpoint.
+      responses:
+        '200':
+          description: Task state retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskState'
+        '404':
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+
+  /api/progress:
+    post:
+      summary: Update task progress
+      description: Internal endpoint used by workers to update task progress.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProgressUpdate'
+      responses:
+        '200':
+          description: Progress updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckResponse'
+
+  /api/workers:
+    get:
+      summary: Get worker pool status
+      description: Returns the current status of the worker pool.
+      responses:
+        '200':
+          description: Worker status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_workers:
+                    type: integer
+                  active_workers:
+                    type: integer
+                  idle_workers:
+                    type: integer
+
+  /api/health:
+    get:
+      summary: Health check
+      description: Checks if the service is healthy.
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+components:
+  schemas:
+    CheckRequest:
+      type: object
+      required:
+        - url
+        - type
+        - secret
+      properties:
+        url:
+          type: string
+          format: uri
+          example: "https://example.com"
+        type:
+          type: string
+          example: "fl152"
+        secret:
+          type: string
+          example: "my-secret-key"
+        req-id:
+          type: string
+          description: Optional custom request ID.
+        fallback:
+          type: string
+          description: Optional fallback mechanism.
+
+    CheckResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "ERR_OK"
+        req-id:
+          type: string
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        data:
+          type: object
+        msg:
+          type: string
+          example: "Task initiated successfully"
+
+    ProgressUpdate:
+      type: object
+      required:
+        - code
+        - req-id
+      properties:
+        code:
+          type: string
+          example: "ERR_OK"
+        req-id:
+          type: string
+        data:
+          type: object
+        msg:
+          type: string
+        completed:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: "in_progress"
+        progress:
+          type: integer
+          example: 50
+
+    TaskState:
+      type: object
+      properties:
+        req-id:
+          type: string
+        url:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          example: "completed"
+        worker:
+          type: string
+        progress:
+          type: integer
+          example: 100
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckResult'
+        errors:
+          type: array
+          items:
+            type: string
+
+    CheckResult:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "privacy_policy"
+        result:
+          type: string
+          example: "pass"
+        pages:
+          type: array
+          items:
+            type: string
+        about:
+          type: string
+          example: "Privacy policy found and complies with FL-152."
