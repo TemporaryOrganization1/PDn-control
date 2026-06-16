@@ -1,0 +1,65 @@
+name: User Story
+description: A user story describing desired functionality from the user's perspective
+title: "US-xxx: "
+labels: ["user-story"]
+body:
+  - type: input
+    id: stable-id
+    attributes:
+      label: Stable ID
+      description: The stable user-story ID (e.g., US-001)
+      placeholder: "US-001"
+    validations:
+      required: true
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story Statement
+      description: The description of the user story
+      placeholder: "As a [role], I want [feature] so that [value]"
+    validations:
+      required: true
+  - type: dropdown
+    id: moscow-priority
+    attributes:
+      label: MoSCoW Priority
+      options:
+        - Must Have
+        - Should Have
+        - Could Have
+        - Won't Have
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific, observable, and testable criteria
+      placeholder: |
+        Given [Precondition]
+        When [Action]
+        Then [Result]
+    validations:
+      required: false
+  - type: input
+    id: implementer
+    attributes:
+      label: Implementer
+      description: Team member responsible for implementation
+      placeholder: "@github-username"
+    validations:
+      required: false
+  - type: input
+    id: reviewer
+    attributes:
+      label: Reviewer
+      description: Different team member responsible for review
+      placeholder: "@github-username"
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes, Constraints, Assumptions, Open Questions
+    validations:
+      required: false
