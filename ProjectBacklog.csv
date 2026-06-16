@@ -1,0 +1,23 @@
+Feature,User story,Priority,Difficulty - Story points,story points sum
+PDF report,"As a user, I want to get a report as a PDF file, so that I can easily share and view the compliance results.",MUST,5,116
+Total fine,"As a user, I want to check my website, so that I get the total possible fine for identified violations.
+",MUST,3,
+"Let user interact with project API via frontend, not CLI. Add frontend service to Docker Compose","As a user, I want to interact with website, not CLI. Because terminal is scary 😱",MUST,3,
+Free Demo Version,"As an user, I want a free demo-version of the app to test how it words",MUST,5,
+History,"As a user, I want to see my history of queries in my user account so that I can easily navigate between past results",MUST,5,
+Checking website using url,"As a user, I want to be able to paste site URL and get report",MUST,40,
+Account paid subsctiption plan managment,"As a user, I want to be able to choose 
+one of the paid subscription options
+",MUST,13,
+Report Sharing,"As a user, I want to create a public link with my report results. Because I don't need to download the whole result.",COULD,1,
+AI-powered verification,"As a user, I want to verify my website using AI tools, so that I get cheap and fast verification results.",MUST,20,
+Risk-scoring display,"As a user, I want to see risk-scoring for my website, so that I understand the priority of each problem.",MUST,13,
+Account deletion,"As a user, I want to be able to delete my account, so that service deletes all gathered information about me",SHOULD,3,
+Account creation,"As a user, i want to create an account, so that I could interact with service",MUST,5,
+,,,,
+,,,,
+Sprint Goal,User stories to implement,Story points in this sprint,,
+MVP1,PDF report,53,,
+,Checking website using url,,,
+,Account creation,,,
+,Total fine,,,
