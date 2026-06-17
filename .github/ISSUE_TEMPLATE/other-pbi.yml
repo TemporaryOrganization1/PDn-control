@@ -2,13 +2,6 @@ name: Other PBI
 description: A Product Backlog Item that is not a user story
 labels: ["pbi"]
 body:
-  - type: input
-    id: title
-    attributes:
-      label: Title
-      description: Title
-    validations:
-      required: true
   - type: textarea
     id: description
     attributes:
