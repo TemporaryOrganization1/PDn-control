@@ -112,6 +112,19 @@ services:
       - 1.1.1.1
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_SECRET: ${VITE_API_SECRET:-top-secret-key}
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - main-backend
+    restart: unless-stopped
+
 volumes:
   pgdata:
   geoip-mmdb:
