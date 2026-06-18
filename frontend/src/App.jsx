@@ -4,8 +4,8 @@ import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import CheckPage from './pages/CheckPage';
 import ResultsPage from './pages/ResultsPage';
-
 import ProfilePage from './pages/ProfilePage';
+import RegisterPage from './pages/RegisterPage';
 
 export default function App() {
   const [screen, setScreen] = useState('check');
@@ -42,7 +42,16 @@ export default function App() {
 
             {screen === 'profile' && (
               <motion.div key="profile" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                <ProfilePage onOpenResult={openResult} />
+                <ProfilePage onOpenResult={openResult} onNavigate={setScreen} />
+              </motion.div>
+            )}
+
+            {screen === 'register' && (
+              <motion.div key="register" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                <RegisterPage
+                  onBackToLogin={() => setScreen('profile')}
+                  onRegisterSuccess={() => setScreen('profile')}
+                />
               </motion.div>
             )}
           </AnimatePresence>

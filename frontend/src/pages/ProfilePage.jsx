@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { History, Settings, LogIn, LogOut, Mail, Phone, Copy, CheckCircle2, Download } from 'lucide-react';
+import { History, Settings, LogIn, LogOut, Mail, Phone, Copy, CheckCircle2, Download, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const MOCK_ACCOUNT_HISTORY = [
@@ -11,13 +11,35 @@ const MOCK_ACCOUNT_HISTORY = [
   { domain: 'media-portal.ru', date: '01.06.2026', score: 84, violations: 1, fine: '5 000 ₽', status: 'completed' },
 ];
 
-function LoginForm({ onLogin }) {
+function LoginPage({ onLoginSuccess, onGoToRegister }) {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onLogin(email, password);
+    setError('');
+
+    if (!email.trim()) {
+      setError('Введите email');
+      return;
+    }
+    if (!password) {
+      setError('Введите пароль');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await login(email.trim(), password);
+      if (onLoginSuccess) onLoginSuccess();
+    } catch (err) {
+      setError(err.message || 'Ошибка входа');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,6 +53,12 @@ function LoginForm({ onLogin }) {
           <p className="text-sm text-gray-500 mt-1">Авторизуйтесь для доступа к истории проверок</p>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl mb-4">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
             <label className="text-xs font-medium text-gray-500 mb-1 block">Email</label>
@@ -41,7 +69,7 @@ function LoginForm({ onLogin }) {
                 placeholder="example@mail.ru"
                 className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none text-sm"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError(''); }}
               />
             </div>
           </div>
@@ -52,25 +80,28 @@ function LoginForm({ onLogin }) {
               placeholder="••••••••"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none text-sm"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setError(''); }}
             />
           </div>
-          <button className="bg-black text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors mt-2">
-            Войти
+          <button
+            type="submit"
+            disabled={loading}
+            className="bg-black text-white py-3 rounded-xl font-medium hover:bg-gray-800 transition-colors mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Вход...' : 'Войти'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-xs text-gray-400 mb-3">Ещё нет аккаунта?</p>
-          <button className="w-full border border-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm">
+          <button
+            type="button"
+            onClick={onGoToRegister}
+            className="w-full border border-gray-200 text-gray-700 py-3 rounded-xl font-medium hover:bg-gray-50 transition-colors text-sm flex items-center justify-center gap-2"
+          >
+            <UserPlus size={16} />
             Зарегистрироваться
           </button>
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <p className="text-[10px] text-gray-400 text-center">
-            В демо-режиме нажмите «Войти» для входа без пароля
-          </p>
         </div>
       </div>
     </motion.div>
@@ -81,22 +112,26 @@ function ProfileDashboard({ onLogout, onOpenResult }) {
   const { user } = useAuth();
   const [profileTab, setProfileTab] = useState('history');
 
+  const userName = user?.name || 'Пользователь';
+  const userEmail = user?.email || '';
+  const userSurname = user?.surname || '';
+  const initial = (userName.charAt(0) || 'П').toUpperCase();
+
   return (
     <div className="flex gap-10">
       <aside className="w-72 flex flex-col gap-4">
         <div className="bg-white p-6 rounded-2xl border border-gray-100 text-center">
           <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-3 text-xl font-bold text-white">
-            {user.name.charAt(0).toUpperCase()}
+            {initial}
           </div>
-          <h3 className="font-bold">{user.name}</h3>
-          <p className="text-xs text-gray-400">{user.email}</p>
+          <h3 className="font-bold">{userName} {userSurname}</h3>
+          <p className="text-xs text-gray-400">{userEmail}</p>
           <div className="mt-3 flex justify-center gap-2">
             <span className="bg-green-50 text-green-600 text-[10px] font-bold px-2 py-0.5 rounded-full">Активен</span>
-            <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full">12 проверок</span>
           </div>
         </div>
 
-                <nav className="flex flex-col gap-1 bg-white rounded-2xl border border-gray-100 p-2">
+        <nav className="flex flex-col gap-1 bg-white rounded-2xl border border-gray-100 p-2">
           <button
             onClick={() => setProfileTab('history')}
             className={`flex items-center gap-3 p-3 rounded-xl text-sm font-medium transition-colors ${profileTab === 'history' ? 'bg-black text-white' : 'text-gray-500 hover:bg-gray-50'}`}
@@ -185,7 +220,16 @@ function ProfileDashboard({ onLogout, onOpenResult }) {
                   <label className="text-xs font-medium text-gray-500 mb-1 block">Имя</label>
                   <input
                     type="text"
-                    value={user.name}
+                    value={userName}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none text-sm"
+                    readOnly
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-500 mb-1 block">Фамилия</label>
+                  <input
+                    type="text"
+                    value={userSurname}
                     className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none text-sm"
                     readOnly
                   />
@@ -196,7 +240,7 @@ function ProfileDashboard({ onLogout, onOpenResult }) {
                     <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                     <input
                       type="email"
-                      value={user.email}
+                      value={userEmail}
                       className="w-full pl-10 pr-10 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-black outline-none text-sm"
                       readOnly
                     />
@@ -234,16 +278,29 @@ function ProfileDashboard({ onLogout, onOpenResult }) {
   );
 }
 
-export default function ProfilePage({ onOpenResult }) {
-  const { user, isAuth, login, logout } = useAuth();
+export default function ProfilePage({ onOpenResult, onNavigate }) {
+  const { isAuth, loading, logout } = useAuth();
 
-  const handleLogin = (email) => {
-    login(email, 'demo');
+  const handleLogout = async () => {
+    await logout();
   };
 
-  if (!isAuth) {
-    return <LoginForm onLogin={handleLogin} />;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-spin w-8 h-8 border-4 border-black border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
-  return <ProfileDashboard onLogout={logout} onOpenResult={onOpenResult} />;
+  if (!isAuth) {
+    return (
+      <LoginPage
+        onLoginSuccess={() => onNavigate('profile')}
+        onGoToRegister={() => onNavigate('register')}
+      />
+    );
+  }
+
+  return <ProfileDashboard onLogout={handleLogout} onOpenResult={onOpenResult} />;
 }

@@ -1,5 +1,52 @@
 const API_BASE = '/api';
+const AUTH_BASE = 'http://localhost:8081';
 const SECRET = import.meta.env.VITE_API_SECRET || 'top-secret-key';
+
+// ─── Auth API ───────────────────────────────────────────────
+
+export async function register(email, name, surname, password) {
+  const res = await fetch(`${AUTH_BASE}/api/v1/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, name, surname, password }),
+  });
+  const data = await res.json();
+  if (data.code !== 'ERR_OK') throw new Error(data.msg);
+  return data;
+}
+
+export async function login(email, password) {
+  const res = await fetch(`${AUTH_BASE}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json();
+  if (data.code) throw new Error(data.msg);
+  return data; // {access_token, refresh_token, expires_in}
+}
+
+export async function getMe(accessToken) {
+  const res = await fetch(`${AUTH_BASE}/api/v1/auth/me`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+  const data = await res.json();
+  if (data.code !== 'ERR_OK') throw new Error(data.msg);
+  return data.data;
+}
+
+export async function refreshTokens(refreshToken) {
+  const res = await fetch(`${AUTH_BASE}/api/v1/auth/refresh`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+  const data = await res.json();
+  if (data.code) throw new Error(data.msg);
+  return data;
+}
+
+// ─── Check API ──────────────────────────────────────────────
 
 export async function startCheck(url, type = 'detail') {
   const normalized = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
