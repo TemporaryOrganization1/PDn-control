@@ -1,10 +1,10 @@
 | ID | Short title | MoSCoW priority | Issue | Requirement status | Work Status | Sprint |
 |---|---|---|---|---|---|---|
-| US-001 | Website compliance check | Must Have | [#18](https://github.com/TemporaryOrganization1/PDn-control/issues/18) | Active | To Do | Sprint 1 |
+| US-001 | Website compliance check | Must Have | [#18](https://github.com/TemporaryOrganization1/PDn-control/issues/18) | Active | In progress | Sprint 1 |
 | US-002 | PDF report generation | Must Have | [#19](https://github.com/TemporaryOrganization1/PDn-control/issues/19) | Active | To Do | Sprint 1 |
-| US-006 | Total possible fine calculation | Must Have | [#23](https://github.com/TemporaryOrganization1/PDn-control/issues/23) | Active | To Do | Sprint 1 |
-| US-010 | Account creation | Must Have | [#27](https://github.com/TemporaryOrganization1/PDn-control/issues/27) | Active | To Do | Sprint 1 |
-| US-003 | AI-powered verification | Must Have | [#20](https://github.com/TemporaryOrganization1/PDn-control/issues/20) | Active | To Do | — |
+| US-006 | Total possible fine calculation | Must Have | [#23](https://github.com/TemporaryOrganization1/PDn-control/issues/23) | In progress | To Do | Sprint 1 |
+| US-010 | Account creation | Must Have | [#27](https://github.com/TemporaryOrganization1/PDn-control/issues/27) | Active | Done | Sprint 1 |
+| US-003 | AI-powered verification | Must Have | [#20](https://github.com/TemporaryOrganization1/PDn-control/issues/20) | Active | Done | Sprint 1 |
 | US-005 | Query history | Must Have | [#22](https://github.com/TemporaryOrganization1/PDn-control/issues/22) | Active | To Do | — |
 | US-007 | Risk-scoring display | Must Have | [#24](https://github.com/TemporaryOrganization1/PDn-control/issues/24) | Active | To Do | — |
 | US-008 | AI privacy policy analysis | Must Have | [#25](https://github.com/TemporaryOrganization1/PDn-control/issues/25) | Active | To Do | — |
