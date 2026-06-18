@@ -2,7 +2,7 @@
 |---|---|---|---|---|---|---|
 | US-001 | Website compliance check | Must Have | [#18](https://github.com/TemporaryOrganization1/PDn-control/issues/18) | Active | In progress | Sprint 1 |
 | US-002 | PDF report generation | Must Have | [#19](https://github.com/TemporaryOrganization1/PDn-control/issues/19) | Active | To Do | Sprint 1 |
-| US-006 | Total possible fine calculation | Must Have | [#23](https://github.com/TemporaryOrganization1/PDn-control/issues/23) | In progress | To Do | Sprint 1 |
+| US-006 | Total possible fine calculation | Must Have | [#23](https://github.com/TemporaryOrganization1/PDn-control/issues/23) | Active | In progress | Sprint 1 |
 | US-010 | Account creation | Must Have | [#27](https://github.com/TemporaryOrganization1/PDn-control/issues/27) | Active | Done | Sprint 1 |
 | US-003 | AI-powered verification | Must Have | [#20](https://github.com/TemporaryOrganization1/PDn-control/issues/20) | Active | Done | Sprint 1 |
 | US-005 | Query history | Must Have | [#22](https://github.com/TemporaryOrganization1/PDn-control/issues/22) | Active | To Do | — |
