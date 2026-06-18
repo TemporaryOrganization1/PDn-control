@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ShieldCheck, Download, CheckCircle2, Clock, AlertTriangle, XCircle, FileText } from 'lucide-react';
+import { Download, CheckCircle2, Clock, XCircle, FileText, Globe, Server, Lock, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Gauge from '../components/Gauge';
 import { startCheck, getProgress, getCheckInfo, calcRiskScore } from '../api';
@@ -14,12 +14,113 @@ function formatDate() {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+function ViolationDetails({ v }) {
+  const data = v.data;
+  if (!data) return null;
+
+  return (
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      className="overflow-hidden"
+    >
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        {v.about && v.about !== '<nil>' && v.about !== '' && (
+          <p className="text-xs text-gray-500 mb-2 leading-relaxed">{v.about}</p>
+        )}
+
+        {v.pages && v.pages.length > 0 && (
+          <div className="mb-2">
+            <p className="text-xs font-medium text-gray-400 mb-1">Страницы с нарушением:</p>
+            {v.pages.map((page, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 font-mono ml-1 mb-0.5">
+                <FileText size={10} className="text-gray-400 shrink-0" />
+                <span className="truncate">{page}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {v.id === 'https' && data.endpoints && (
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-1">HTTP-эндпоинты:</p>
+            {data.endpoints.map((ep, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 font-mono ml-1 mb-0.5">
+                <Globe size={10} className="text-red-400 shrink-0" />
+                <span className="truncate">{ep}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {v.id === 'ssl/tls' && data.endpoints && (
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-1">Небезопасные соединения:</p>
+            {Object.entries(data.endpoints).map(([domain, status], i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 font-mono ml-1 mb-0.5">
+                <Lock size={10} className="text-red-400 shrink-0" />
+                <span className="truncate">{domain}</span>
+                <span className="text-gray-400">— {status === 'self-signed' ? 'самоподписанный' : status}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {v.id === 'cookie-ads' && data.endpoints && (
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-1">Сторонние трекеры:</p>
+            {data.endpoints.map((ep, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs text-gray-600 font-mono ml-1 mb-0.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
+                <span className="truncate">{ep}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {v.id === 'ips' && data.services && (
+          <div>
+            <p className="text-xs font-medium text-gray-400 mb-1">Серверы за пределами РФ:</p>
+            {data.services.map((svc, i) => (
+              <div key={i} className="flex flex-col gap-0.5 text-xs text-gray-600 font-mono ml-1 mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <Server size={10} className="text-orange-400 shrink-0" />
+                  <span className="truncate">{svc.domain}</span>
+                </div>
+                {svc.ip?.map((ip, j) => (
+                  <div key={j} className="ml-4 text-gray-400">
+                    {ip} — {svc.country?.[j] || 'unknown'}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {![ 'https', 'ssl/tls', 'cookie-ads', 'ips' ].includes(v.id) && data && !v.pages && (
+          <div>
+            {Object.entries(data).filter(([k]) => k !== 'pages' && k !== 'about').map(([key, val]) => (
+              <div key={key} className="text-xs text-gray-500 mb-0.5">
+                <span className="font-medium text-gray-400">{key}: </span>
+                <span className="font-mono">
+                  {Array.isArray(val) ? val.join(', ') : typeof val === 'object' ? JSON.stringify(val) : String(val)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function ResultsPage({ url, onBack }) {
-  const [activeTab, setActiveTab] = useState('violations');
   const [scanning, setScanning] = useState(true);
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [expandedId, setExpandedId] = useState(null);
   const pollRef = useRef(null);
   const cancelledRef = useRef(false);
 
@@ -81,6 +182,10 @@ export default function ResultsPage({ url, onBack }) {
     if (result === 'fail') return { severity: 'Критично', color: 'bg-red-500', text: 'bg-red-50 text-red-600' };
     if (result === 'warn') return { severity: 'Высокий', color: 'bg-orange-500', text: 'bg-orange-50 text-orange-600' };
     return { severity: 'OK', color: 'bg-green-500', text: 'bg-green-50 text-green-600' };
+  };
+
+  const toggleExpand = (id) => {
+    setExpandedId(prev => prev === id ? null : id);
   };
 
   return (
@@ -181,110 +286,70 @@ export default function ResultsPage({ url, onBack }) {
             </div>
           </div>
 
-          <div className="flex gap-8 border-b border-gray-200 mb-6 text-sm font-medium">
-            {[
-              { id: 'violations', label: 'Нарушения' },
-              { id: 'pages', label: 'Страницы' },
-              { id: 'ai', label: 'AI-анализ' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 transition-colors ${activeTab === tab.id ? 'text-black border-b-2 border-black' : 'text-gray-400 hover:text-black'}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {activeTab === 'violations' && (
-            <div className="flex flex-col gap-3">
-              {violations.length === 0 ? (
-                <div className="bg-white p-8 rounded-2xl border border-gray-100 text-center">
-                  <CheckCircle2 className="mx-auto text-green-500 mb-4" size={48} />
-                  <h3 className="font-bold mb-2">Нарушений не найдено</h3>
-                  <p className="text-sm text-gray-500">Все проверки пройдены успешно</p>
-                </div>
-              ) : (
-                violations.map((v, i) => {
-                  const info = getCheckInfo(v.id);
-                  const style = resultStyle(v.result);
-                  return (
-                    <div key={v.id || i} className="bg-white p-5 rounded-xl border border-gray-100 flex items-center justify-between hover:border-gray-300 transition-all cursor-pointer group">
-                      <div className="flex items-center gap-4">
-                        <div className={`w-2 h-2 rounded-full ${style.color}`} />
-                        <div>
+          <div className="flex flex-col gap-3">
+            {violations.length === 0 ? (
+              <div className="bg-white p-8 rounded-2xl border border-gray-100 text-center">
+                <CheckCircle2 className="mx-auto text-green-500 mb-4" size={48} />
+                <h3 className="font-bold mb-2">Нарушений не найдено</h3>
+                <p className="text-sm text-gray-500">Все проверки пройдены успешно</p>
+              </div>
+            ) : (
+              violations.map((v, i) => {
+                const info = getCheckInfo(v.id);
+                const style = resultStyle(v.result);
+                const isExpanded = expandedId === (v.id || i);
+                const hasDetails = v.data || (v.pages && v.pages.length > 0) || (v.about && v.about !== '<nil>' && v.about !== '');
+                return (
+                  <div
+                    key={v.id || i}
+                    className="bg-white p-5 rounded-xl border border-gray-100 hover:border-gray-300 transition-all cursor-pointer"
+                    onClick={() => hasDetails && toggleExpand(v.id || i)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 min-w-0">
+                        <div className={`w-2 h-2 rounded-full ${style.color} shrink-0`} />
+                        <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-mono text-gray-500">{info.art}</span>
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${style.text}`}>{style.severity}</span>
                             {v.pages && v.pages.length > 0 && <span className="text-[10px] text-gray-400">{v.pages.length} стр.</span>}
                           </div>
-                          <p className="text-sm font-medium">{info.label}</p>
-                          {v.about && v.about !== '<nil>' && (
-                            <p className="text-xs text-gray-400 mt-0.5">{v.about}</p>
-                          )}
+                          <p className="text-sm font-medium truncate">{info.label}</p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
-              {passed.length > 0 && (
-                <details className="mt-4">
-                  <summary className="text-xs text-gray-400 cursor-pointer hover:text-black font-medium">
-                    Пройдено успешно: {passed.length} проверок
-                  </summary>
-                  <div className="flex flex-col gap-2 mt-3">
-                    {passed.map((v, i) => {
-                      const info = getCheckInfo(v.id);
-                      return (
-                        <div key={v.id || i} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3">
-                          <CheckCircle2 size={14} className="text-green-500" />
-                          <span className="text-xs font-mono text-gray-500">{info.art}</span>
-                          <span className="text-sm">{info.label}</span>
+                      {hasDetails && (
+                        <div className="shrink-0 ml-3">
+                          {isExpanded ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
                         </div>
-                      );
-                    })}
+                      )}
+                    </div>
+                    <AnimatePresence>
+                      {isExpanded && <ViolationDetails v={v} />}
+                    </AnimatePresence>
                   </div>
-                </details>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'pages' && (
-            <div className="bg-white p-8 rounded-2xl border border-gray-100">
-              <h3 className="font-bold mb-4">Проверенные страницы</h3>
-              {results.filter(r => r.pages && r.pages.length > 0).length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  {results.filter(r => r.pages && r.pages.length > 0).map((r, i) => (
-                    <div key={i}>
-                      <p className="text-xs font-medium text-gray-500 mb-1">{getCheckInfo(r.id).label}</p>
-                      {r.pages.map((page, j) => (
-                        <div key={j} className="flex items-center gap-2 text-sm text-gray-700 ml-2 mb-1">
-                          <FileText size={12} className="text-gray-400" />
-                          <span className="font-mono text-xs truncate">{page}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ))}
+                );
+              })
+            )}
+            {passed.length > 0 && (
+              <details className="mt-4">
+                <summary className="text-xs text-gray-400 cursor-pointer hover:text-black font-medium">
+                  Пройдено успешно: {passed.length} проверок
+                </summary>
+                <div className="flex flex-col gap-2 mt-3">
+                  {passed.map((v, i) => {
+                    const info = getCheckInfo(v.id);
+                    return (
+                      <div key={v.id || i} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3">
+                        <CheckCircle2 size={14} className="text-green-500" />
+                        <span className="text-xs font-mono text-gray-500">{info.art}</span>
+                        <span className="text-sm">{info.label}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              ) : (
-                <p className="text-sm text-gray-500">Информация о страницах отсутствует</p>
-              )}
-            </div>
-          )}
-
-          {activeTab === 'ai' && (
-            <div className="bg-white p-8 rounded-2xl border border-gray-100 text-center">
-              <ShieldCheck className="mx-auto text-blue-500 mb-4" size={48} />
-              <h3 className="font-bold mb-2">AI-анализ соответствия ФЗ-152</h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                {results.some(r => r.id === 'sep-consent' || r.id === 'privacy-policy' || r.id === 'cookie-banner')
-                  ? 'AI-анализ проверен. Все результаты отображены на вкладке "Нарушения".'
-                  : 'AI-анализ не выполнялся для данного домена.'}
-              </p>
-            </div>
-          )}
+              </details>
+            )}
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
