@@ -94,7 +94,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	var req models.RegisterRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_REQUEST", Msg: "Invalid request body",
+			Code: "ERR_INVALID_REQUEST", Msg: "Неверный формат запроса",
 		})
 	}
 
@@ -107,35 +107,35 @@ func (s *Server) handleRegister(c echo.Context) error {
 	emailRegex := regexp.MustCompile(`^\S+@\S+\.\S+$`)
 	if !emailRegex.MatchString(req.Email) {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_EMAIL", Msg: "Invalid email format",
+			Code: "ERR_INVALID_EMAIL", Msg: "Неверный формат email",
 		})
 	}
 
 	// Validate Russian domain (.ru TLD)
 	if !strings.HasSuffix(strings.ToLower(req.Email), ".ru") {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_EMAIL", Msg: "Only Russian email domains (.ru) are allowed",
+			Code: "ERR_INVALID_EMAIL", Msg: "Разрешены только российские email-адреса (.ru)",
 		})
 	}
 
 	// Validate name
 	if len(req.Name) < 1 || len(req.Name) > 100 {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_NAME", Msg: "Name must be between 1 and 100 characters",
+			Code: "ERR_INVALID_NAME", Msg: "Имя должно содержать от 1 до 100 символов",
 		})
 	}
 
 	// Validate surname
 	if len(req.Surname) < 1 || len(req.Surname) > 100 {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_SURNAME", Msg: "Surname must be between 1 and 100 characters",
+			Code: "ERR_INVALID_SURNAME", Msg: "Фамилия должна содержать от 1 до 100 символов",
 		})
 	}
 
 	// Validate password strength
 	if len(req.Password) < 8 {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_WEAK_PASSWORD", Msg: "Password must be at least 8 characters",
+			Code: "ERR_WEAK_PASSWORD", Msg: "Пароль должен содержать минимум 8 символов",
 		})
 	}
 	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(req.Password)
@@ -144,7 +144,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	if !hasUpper || !hasLower || !hasDigit {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
 			Code: "ERR_WEAK_PASSWORD",
-			Msg:  "Password must contain at least one uppercase letter, one lowercase letter, and one digit",
+			Msg:  "Пароль должен содержать заглавную букву, строчную букву и цифру",
 		})
 	}
 
@@ -152,7 +152,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	existingUser, _ := s.store.GetUserByEmail(c.Request().Context(), req.Email)
 	if existingUser != nil {
 		return c.JSON(http.StatusConflict, models.APIResponse{
-			Code: "ERR_EMAIL_EXISTS", Msg: "An account with this email already exists",
+			Code: "ERR_EMAIL_EXISTS", Msg: "Этот email уже зарегистрирован",
 		})
 	}
 
@@ -161,7 +161,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	if err != nil {
 		log.Printf("[API] bcrypt error: %v", err)
 		return c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Code: "ERR_INTERNAL", Msg: "Internal server error",
+			Code: "ERR_INTERNAL", Msg: "Внутренняя ошибка сервера",
 		})
 	}
 
@@ -170,7 +170,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	if _, err := rand.Read(tokenBytes); err != nil {
 		log.Printf("[API] rand error: %v", err)
 		return c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Code: "ERR_INTERNAL", Msg: "Internal server error",
+			Code: "ERR_INTERNAL", Msg: "Внутренняя ошибка сервера",
 		})
 	}
 	verificationToken := hex.EncodeToString(tokenBytes)
@@ -188,18 +188,18 @@ func (s *Server) handleRegister(c echo.Context) error {
 		// Check if it's a duplicate email race condition
 		if strings.Contains(err.Error(), "duplicate key") {
 			return c.JSON(http.StatusConflict, models.APIResponse{
-				Code: "ERR_EMAIL_EXISTS", Msg: "An account with this email already exists",
+				Code: "ERR_EMAIL_EXISTS", Msg: "Этот email уже зарегистрирован",
 			})
 		}
 		log.Printf("[API] create user error: %v", err)
 		return c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Code: "ERR_INTERNAL", Msg: "Internal server error",
+			Code: "ERR_INTERNAL", Msg: "Внутренняя ошибка сервера",
 		})
 	}
 
 	response := models.APIResponse{
 		Code: "ERR_OK",
-		Msg:  "Registration successful",
+		Msg:  "Регистрация выполнена успешно",
 		Data: map[string]interface{}{
 			"id":      user.ID,
 			"email":   user.Email,
@@ -221,7 +221,7 @@ func (s *Server) handleLogin(c echo.Context) error {
 	var req models.LoginRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_REQUEST", Msg: "Invalid request body",
+			Code: "ERR_INVALID_REQUEST", Msg: "Неверный формат запроса",
 		})
 	}
 
@@ -232,14 +232,14 @@ func (s *Server) handleLogin(c echo.Context) error {
 	if err != nil {
 		// Generic response to prevent enumeration
 		return c.JSON(http.StatusUnauthorized, models.APIResponse{
-			Code: "ERR_INVALID_CREDENTIALS", Msg: "Invalid email or password",
+			Code: "ERR_INVALID_CREDENTIALS", Msg: "Неверный email или пароль",
 		})
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
 		return c.JSON(http.StatusUnauthorized, models.APIResponse{
-			Code: "ERR_INVALID_CREDENTIALS", Msg: "Invalid email or password",
+			Code: "ERR_INVALID_CREDENTIALS", Msg: "Неверный email или пароль",
 		})
 	}
 
@@ -248,7 +248,7 @@ func (s *Server) handleLogin(c echo.Context) error {
 	if err != nil {
 		log.Printf("[API] token generation error: %v", err)
 		return c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Code: "ERR_INTERNAL", Msg: "Internal server error",
+			Code: "ERR_INTERNAL", Msg: "Внутренняя ошибка сервера",
 		})
 	}
 
@@ -259,7 +259,7 @@ func (s *Server) handleRefreshToken(c echo.Context) error {
 	var req models.RefreshRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, models.APIResponse{
-			Code: "ERR_INVALID_REQUEST", Msg: "Invalid request body",
+			Code: "ERR_INVALID_REQUEST", Msg: "Неверный формат запроса",
 		})
 	}
 
@@ -270,7 +270,7 @@ func (s *Server) handleRefreshToken(c echo.Context) error {
 	user, err := s.store.GetUserByRefreshToken(c.Request().Context(), tokenHash)
 	if err != nil {
 		return c.JSON(http.StatusUnauthorized, models.APIResponse{
-			Code: "ERR_INVALID_TOKEN", Msg: "Invalid or expired refresh token",
+			Code: "ERR_INVALID_TOKEN", Msg: "Недействительный или просроченный токен",
 		})
 	}
 
@@ -284,7 +284,7 @@ func (s *Server) handleRefreshToken(c echo.Context) error {
 	if err != nil {
 		log.Printf("[API] token generation error: %v", err)
 		return c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Code: "ERR_INTERNAL", Msg: "Internal server error",
+			Code: "ERR_INTERNAL", Msg: "Внутренняя ошибка сервера",
 		})
 	}
 
@@ -310,7 +310,7 @@ func (s *Server) handleLogout(c echo.Context) error {
 	_ = userID // Could log user logout here
 
 	return c.JSON(http.StatusOK, models.APIResponse{
-		Code: "ERR_OK", Msg: "Logged out successfully",
+		Code: "ERR_OK", Msg: "Выход выполнен успешно",
 	})
 }
 
@@ -320,7 +320,7 @@ func (s *Server) handleMe(c echo.Context) error {
 	user, err := s.store.GetUserByID(c.Request().Context(), userID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, models.APIResponse{
-			Code: "ERR_NOT_FOUND", Msg: "User not found",
+			Code: "ERR_NOT_FOUND", Msg: "Пользователь не найден",
 		})
 	}
 
@@ -396,14 +396,14 @@ func (s *Server) jwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		authHeader := c.Request().Header.Get("Authorization")
 		if authHeader == "" {
 			return c.JSON(http.StatusUnauthorized, models.APIResponse{
-				Code: "ERR_NO_TOKEN", Msg: "Missing authorization header",
+				Code: "ERR_NO_TOKEN", Msg: "Отсутствует токен авторизации",
 			})
 		}
 
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			return c.JSON(http.StatusUnauthorized, models.APIResponse{
-				Code: "ERR_INVALID_TOKEN", Msg: "Invalid authorization header format",
+				Code: "ERR_INVALID_TOKEN", Msg: "Неверный формат заголовка авторизации",
 			})
 		}
 
@@ -419,7 +419,7 @@ func (s *Server) jwtMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		if err != nil || !token.Valid {
 			return c.JSON(http.StatusUnauthorized, models.APIResponse{
-				Code: "ERR_INVALID_TOKEN", Msg: "Invalid or expired token",
+				Code: "ERR_INVALID_TOKEN", Msg: "Недействительный или просроченный токен",
 			})
 		}
 
