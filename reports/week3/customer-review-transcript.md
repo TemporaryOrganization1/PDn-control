@@ -1,4 +1,4 @@
-Meeting transcript
+Meeting transcript week 3
 Date: June 19, 2026
 Participants: 
     Customers(present): Mark Petrov
