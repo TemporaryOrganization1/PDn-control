@@ -112,6 +112,57 @@ services:
       - 1.1.1.1
     restart: unless-stopped
 
+  auth-service:
+    build:
+      context: ./backend/auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      AUTH_SERVER_PORT: "8081"
+      APP_ENV: development
+      AUTH_DB_HOST: postgres
+      AUTH_DB_PORT: "5432"
+      AUTH_DB_USER: geoip
+      AUTH_DB_PASSWORD: geoip_secret
+      AUTH_DB_NAME: geoip
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
+      JWT_ACCESS_TOKEN_TTL: "15m"
+      JWT_REFRESH_TOKEN_TTL: "168h"
+      SMTP_HOST: mailhog
+      SMTP_PORT: "1025"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: noreply@pdn-control.com
+      VERIFICATION_BASE_URL: "http://localhost:8081/api/v1/auth/verify"
+      VERIFICATION_TOKEN_TTL: "24h"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_SECRET: ${VITE_API_SECRET:-top-secret-key}
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - main-backend
+    restart: unless-stopped
+
 volumes:
   pgdata:
   geoip-mmdb:

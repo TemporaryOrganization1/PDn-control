@@ -1,0 +1,61 @@
+name: Other PBI
+description: A Product Backlog Item that is not a user story
+labels: ["pbi"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Detailed description of what needs to be done
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: Specific, observable, and testable criteria
+    validations:
+      required: false
+  - type: dropdown
+    id: type
+    attributes:
+      label: PBI Type
+      options:
+        - Technical
+        - Testing
+        - Documentation
+        - Research
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: moscow-priority
+    attributes:
+      label: MoSCoW Priority
+      options:
+        - Must Have
+        - Should Have
+        - Could Have
+        - Won't Have
+    validations:
+      required: true
+  - type: input
+    id: implementer
+    attributes:
+      label: Implementer
+      placeholder: "@github-username"
+    validations:
+      required: false
+  - type: input
+    id: reviewer
+    attributes:
+      label: Reviewer
+      placeholder: "@github-username"
+    validations:
+      required: false
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes, Constraints, Assumptions, Open Questions
+    validations:
+      required: false
