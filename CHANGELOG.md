@@ -2,14 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [1.0.0] - 2026-06-21
 
 ### Added
 - Issue templates
 - User-story index
-- Issue for initial user stories
+- (Core feature) Checking website for complience with the law FL-152
+- User registration and login
 
 ### Changed
+- Some user stories
 
 ### Deprecated
 
