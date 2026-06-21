@@ -48,15 +48,24 @@ export async function refreshTokens(refreshToken) {
 
 // ─── Check API ──────────────────────────────────────────────
 
-export async function startCheck(url, type = 'detail') {
+export async function startCheck(url, type = 'detail', accessToken = null) {
   const normalized = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+  const headers = { 'Content-Type': 'application/json' };
+  if (accessToken) {
+    headers['Authorization'] = `Bearer ${accessToken}`;
+  }
   const res = await fetch(`${API_BASE}/check`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ url: normalized, type, secret: SECRET }),
   });
   const data = await res.json();
-  if (data.code !== 'ERR_OK') throw new Error(data.msg || data.code);
+  if (data.code !== 'ERR_OK') {
+    if (data.code === 'ERR_GUEST_LIMIT_REACHED') {
+      throw new Error('GUEST_LIMIT_REACHED');
+    }
+    throw new Error(data.msg || data.code);
+  }
   return data;
 }
 

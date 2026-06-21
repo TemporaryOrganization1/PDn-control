@@ -2,6 +2,8 @@
   "server": {
     "serverPort": "4000",
     "secret": "top-secret-key",
+    "jwtSecret": "dev-jwt-secret-change-in-production",
+    "guestMaxChecks": 3,
     "workers": [
       { "url": "http://crawler-worker-1:3000", "maxLoad": 1 },
       { "url": "http://crawler-worker-2:3000", "maxLoad": 1 },

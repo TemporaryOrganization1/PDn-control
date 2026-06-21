@@ -30,7 +30,7 @@ export default function App() {
           <AnimatePresence mode="wait">
             {screen === 'check' && (
               <motion.div key="check" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                <CheckPage onStartScan={startScan} />
+                <CheckPage onStartScan={startScan} onNavigate={setScreen} />
               </motion.div>
             )}
 

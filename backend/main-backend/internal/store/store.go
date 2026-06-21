@@ -27,12 +27,16 @@ type Result struct {
 }
 
 type MemoryStore struct {
-	tasks map[string]*Task
-	mu    sync.RWMutex
+	tasks       map[string]*Task
+	guestCounts map[string]int
+	mu          sync.RWMutex
 }
 
 func New() *MemoryStore {
-	return &MemoryStore{tasks: make(map[string]*Task)}
+	return &MemoryStore{
+		tasks:       make(map[string]*Task),
+		guestCounts: make(map[string]int),
+	}
 }
 
 func (s *MemoryStore) Create(reqID, url, taskType string) *Task {
@@ -114,4 +118,23 @@ func (s *MemoryStore) GetWorker(reqID string) string {
 		return ""
 	}
 	return t.Worker
+}
+
+func (s *MemoryStore) GetGuestCheckCount(ip string) int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.guestCounts[ip]
+}
+
+func (s *MemoryStore) IncrementGuestCheckCount(ip string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.guestCounts[ip]++
+	return s.guestCounts[ip]
+}
+
+func (s *MemoryStore) ResetGuestCounts() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.guestCounts = make(map[string]int)
 }
