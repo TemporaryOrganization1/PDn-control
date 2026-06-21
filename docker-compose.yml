@@ -60,6 +60,7 @@ services:
     environment:
       SERVER_PORT: 4000
       API_SECRET: top-secret-key
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-in-production}
       CONFIG_PATH: /app/config.json
     depends_on:
       - crawler-worker-1

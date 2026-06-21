@@ -36,6 +36,9 @@ func main() {
 	if secret := os.Getenv("API_SECRET"); secret != "" {
 		mainCfg.Server.Secret = secret
 	}
+	if jwtSecret := os.Getenv("JWT_SECRET"); jwtSecret != "" {
+		mainCfg.Server.JWTSecret = jwtSecret
+	}
 	if port := os.Getenv("SERVER_PORT"); port != "" {
 		mainCfg.Server.ServerPort = port
 	}

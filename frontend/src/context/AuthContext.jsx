@@ -112,6 +112,7 @@ export function AuthProvider({ children }) {
       loading,
       login,
       logout,
+      guestCheckCount: parseInt(localStorage.getItem('guest_check_count') || '0', 10),
     }}>
       {children}
     </AuthContext.Provider>

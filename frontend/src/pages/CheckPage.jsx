@@ -1,15 +1,59 @@
-import { useState } from 'react';
-import { Search, ChevronRight, ShieldCheck, Scale, BarChart3, FileText } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, ChevronRight, ShieldCheck, Scale, BarChart3, FileText, LogIn, UserPlus } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { startCheck as apiStartCheck } from '../api';
 
-export default function CheckPage({ onStartScan }) {
+const GUEST_MAX_CHECKS = 3;
+const GUEST_COUNT_KEY = 'guest_check_count';
+
+export default function CheckPage({ onStartScan, onNavigate }) {
+  const { isAuth, accessToken } = useAuth();
   const [url, setUrl] = useState('');
+  const [guestCount, setGuestCount] = useState(
+    () => parseInt(localStorage.getItem(GUEST_COUNT_KEY) || '0', 10)
+  );
+  const [limitError, setLimitError] = useState(false);
 
-  const handleSubmit = (e) => {
+  // Clear limit error when user logs in
+  useEffect(() => {
+    if (isAuth) {
+      setLimitError(false);
+    }
+  }, [isAuth]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!url) return;
-    onStartScan(url);
+
+    if (!isAuth) {
+      const currentCount = parseInt(localStorage.getItem(GUEST_COUNT_KEY) || '0', 10);
+      if (currentCount >= GUEST_MAX_CHECKS) {
+        setLimitError(true);
+        return;
+      }
+    }
+
+    // If authenticated, pass the JWT token to the API
+    try {
+      if (isAuth) {
+        await apiStartCheck(url, 'detail', accessToken);
+      } else {
+        await apiStartCheck(url, 'detail');
+        // Increment guest counter on success
+        const newCount = parseInt(localStorage.getItem(GUEST_COUNT_KEY) || '0', 10) + 1;
+        localStorage.setItem(GUEST_COUNT_KEY, newCount.toString());
+        setGuestCount(newCount);
+      }
+      onStartScan(url);
+    } catch (err) {
+      if (err.message === 'GUEST_LIMIT_REACHED') {
+        setLimitError(true);
+      }
+    }
   };
+
+  const remaining = GUEST_MAX_CHECKS - guestCount;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center text-center mt-10">
@@ -20,6 +64,41 @@ export default function CheckPage({ onStartScan }) {
       <p className="text-gray-500 max-w-lg mb-10 leading-relaxed">
         AI-анализ политики конфиденциальности, обнаружение нарушений, оценка рисков и подсчёт возможных штрафов — за несколько секунд.
       </p>
+
+      {/* Guest limit warning banner */}
+      {limitError && !isAuth && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="w-full max-w-2xl bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6 text-left"
+        >
+          <h3 className="font-bold text-amber-800 mb-2">Лимит бесплатных проверок исчерпан</h3>
+          <p className="text-sm text-amber-700 mb-4">
+            Вы исчерпали лимит бесплатных проверок. Войдите или зарегистрируйтесь, чтобы продолжить.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => onNavigate && onNavigate('profile')}
+              className="inline-flex items-center gap-2 bg-black text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors"
+            >
+              <LogIn size={16} /> Войти
+            </button>
+            <button
+              onClick={() => onNavigate && onNavigate('register')}
+              className="inline-flex items-center gap-2 border border-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              <UserPlus size={16} /> Зарегистрироваться
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Guest checks remaining indicator */}
+      {!isAuth && !limitError && (
+        <div className="text-xs text-gray-400 mb-4">
+          Осталось бесплатных проверок: {Math.max(0, remaining)}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="w-full max-w-2xl relative mb-4">
         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
@@ -32,7 +111,11 @@ export default function CheckPage({ onStartScan }) {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
         />
-        <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#7c7c82] hover:bg-black text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium">
+        <button
+          type="submit"
+          disabled={!isAuth && guestCount >= GUEST_MAX_CHECKS}
+          className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#7c7c82] hover:bg-black text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           Проверить <ChevronRight size={16} />
         </button>
       </form>

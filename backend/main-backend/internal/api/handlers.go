@@ -6,9 +6,11 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/models"
@@ -17,9 +19,11 @@ import (
 )
 
 type Config struct {
-	ServerPort string   `json:"serverPort"`
-	Secret     string   `json:"secret"`
-	Workers    []Worker `json:"workers"`
+	ServerPort    string   `json:"serverPort"`
+	Secret        string   `json:"secret"`
+	JWTSecret     string   `json:"jwtSecret"`
+	Workers       []Worker `json:"workers"`
+	GuestMaxChecks int     `json:"guestMaxChecks"`
 }
 
 type Worker struct {
@@ -78,6 +82,15 @@ func (s *Server) Shutdown() error {
 	return s.echo.Close()
 }
 
+// jwtClaims represents the JWT claims structure for authentication.
+type jwtClaims struct {
+	UserID  int64  `json:"user_id"`
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	Surname string `json:"surname"`
+	jwt.RegisteredClaims
+}
+
 func (s *Server) handleCheck(c echo.Context) error {
 	var req models.CheckRequest
 	fmt.Println(req.Secret, "secret key")
@@ -97,6 +110,54 @@ func (s *Server) handleCheck(c echo.Context) error {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_TYPE", req.ReqID, "type must be 'fast' or 'detail'")
 	}
 
+	// Check if request is from an authenticated user (has JWT)
+	authHeader := c.Request().Header.Get("Authorization")
+	isAuthenticated := false
+	log.Printf("[API] Auth header present: %v, JWTSecret configured: %v", authHeader != "", s.config.JWTSecret != "")
+	if authHeader != "" {
+		parts := strings.SplitN(authHeader, " ", 2)
+		if len(parts) == 2 && parts[0] == "Bearer" && s.config.JWTSecret != "" {
+			tokenStr := parts[1]
+			claims := &jwtClaims{}
+			token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+					return nil, jwt.ErrSignatureInvalid
+				}
+				return []byte(s.config.JWTSecret), nil
+			})
+			if err != nil {
+				log.Printf("[API] JWT validation error: %v", err)
+			}
+			if err == nil && token.Valid {
+				isAuthenticated = true
+				log.Printf("[API] JWT valid, user authenticated: user_id=%d", claims.UserID)
+			}
+		} else {
+			log.Printf("[API] Auth header malformed or JWT secret empty: parts_len=%d, bearer=%v, secret_empty=%v",
+				len(parts), len(parts) == 2 && parts[0] == "Bearer", s.config.JWTSecret == "")
+		}
+	}
+
+	// Enforce guest check limit for unauthenticated users
+	if !isAuthenticated {
+		// Get client IP
+		clientIP := c.RealIP()
+		if clientIP == "" {
+			clientIP = c.Request().RemoteAddr
+		}
+
+		guestMax := s.config.GuestMaxChecks
+		if guestMax <= 0 {
+			guestMax = 3 // default limit
+		}
+
+		currentCount := s.store.GetGuestCheckCount(clientIP)
+		if currentCount >= guestMax {
+			return s.errResponse(c, http.StatusForbidden, "ERR_GUEST_LIMIT_REACHED", req.ReqID,
+				"Лимит бесплатных проверок исчерпан. Войдите в аккаунт для продолжения.")
+		}
+	}
+
 	if req.ReqID == "" {
 		req.ReqID = fmt.Sprintf("req-%d", time.Now().UnixMilli())
 	}
@@ -111,6 +172,15 @@ func (s *Server) handleCheck(c echo.Context) error {
 
 	s.store.Create(req.ReqID, req.URL, req.Type)
 	s.store.UpdateProgress(req.ReqID, 0, "queued", nil, nil)
+
+	// Increment guest counter only after successful dispatch
+	if !isAuthenticated {
+		clientIP := c.RealIP()
+		if clientIP == "" {
+			clientIP = c.Request().RemoteAddr
+		}
+		s.store.IncrementGuestCheckCount(clientIP)
+	}
 
 	go s.dispatchTask(req, worker)
 
