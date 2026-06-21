@@ -6,8 +6,8 @@ RUN apk add --no-cache git ca-certificates
 WORKDIR /build
 
 ENV GONOSUMCHECK=* GONOSUMDB=* GOFLAGS=-mod=mod
-
-COPY go.mod go.sum ./
+COPY go.mod ./
+RUN go mod tidy
 RUN go mod download
 
 COPY . .
