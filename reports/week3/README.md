@@ -11,10 +11,6 @@ Stories before implementing MWP1:
 - 10 user stories
 - 7 additional PBIs
 
-At the end:
-- 
-
-
 ## 3. Addressed feedback points
 
 - Check history and sum of the bill are separated now
@@ -93,6 +89,17 @@ For the complete roadmap and planned future releases, see [docs/roadmap.md](http
 
 ## 15. Completed MVP v1 PBIs
 
+https://github.com/TemporaryOrganization1/PDn-control/pull/67
+
+https://github.com/TemporaryOrganization1/PDn-control/pull/58
+
+https://github.com/TemporaryOrganization1/PDn-control/pull/56
+
+https://github.com/TemporaryOrganization1/PDn-control/pull/59
+
+https://github.com/TemporaryOrganization1/PDn-control/pull/44
+
+
 
 ## 16. Current product status
 
@@ -159,9 +166,9 @@ https://github.com/TemporaryOrganization1/PDn-control/pull/14 - reviewed by E742
 
 https://github.com/TemporaryOrganization1/PDn-control/pull/64
 
-
-
 ## 19. SemVer release
+
+https://github.com/TemporaryOrganization1/PDn-control/releases/tag/MVP1
 
 ## 20. CHANGELOG.md
 
@@ -210,15 +217,19 @@ https://github.com/TemporaryOrganization1/PDn-control/pull/17
 
 ## 26. Deployed MVP1
 
+http://194.87.95.22/
+
 ## 27. README.md from root
 
 https://github.com/TemporaryOrganization1/PDn-control/blob/main/README.md
 
 ## 28. Video demonstration
 
-
+https://drive.google.com/file/d/1g7Z9Kf3DCtMWQm9NEPcBagVg19db9B9Y/view
 
 ## 29. Screenshots(reports/week3/images/)
+
+https://github.com/TemporaryOrganization1/PDn-control/tree/main/reports/week3/images
 
 ## 30. Interview transcript
 
@@ -230,6 +241,12 @@ https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week3/cu
 
 ## 32. Week 3 reflection
 
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week3/reflection.md
+
 ## 33. Retrospective
 
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week3/retrospective.md
+
 ## 34. LLM report
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week3/LLM%20report.md
