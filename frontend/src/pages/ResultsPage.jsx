@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Download, CheckCircle2, Clock, XCircle, FileText, Globe, Server, Lock, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Gauge from '../components/Gauge';
-import { startCheck, getProgress, getCheckInfo, calcRiskScore } from '../api';
+import { getProgress, getCheckInfo, calcRiskScore } from '../api';
 
 function getHostname(url) {
   try { return new URL(url.startsWith('http') ? url : `https://${url}`).hostname; }
@@ -115,7 +115,7 @@ function ViolationDetails({ v }) {
   );
 }
 
-export default function ResultsPage({ url, onBack }) {
+export default function ResultsPage({ url, reqId, onBack }) {
   const [scanning, setScanning] = useState(true);
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
@@ -129,18 +129,15 @@ export default function ResultsPage({ url, onBack }) {
 
     async function init() {
       try {
-        const resp = await startCheck(url, 'detail');
-        if (cancelledRef.current) return;
-
         const poll = async () => {
           try {
-            const task = await getProgress(resp['req-id']);
+            const task = await getProgress(reqId);
             if (cancelledRef.current) return;
 
             setProgress(task.progress || 0);
 
-            if (task.status === 'completed' && task.results && task.results.length > 0) {
-              setResults(task.results);
+            if (task.status === 'completed') {
+              setResults(task.results || []);
               setScanning(false);
               return;
             }
@@ -166,12 +163,12 @@ export default function ResultsPage({ url, onBack }) {
       }
     }
 
-    init();
+    if (reqId) init();
     return () => {
       cancelledRef.current = true;
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [url]);
+  }, [reqId]);
 
   const violations = results.filter(r => r.result === 'fail' || r.result === 'warn');
   const passed = results.filter(r => r.result === 'ok');
@@ -295,7 +292,7 @@ export default function ResultsPage({ url, onBack }) {
               </div>
             ) : (
               violations.map((v, i) => {
-                const info = getCheckInfo(v.id);
+                const info = getCheckInfo(v.id, v.result);
                 const style = resultStyle(v.result);
                 const isExpanded = expandedId === (v.id || i);
                 const hasDetails = v.data || (v.pages && v.pages.length > 0) || (v.about && v.about !== '<nil>' && v.about !== '');
@@ -337,7 +334,7 @@ export default function ResultsPage({ url, onBack }) {
                 </summary>
                 <div className="flex flex-col gap-2 mt-3">
                   {passed.map((v, i) => {
-                    const info = getCheckInfo(v.id);
+                    const info = getCheckInfo(v.id, v.result);
                     return (
                       <div key={v.id || i} className="bg-white p-3 rounded-xl border border-gray-100 flex items-center gap-3">
                         <CheckCircle2 size={14} className="text-green-500" />

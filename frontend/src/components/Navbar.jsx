@@ -1,9 +1,6 @@
-import { Menu } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { LogIn, LogOut, Menu, UserPlus } from 'lucide-react';
 
-export default function Navbar({ screen, onNavigate }) {
-  const { user, isAuth } = useAuth();
-
+export default function Navbar({ screen, onNavigate, user, guest, onLogin, onRegister, onLogout }) {
   const navItems = [
     { id: 'check', label: 'Проверка' },
     { id: 'results', label: 'Результаты' },
@@ -37,31 +34,51 @@ export default function Navbar({ screen, onNavigate }) {
         ))}
       </div>
 
-      <div className="flex items-center gap-3">
-        {isAuth ? (
-          <button
-            onClick={() => onNavigate('profile')}
-            className="bg-gray-100 p-1.5 rounded-full hover:bg-gray-200 transition-colors"
-          >
-            <div className="w-7 h-7 bg-blue-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
-              {(user?.name || 'П').charAt(0).toUpperCase()}
-            </div>
-          </button>
+      <div className="flex items-center justify-end gap-2 min-w-0">
+        {user ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onNavigate('account')}
+              className={
+                screen === 'account'
+                  ? 'hidden sm:block text-xs text-black max-w-44 truncate border-b border-black'
+                  : 'hidden sm:block text-xs text-gray-500 max-w-44 truncate hover:text-black'
+              }
+              title="Личный кабинет"
+            >
+              {user.email}
+            </button>
+            <button
+              onClick={onLogout}
+              className="p-2 rounded-lg hover:bg-gray-100"
+              title="Выйти"
+              aria-label="Выйти"
+            >
+              <LogOut size={18} />
+            </button>
+          </>
         ) : (
-          <div className="flex items-center gap-2">
+          <>
+            <span className="hidden lg:block text-xs text-gray-400 whitespace-nowrap">
+              Гостевых проверок: {guest?.remaining ?? 3}
+            </span>
             <button
-              onClick={() => onNavigate('register')}
-              className="text-xs font-medium text-gray-500 hover:text-black px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={onLogin}
+              className="p-2 rounded-lg hover:bg-gray-100"
+              title="Войти"
+              aria-label="Войти"
             >
-              Регистрация
+              <LogIn size={18} />
             </button>
             <button
-              onClick={() => onNavigate('profile')}
-              className="text-xs font-bold bg-black text-white px-4 py-1.5 rounded-lg hover:bg-gray-800 transition-colors"
+              onClick={onRegister}
+              className="bg-black text-white rounded-lg px-3 py-2 text-xs font-medium flex items-center gap-1.5"
             >
-              Войти
+              <UserPlus size={14} />
+              <span className="hidden sm:inline">Регистрация</span>
             </button>
-          </div>
+          </>
         )}
       </div>
     </nav>

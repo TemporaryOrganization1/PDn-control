@@ -1,6 +1,4 @@
 FROM node:20-alpine AS builder
-ARG VITE_API_SECRET
-ENV VITE_API_SECRET=$VITE_API_SECRET
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

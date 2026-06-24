@@ -1,9 +1,12 @@
 {
   "server": {
     "serverPort": "4000",
-    "secret": "top-secret-key",
-    "jwtSecret": "dev-jwt-secret-change-in-production",
-    "guestMaxChecks": 3,
+    "databaseUrl": "postgres://geoip:geoip_secret@postgres:5432/geoip?sslmode=disable",
+    "cookieSecure": false,
+    "sessionTtlHours": 720,
+    "guestLimit": 3,
+    "workerSecret": "change-me-worker-secret",
+    "allowedOrigins": ["http://localhost", "http://localhost:5173", "http://127.0.0.1:5173"],
     "workers": [
       { "url": "http://crawler-worker-1:3000", "maxLoad": 1 },
       { "url": "http://crawler-worker-2:3000", "maxLoad": 1 },

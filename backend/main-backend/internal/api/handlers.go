@@ -1,7 +1,9 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,20 +12,24 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/auth"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/models"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/workerpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Config struct {
-	ServerPort    string   `json:"serverPort"`
-	Secret        string   `json:"secret"`
-	JWTSecret     string   `json:"jwtSecret"`
-	Workers       []Worker `json:"workers"`
-	GuestMaxChecks int     `json:"guestMaxChecks"`
+	ServerPort      string   `json:"serverPort"`
+	DatabaseURL     string   `json:"databaseUrl"`
+	CookieSecure    bool     `json:"cookieSecure"`
+	SessionTTLHours int      `json:"sessionTtlHours"`
+	GuestLimit      int      `json:"guestLimit"`
+	WorkerSecret    string   `json:"workerSecret"`
+	AllowedOrigins  []string `json:"allowedOrigins"`
+	Workers         []Worker `json:"workers"`
 }
 
 type Worker struct {
@@ -32,14 +38,35 @@ type Worker struct {
 }
 
 type Server struct {
-	echo   *echo.Echo
-	store  *store.MemoryStore
-	pool   *workerpool.Pool
-	config Config
-	mu     sync.RWMutex
+	echo      *echo.Echo
+	store     *store.MemoryStore
+	authStore *auth.Store
+	pool      *workerpool.Pool
+	config    Config
+	mu        sync.RWMutex
 }
 
-func NewServer(cfg Config) *Server {
+const (
+	sessionCookieName = "pdn_session"
+	guestCookieName   = "pdn_guest_id"
+)
+
+func NewServer(cfg Config) (*Server, error) {
+	if cfg.SessionTTLHours <= 0 {
+		cfg.SessionTTLHours = 24 * 30
+	}
+	if cfg.GuestLimit <= 0 {
+		cfg.GuestLimit = 3
+	}
+	if cfg.DatabaseURL == "" {
+		cfg.DatabaseURL = "postgres://geoip:geoip_secret@postgres:5432/geoip?sslmode=disable"
+	}
+
+	authStore, err := auth.NewStore(cfg.DatabaseURL)
+	if err != nil {
+		return nil, err
+	}
+
 	workerDefs := make([]struct {
 		URL     string
 		MaxLoad int
@@ -52,20 +79,31 @@ func NewServer(cfg Config) *Server {
 	}
 
 	s := &Server{
-		echo:   echo.New(),
-		store:  store.New(),
-		pool:   workerpool.NewPool(workerDefs),
-		config: cfg,
+		echo:      echo.New(),
+		store:     store.New(),
+		authStore: authStore,
+		pool:      workerpool.NewPool(workerDefs),
+		config:    cfg,
 	}
 
 	s.echo.Use(middleware.Logger())
 	s.echo.Use(middleware.Recover())
-	s.echo.Use(middleware.CORS())
+	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins:     allowedOrigins(cfg.AllowedOrigins),
+		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
+		AllowCredentials: true,
+	}))
 	s.registerRoutes()
-	return s
+	return s, nil
 }
 
 func (s *Server) registerRoutes() {
+	s.echo.POST("/api/auth/register", s.handleRegister)
+	s.echo.POST("/api/auth/login", s.handleLogin)
+	s.echo.POST("/api/auth/logout", s.handleLogout)
+	s.echo.POST("/api/auth/change-password", s.handleChangePassword)
+	s.echo.GET("/api/auth/me", s.handleMe)
 	s.echo.POST("/api/check", s.handleCheck)
 	s.echo.GET("/api/progress/:reqId", s.handleProgress)
 	s.echo.POST("/api/progress", s.handleProgressUpdate)
@@ -79,27 +117,128 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Shutdown() error {
+	if s.authStore != nil {
+		_ = s.authStore.Close()
+	}
 	return s.echo.Close()
 }
 
-// jwtClaims represents the JWT claims structure for authentication.
-type jwtClaims struct {
-	UserID  int64  `json:"user_id"`
-	Email   string `json:"email"`
-	Name    string `json:"name"`
-	Surname string `json:"surname"`
-	jwt.RegisteredClaims
-}
-
-func (s *Server) handleCheck(c echo.Context) error {
-	var req models.CheckRequest
-	fmt.Println(req.Secret, "secret key")
+func (s *Server) handleRegister(c echo.Context) error {
+	var req models.AuthRequest
 	if err := c.Bind(&req); err != nil {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", err.Error())
 	}
 
-	if req.Secret != s.config.Secret {
-		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", req.ReqID, "invalid secret")
+	email := auth.NormalizeEmail(req.Email)
+	if !validEmail(email) {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_CREDENTIALS", "", "valid email is required")
+	}
+	if len(req.Password) < 8 {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_WEAK_PASSWORD", "", "password must contain at least 8 characters")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+
+	user, err := s.authStore.CreateUser(c.Request().Context(), email, string(hash))
+	if err != nil {
+		if errors.Is(err, auth.ErrUserExists) {
+			return s.errResponse(c, http.StatusConflict, "ERR_EMAIL_EXISTS", "", "email already exists")
+		}
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+
+	if err := s.issueSession(c, user.ID); err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, models.MeResponse{
+		User:  toAuthUser(user),
+		Guest: s.guestInfo(c),
+	})
+}
+
+func (s *Server) handleLogin(c echo.Context) error {
+	var req models.AuthRequest
+	if err := c.Bind(&req); err != nil {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", err.Error())
+	}
+
+	user, err := s.authStore.UserByEmail(c.Request().Context(), req.Email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return s.errResponse(c, http.StatusUnauthorized, "ERR_INVALID_CREDENTIALS", "", "invalid email or password")
+		}
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_INVALID_CREDENTIALS", "", "invalid email or password")
+	}
+
+	if err := s.issueSession(c, user.ID); err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+
+	return c.JSON(http.StatusOK, models.MeResponse{
+		User:  toAuthUser(user),
+		Guest: s.guestInfo(c),
+	})
+}
+
+func (s *Server) handleLogout(c echo.Context) error {
+	if cookie, err := c.Cookie(sessionCookieName); err == nil {
+		_ = s.authStore.DeleteSession(c.Request().Context(), cookie.Value)
+	}
+	s.clearCookie(c, sessionCookieName)
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleMe(c echo.Context) error {
+	return c.JSON(http.StatusOK, models.MeResponse{
+		User:  toAuthUser(s.currentUser(c)),
+		Guest: s.guestInfo(c),
+	})
+}
+
+func (s *Server) handleChangePassword(c echo.Context) error {
+	user := s.currentUser(c)
+	if user == nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
+	}
+
+	var req models.ChangePasswordRequest
+	if err := c.Bind(&req); err != nil {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", err.Error())
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)) != nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_INVALID_CREDENTIALS", "", "invalid current password")
+	}
+	if len(req.NewPassword) < 8 {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_WEAK_PASSWORD", "", "password must contain at least 8 characters")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	if err := s.authStore.UpdatePasswordHash(c.Request().Context(), user.ID, string(hash)); err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+
+	user.PasswordHash = string(hash)
+	return c.JSON(http.StatusOK, models.MeResponse{
+		User:  toAuthUser(user),
+		Guest: s.guestInfo(c),
+	})
+}
+
+func (s *Server) handleCheck(c echo.Context) error {
+	var req models.CheckRequest
+	if err := c.Bind(&req); err != nil {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", err.Error())
 	}
 
 	if req.URL == "" {
@@ -110,59 +249,11 @@ func (s *Server) handleCheck(c echo.Context) error {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_TYPE", req.ReqID, "type must be 'fast' or 'detail'")
 	}
 
-	// Check if request is from an authenticated user (has JWT)
-	authHeader := c.Request().Header.Get("Authorization")
-	isAuthenticated := false
-	log.Printf("[API] Auth header present: %v, JWTSecret configured: %v", authHeader != "", s.config.JWTSecret != "")
-	if authHeader != "" {
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) == 2 && parts[0] == "Bearer" && s.config.JWTSecret != "" {
-			tokenStr := parts[1]
-			claims := &jwtClaims{}
-			token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
-				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-					return nil, jwt.ErrSignatureInvalid
-				}
-				return []byte(s.config.JWTSecret), nil
-			})
-			if err != nil {
-				log.Printf("[API] JWT validation error: %v", err)
-			}
-			if err == nil && token.Valid {
-				isAuthenticated = true
-				log.Printf("[API] JWT valid, user authenticated: user_id=%d", claims.UserID)
-			}
-		} else {
-			log.Printf("[API] Auth header malformed or JWT secret empty: parts_len=%d, bearer=%v, secret_empty=%v",
-				len(parts), len(parts) == 2 && parts[0] == "Bearer", s.config.JWTSecret == "")
-		}
-	}
-
-	// Enforce guest check limit for unauthenticated users
-	if !isAuthenticated {
-		// Get client IP
-		clientIP := c.RealIP()
-		if clientIP == "" {
-			clientIP = c.Request().RemoteAddr
-		}
-
-		guestMax := s.config.GuestMaxChecks
-		if guestMax <= 0 {
-			guestMax = 3 // default limit
-		}
-
-		currentCount := s.store.GetGuestCheckCount(clientIP)
-		if currentCount >= guestMax {
-			return s.errResponse(c, http.StatusForbidden, "ERR_GUEST_LIMIT_REACHED", req.ReqID,
-				"Лимит бесплатных проверок исчерпан. Войдите в аккаунт для продолжения.")
-		}
-	}
-
 	if req.ReqID == "" {
 		req.ReqID = fmt.Sprintf("req-%d", time.Now().UnixMilli())
 	}
 	if req.Fallback == "" {
-		req.Fallback = fmt.Sprintf("http://main-backend:4000/api/progress")
+		req.Fallback = "http://main-backend:4000/api/progress"
 	}
 
 	worker := s.pool.GetFreeWorker()
@@ -170,24 +261,35 @@ func (s *Server) handleCheck(c echo.Context) error {
 		return s.errResponse(c, http.StatusServiceUnavailable, "ERR_WORKER_UNAVAILABLE", req.ReqID, "no workers available")
 	}
 
+	user := s.currentUser(c)
+	var guestStats *auth.GuestStats
+	if user == nil {
+		guestID := s.ensureGuestID(c)
+		stats, err := s.authStore.ConsumeGuestAttempt(c.Request().Context(), guestID, s.config.GuestLimit)
+		if err != nil {
+			s.pool.ReleaseWorker(worker)
+			if errors.Is(err, auth.ErrGuestLimit) {
+				return s.errResponse(c, http.StatusForbidden, "ERR_GUEST_LIMIT", req.ReqID, "guest check limit reached")
+			}
+			return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", req.ReqID, err.Error())
+		}
+		guestStats = &stats
+	}
+
 	s.store.Create(req.ReqID, req.URL, req.Type)
 	s.store.UpdateProgress(req.ReqID, 0, "queued", nil, nil)
 
-	// Increment guest counter only after successful dispatch
-	if !isAuthenticated {
-		clientIP := c.RealIP()
-		if clientIP == "" {
-			clientIP = c.Request().RemoteAddr
-		}
-		s.store.IncrementGuestCheckCount(clientIP)
-	}
-
 	go s.dispatchTask(req, worker)
+
+	data := map[string]any{"status": "accepted", "req-id": req.ReqID}
+	if guestStats != nil {
+		data["guest"] = guestStats
+	}
 
 	return c.JSON(http.StatusOK, models.CheckResponse{
 		Code:  "ERR_OK",
 		ReqID: req.ReqID,
-		Data:  map[string]string{"status": "accepted", "req-id": req.ReqID},
+		Data:  data,
 	})
 }
 
@@ -198,10 +300,11 @@ func (s *Server) dispatchTask(req models.CheckRequest, worker *workerpool.Worker
 	s.store.UpdateProgress(req.ReqID, 10, "dispatched", nil, nil)
 
 	task := map[string]string{
-		"url":      req.URL,
-		"type":     req.Type,
-		"req-id":   req.ReqID,
-		"fallback": req.Fallback,
+		"url":             req.URL,
+		"type":            req.Type,
+		"req-id":          req.ReqID,
+		"fallback":        req.Fallback,
+		"progress-secret": s.config.WorkerSecret,
 	}
 
 	result, err := s.pool.SendTask(worker.URL, task)
@@ -243,6 +346,10 @@ func (s *Server) handleProgress(c echo.Context) error {
 }
 
 func (s *Server) handleProgressUpdate(c echo.Context) error {
+	if s.config.WorkerSecret != "" && c.Request().Header.Get("X-Worker-Secret") != s.config.WorkerSecret {
+		return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", "", "invalid worker secret")
+	}
+
 	body, err := io.ReadAll(c.Request().Body)
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "cannot read body"})
@@ -295,6 +402,99 @@ func (s *Server) errResponse(c echo.Context, code int, errCode, reqID, msg strin
 		ReqID: reqID,
 		Msg:   msg,
 	})
+}
+
+func (s *Server) currentUser(c echo.Context) *auth.User {
+	cookie, err := c.Cookie(sessionCookieName)
+	if err != nil || cookie.Value == "" {
+		return nil
+	}
+	user, err := s.authStore.UserBySessionToken(c.Request().Context(), cookie.Value)
+	if err != nil {
+		return nil
+	}
+	return user
+}
+
+func (s *Server) issueSession(c echo.Context, userID string) error {
+	ttl := time.Duration(s.config.SessionTTLHours) * time.Hour
+	token, err := s.authStore.CreateSession(c.Request().Context(), userID, ttl)
+	if err != nil {
+		return err
+	}
+	c.SetCookie(&http.Cookie{
+		Name:     sessionCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   int(ttl.Seconds()),
+		HttpOnly: true,
+		Secure:   s.config.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return nil
+}
+
+func (s *Server) clearCookie(c echo.Context, name string) {
+	c.SetCookie(&http.Cookie{
+		Name:     name,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   s.config.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (s *Server) ensureGuestID(c echo.Context) string {
+	if cookie, err := c.Cookie(guestCookieName); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	guestID := auth.NewPublicID()
+	c.SetCookie(&http.Cookie{
+		Name:     guestCookieName,
+		Value:    guestID,
+		Path:     "/",
+		MaxAge:   60 * 60 * 24 * 365,
+		HttpOnly: true,
+		Secure:   s.config.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return guestID
+}
+
+func (s *Server) guestInfo(c echo.Context) models.GuestInfo {
+	guestID := ""
+	if cookie, err := c.Cookie(guestCookieName); err == nil {
+		guestID = cookie.Value
+	}
+	stats, err := s.authStore.GuestStats(c.Request().Context(), guestID, s.config.GuestLimit)
+	if err != nil {
+		return models.GuestInfo{Limit: s.config.GuestLimit, Used: 0, Remaining: s.config.GuestLimit}
+	}
+	return models.GuestInfo{Limit: stats.Limit, Used: stats.Used, Remaining: stats.Remaining}
+}
+
+func toAuthUser(user *auth.User) *models.AuthUser {
+	if user == nil {
+		return nil
+	}
+	return &models.AuthUser{ID: user.ID, Email: user.Email}
+}
+
+func validEmail(email string) bool {
+	if len(email) < 3 || len(email) > 254 || strings.Count(email, "@") != 1 {
+		return false
+	}
+	parts := strings.Split(email, "@")
+	return parts[0] != "" && parts[1] != "" && strings.Contains(parts[1], ".")
+}
+
+func allowedOrigins(origins []string) []string {
+	if len(origins) == 0 {
+		return []string{"http://localhost", "http://localhost:5173", "http://127.0.0.1:5173"}
+	}
+	return origins
 }
 
 func toStringSlice(v any) []string {

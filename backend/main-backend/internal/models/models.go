@@ -3,7 +3,6 @@ package models
 type CheckRequest struct {
 	URL      string `json:"url"`
 	Type     string `json:"type"`
-	Secret   string `json:"secret"`
 	ReqID    string `json:"req-id"`
 	Fallback string `json:"fallback"`
 }
@@ -13,6 +12,32 @@ type CheckResponse struct {
 	ReqID string `json:"req-id"`
 	Data  any    `json:"data,omitempty"`
 	Msg   string `json:"msg,omitempty"`
+}
+
+type AuthRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+type AuthUser struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
+}
+
+type GuestInfo struct {
+	Limit     int `json:"limit"`
+	Used      int `json:"used"`
+	Remaining int `json:"remaining"`
+}
+
+type MeResponse struct {
+	User  *AuthUser `json:"user"`
+	Guest GuestInfo `json:"guest"`
 }
 
 type ProgressUpdate struct {
@@ -27,21 +52,21 @@ type ProgressUpdate struct {
 }
 
 type TaskState struct {
-	ReqID     string            `json:"req-id"`
-	URL       string            `json:"url"`
-	Type      string            `json:"type"`
-	Status    string            `json:"status"`
-	Worker    string            `json:"worker,omitempty"`
-	Progress  int               `json:"progress"`
-	Results   []CheckResult     `json:"results"`
-	Errors    []string          `json:"errors"`
+	ReqID    string        `json:"req-id"`
+	URL      string        `json:"url"`
+	Type     string        `json:"type"`
+	Status   string        `json:"status"`
+	Worker   string        `json:"worker,omitempty"`
+	Progress int           `json:"progress"`
+	Results  []CheckResult `json:"results"`
+	Errors   []string      `json:"errors"`
 }
 
 type CheckResult struct {
-	ID     string `json:"id"`
-	Result string `json:"result"`
+	ID     string   `json:"id"`
+	Result string   `json:"result"`
 	Pages  []string `json:"pages,omitempty"`
-	About  string `json:"about,omitempty"`
+	About  string   `json:"about,omitempty"`
 }
 
 var ErrorCodes = map[string]string{
@@ -49,7 +74,12 @@ var ErrorCodes = map[string]string{
 	"ERR_INTERNAL":            "internal error",
 	"ERR_INVALID_URL":         "invalid URL",
 	"ERR_INVALID_TYPE":        "invalid check type",
-	"ERR_UNAUTHORIZED":        "invalid secret",
+	"ERR_UNAUTHORIZED":        "unauthorized",
+	"ERR_FORBIDDEN":           "forbidden",
+	"ERR_GUEST_LIMIT":         "guest check limit reached",
+	"ERR_INVALID_CREDENTIALS": "invalid credentials",
+	"ERR_EMAIL_EXISTS":        "email already exists",
+	"ERR_WEAK_PASSWORD":       "password is too weak",
 	"ERR_PAGE_OPEN_TIMEOUT":   "page open timeout",
 	"ERR_AI_FAILED":           "AI check failed",
 	"ERR_CONCURRENCY_LIMIT":   "max concurrency reached",
