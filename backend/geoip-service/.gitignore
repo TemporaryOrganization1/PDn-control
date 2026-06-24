@@ -1,5 +1,4 @@
 # Binary
-/go.sum
 /geoip-service
 
 # Environment (only exact .env file, not .env.example)

@@ -1,36 +1,33 @@
 # PDn-control
 
-A website compliance checker for Federal Law No. 152 (FL-152) and related Russian regulations.  
+A website compliance checker for Federal Law No. 152 (FL-152) and related Russian regulations.
 Crawls a target site, runs security and legal checks, and displays violations with evidence from real crawler data.
 
 ## Architecture
 
+```text
+Frontend (React)
+      |
+      v
+Main Backend (Go/Echo)
+      |
+      v
+Crawler Workers (Puppeteer/Node)
+
+GeoIP Service (Go) -> PostgreSQL + GeoIP data
 ```
-┌──────────┐    ┌─────────────┐    ┌───────────────────┐
-│ Frontend │───→│ Main Backend│───→│ Crawler Workers   │
-│  (React) │    │   (Go/Echo) │    │ (Puppeteer/Node)  │
-└──────────┘    └──────┬──────┘    └───────────────────┘
-                       │
-              ┌────────┴────────┐
-              │   Auth Service  │
-              │   (Go/Echo)     │
-              └────────┬────────┘
-                       │
-              ┌────────┴────────┐
-              │   PostgreSQL    │
-              │   + GeoIP       │
-              └─────────────────┘
-```
+
+The application includes built-in email/password accounts in the main backend. Anonymous guests can run 3 accepted checks per browser device; authenticated users are not limited by that guest quota.
 
 ## Local Setup
 
 ### Prerequisites
 
-- [Docker](https://docs.docker.com/engine/install/) & [Docker Compose](https://docs.docker.com/compose/install/)
-- [Node.js](https://nodejs.org/) 20+ (for frontend dev server only)
+- [Docker](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
+- [Node.js](https://nodejs.org/) 20+ for frontend dev server only
 - [OpenRouter API key](https://openrouter.ai/keys)
 
-### 1. Clone & prepare environment
+### 1. Clone and prepare environment
 
 ```bash
 git clone https://github.com/TemporaryOrganization1/PDn-control
@@ -39,12 +36,12 @@ cd PDn-control
 # Create .env with your keys
 cat > .env << 'EOF'
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
-JWT_SECRET=generate-a-random-64-char-string-here
-VITE_API_SECRET=top-secret-key
+WORKER_SECRET=replace-with-a-long-random-secret
+COOKIE_SECURE=false
 EOF
 ```
 
-### 2. Start all services (Docker)
+### 2. Start all services with Docker
 
 ```bash
 docker-compose up --build
@@ -52,20 +49,17 @@ docker-compose up --build
 
 This starts:
 
-| Service          | Container name     | Port                |
-|------------------|--------------------|---------------------|
-| PostgreSQL       | postgres           | 5432                |
-| GeoIP service    | geoip-service      | 8080                |
-| Main backend API | main-backend       | 4000                |
-| Crawler worker 1 | crawler-worker-1   | 3001                |
-| Crawler worker 2 | crawler-worker-2   | 3002                |
-| Crawler worker 3 | crawler-worker-3   | 3003                |
-| Auth service     | auth-service       | 8081                |
-| Frontend         | frontend           | 80                  |
+| Service          | Container name     | Port |
+|------------------|--------------------|------|
+| Frontend         | frontend           | 80   |
+| Main backend API | main-backend       | internal |
+| Crawler workers  | crawler-worker-*   | internal |
+| GeoIP service    | geoip-service      | internal |
+| PostgreSQL       | postgres           | internal |
 
 The frontend is served at [http://localhost](http://localhost).
 
-### 3. (Alternative) Run frontend in dev mode
+### 3. Run frontend in dev mode
 
 ```bash
 cd frontend
@@ -77,11 +71,10 @@ The dev server runs at [http://localhost:5173](http://localhost:5173) with hot r
 
 ## API
 
-| Service       | Base URL              | Docs                          |
-|---------------|-----------------------|-------------------------------|
-| Main API      | `http://localhost:4000/api` | [`api/openapi.yaml`](api/openapi.yaml) |
-| Auth API      | `http://localhost:8081/api/v1/auth` | — |
-| GeoIP API     | `http://localhost:8080/api/v1` | — |
+| Service   | Base URL                    | Docs |
+|-----------|-----------------------------|------|
+| Main API  | `http://localhost/api` | [`api/openapi.yaml`](api/openapi.yaml) |
+| GeoIP API | internal Docker network only | - |
 
 A Swagger UI is available at [http://localhost/swagger.html](http://localhost/swagger.html).
 

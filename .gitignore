@@ -1,7 +1,6 @@
 node_modules/
 dist/
+.pnpm-store/
 .DS_Store
 *.log
-go.sum
-backend/geoip-service/go.sum
 .env

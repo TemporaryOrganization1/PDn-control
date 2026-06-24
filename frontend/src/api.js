@@ -1,76 +1,32 @@
 const API_BASE = '/api';
-const AUTH_BASE = 'http://localhost:8081';
-const SECRET = import.meta.env.VITE_API_SECRET || 'top-secret-key';
 
-// ─── Auth API ───────────────────────────────────────────────
-
-export async function register(email, name, surname, password) {
-  const res = await fetch(`${AUTH_BASE}/api/v1/auth/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, name, surname, password }),
-  });
-  const data = await res.json();
-  if (data.code !== 'ERR_OK') throw new Error(data.msg);
-  return data;
-}
-
-export async function login(email, password) {
-  const res = await fetch(`${AUTH_BASE}/api/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await res.json();
-  if (data.code) throw new Error(data.msg);
-  return data; // {access_token, refresh_token, expires_in}
-}
-
-export async function getMe(accessToken) {
-  const res = await fetch(`${AUTH_BASE}/api/v1/auth/me`, {
-    headers: { 'Authorization': `Bearer ${accessToken}` },
-  });
-  const data = await res.json();
-  if (data.code !== 'ERR_OK') throw new Error(data.msg);
-  return data.data;
-}
-
-export async function refreshTokens(refreshToken) {
-  const res = await fetch(`${AUTH_BASE}/api/v1/auth/refresh`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  const data = await res.json();
-  if (data.code) throw new Error(data.msg);
-  return data;
-}
-
-// ─── Check API ──────────────────────────────────────────────
-
-export async function startCheck(url, type = 'detail', accessToken = null) {
-  const normalized = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
-  const headers = { 'Content-Type': 'application/json' };
-  if (accessToken) {
-    headers['Authorization'] = `Bearer ${accessToken}`;
+async function parseResponse(res) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || (data.code && data.code !== 'ERR_OK')) {
+    const err = new Error(data.msg || data.code || `HTTP ${res.status}`);
+    err.code = data.code;
+    err.status = res.status;
+    err.data = data.data;
+    throw err;
   }
+  return data;
+}
+
+export async function startCheck(url, type = 'detail') {
+  const normalized = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
   const res = await fetch(`${API_BASE}/check`, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ url: normalized, type, secret: SECRET }),
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ url: normalized, type }),
   });
-  const data = await res.json();
-  if (data.code !== 'ERR_OK') {
-    if (data.code === 'ERR_GUEST_LIMIT_REACHED') {
-      throw new Error('GUEST_LIMIT_REACHED');
-    }
-    throw new Error(data.msg || data.code);
-  }
-  return data;
+  return parseResponse(res);
 }
 
 export async function getProgress(reqId) {
-  const res = await fetch(`${API_BASE}/progress/${encodeURIComponent(reqId)}`);
+  const res = await fetch(`${API_BASE}/progress/${encodeURIComponent(reqId)}`, {
+    credentials: 'include',
+  });
   if (!res.ok) {
     if (res.status === 404) throw new Error('Task not found');
     throw new Error(`HTTP ${res.status}`);
@@ -78,25 +34,160 @@ export async function getProgress(reqId) {
   return res.json();
 }
 
+export async function getMe() {
+  const res = await fetch(`${API_BASE}/auth/me`, {
+    credentials: 'include',
+  });
+  return parseResponse(res);
+}
+
+export async function login(email, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+  return parseResponse(res);
+}
+
+export async function register(email, password) {
+  const res = await fetch(`${API_BASE}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+  return parseResponse(res);
+}
+
+export async function logout() {
+  const res = await fetch(`${API_BASE}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+  return parseResponse(res);
+}
+
+export async function changePassword(currentPassword, newPassword) {
+  const res = await fetch(`${API_BASE}/auth/change-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return parseResponse(res);
+}
+
 const CHECK_INFO = {
-  'https':              { label: 'Незащищённые HTTP-соединения',        severity: 'Высокий',  color: 'bg-orange-500', art: 'HTTPS' },
-  'ssl/tls':            { label: 'SSL/TLS: небезопасное соединение',     severity: 'Критично',  color: 'bg-red-500',    art: 'SSL' },
-  'ips':                { label: 'Серверы за пределами РФ',             severity: 'Высокий',  color: 'bg-orange-500', art: 'Геолокация' },
-  'cookie-ads':         { label: 'Сторонние трекеры и реклама',         severity: 'Средний',  color: 'bg-blue-500',   art: 'Трекеры' },
-  'sep-consent':        { label: 'Нет отдельного согласия на обработку ПД', severity: 'Критично', color: 'bg-red-500', art: 'Ст. 9' },
-  'foreign-words':      { label: 'Использование иностранных слов в документах', severity: 'Низкий', color: 'bg-gray-400', art: 'Язык' },
-  'privacy-policy':     { label: 'Политика конфиденциальности не найдена', severity: 'Критично', color: 'bg-red-500', art: 'Политика' },
-  'cookie-banner':      { label: 'Отсутствует баннер cookie-согласия',  severity: 'Средний',  color: 'bg-blue-500',   art: 'Cookie' },
-  'consent-forms':      { label: 'Нет форм согласия на обработку ПД',   severity: 'Высокий',  color: 'bg-orange-500', art: 'Формы' },
-  'email-pdn':          { label: 'Нет email для запросов по ПД',        severity: 'Средний',  color: 'bg-blue-500',   art: 'Контакты' },
-  'ad-marking':         { label: 'Отсутствует маркировка рекламы',      severity: 'Средний',  color: 'bg-blue-500',   art: 'Реклама' },
-  'minors-data':        { label: 'Обработка данных несовершеннолетних', severity: 'Критично',  color: 'bg-red-500',    art: 'Дети' },
-  'special-categ':      { label: 'Обработка спецкатегорий ПД',          severity: 'Высокий',  color: 'bg-orange-500', art: 'Спецкатегории' },
-  'forms':              { label: 'Формы сбора ПД без согласия',         severity: 'Высокий',  color: 'bg-orange-500', art: 'Формы' },
+  https: {
+    passLabel: 'HTTP-соединения не обнаружены',
+    failLabel: 'Обнаружены незащищенные HTTP-соединения',
+    severity: 'Высокий',
+    color: 'bg-orange-500',
+    art: 'HTTPS',
+  },
+  'ssl/tls': {
+    passLabel: 'SSL/TLS-соединения настроены корректно',
+    failLabel: 'SSL/TLS: небезопасное соединение',
+    severity: 'Критично',
+    color: 'bg-red-500',
+    art: 'SSL',
+  },
+  ips: {
+    passLabel: 'Серверы расположены в допустимых юрисдикциях',
+    failLabel: 'Серверы за пределами РФ',
+    severity: 'Высокий',
+    color: 'bg-orange-500',
+    art: 'Геолокация',
+  },
+  'cookie-ads': {
+    passLabel: 'Сторонние трекеры и реклама не обнаружены',
+    failLabel: 'Обнаружены сторонние трекеры или реклама',
+    severity: 'Средний',
+    color: 'bg-blue-500',
+    art: 'Трекеры',
+  },
+  'sep-consent': {
+    passLabel: 'Отдельное согласие на обработку ПД найдено',
+    failLabel: 'Нет отдельного согласия на обработку ПД',
+    severity: 'Критично',
+    color: 'bg-red-500',
+    art: 'Ст. 9',
+  },
+  'foreign-words': {
+    passLabel: 'Иностранные слова без перевода не обнаружены',
+    failLabel: 'Использование иностранных слов без перевода',
+    severity: 'Низкий',
+    color: 'bg-gray-400',
+    art: 'Язык',
+  },
+  'privacy-policy': {
+    passLabel: 'Политика конфиденциальности найдена',
+    failLabel: 'Политика конфиденциальности не найдена',
+    severity: 'Критично',
+    color: 'bg-red-500',
+    art: 'Политика',
+  },
+  'cookie-banner': {
+    passLabel: 'Cookie-баннер согласия найден',
+    failLabel: 'Отсутствует корректный cookie-баннер согласия',
+    severity: 'Средний',
+    color: 'bg-blue-500',
+    art: 'Cookie',
+  },
+  'consent-forms': {
+    passLabel: 'Формы согласия на обработку ПД найдены',
+    failLabel: 'Нет форм согласия на обработку ПД',
+    severity: 'Высокий',
+    color: 'bg-orange-500',
+    art: 'Формы',
+  },
+  'email-pdn': {
+    passLabel: 'Email для запросов по ПД найден',
+    failLabel: 'Нет email для запросов по ПД',
+    severity: 'Средний',
+    color: 'bg-blue-500',
+    art: 'Контакты',
+  },
+  'ad-marking': {
+    passLabel: 'Присутствует маркировка рекламы',
+    failLabel: 'Отсутствует маркировка рекламы',
+    severity: 'Средний',
+    color: 'bg-blue-500',
+    art: 'Реклама',
+  },
+  'minors-data': {
+    passLabel: 'Нарушений по данным несовершеннолетних не обнаружено',
+    failLabel: 'Проблемы с обработкой данных несовершеннолетних',
+    severity: 'Критично',
+    color: 'bg-red-500',
+    art: 'Дети',
+  },
+  'special-categ': {
+    passLabel: 'Спецкатегории ПД не обрабатываются или оформлены корректно',
+    failLabel: 'Проблемы с обработкой спецкатегорий ПД',
+    severity: 'Высокий',
+    color: 'bg-orange-500',
+    art: 'Спецкатегории',
+  },
+  forms: {
+    passLabel: 'Формы сбора ПД оформлены корректно',
+    failLabel: 'Формы сбора ПД без согласия',
+    severity: 'Высокий',
+    color: 'bg-orange-500',
+    art: 'Формы',
+  },
 };
 
-export function getCheckInfo(id) {
-  return CHECK_INFO[id] || { label: id, severity: 'Средний', color: 'bg-blue-500', art: id };
+export function getCheckInfo(id, result) {
+  const info = CHECK_INFO[id];
+  if (!info) return { label: id, severity: 'Средний', color: 'bg-blue-500', art: id };
+
+  return {
+    ...info,
+    label: result === 'ok' ? info.passLabel : info.failLabel,
+  };
 }
 
 export function calcRiskScore(results) {

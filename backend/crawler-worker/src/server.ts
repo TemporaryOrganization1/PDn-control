@@ -40,7 +40,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
     return;
   }
 
-  const { url, type, 'req-id': reqId, fallback } = parsed;
+  const { url, type, 'req-id': reqId, fallback, 'progress-secret': progressSecret } = parsed;
 
   if (!url || !type || !reqId) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -72,7 +72,11 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
         port: urlObj.port,
         path: urlObj.pathname,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) },
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          ...(progressSecret ? { 'X-Worker-Secret': progressSecret } : {}),
+        },
       };
       const r = http.request(options);
       r.write(payload);

@@ -122,7 +122,7 @@
 <fieldset>
     <legend>Global Config</legend>
     <label>Base URL:</label>
-    <input type="text" id="baseUrl" value="http://localhost:4000">
+    <input type="text" id="baseUrl" value="http://localhost">
 </fieldset>
 
 <!-- 1. HEALTH -->
@@ -148,19 +148,11 @@
 <!-- 3. CHECK -->
 <fieldset>
     <legend>3. POST /api/check</legend>
-    <div class="row">
-        <div>
-            <label>Secret Key *</label>
-            <input type="text" id="chk_secret" value="my-super-secret">
-        </div>
-        <div>
-            <label>Check Type *</label>
-            <select id="chk_type">
-                <option value="fast">fast</option>
-                <option value="detail">detail</option>
-            </select>
-        </div>
-    </div>
+    <label>Check Type *</label>
+    <select id="chk_type">
+        <option value="fast">fast</option>
+        <option value="detail">detail</option>
+    </select>
     <label>Target URL *</label>
     <input type="text" id="chk_url" value="https://example.com">
     <div class="row">
@@ -210,6 +202,8 @@
             <input type="text" id="up_status" value="processing">
         </div>
     </div>
+    <label>Worker Secret *</label>
+    <input type="text" id="up_worker_secret" value="change-me-worker-secret">
     <div class="row">
         <div>
             <label>Completed Steps/URLs (comma separated)</label>
@@ -248,7 +242,7 @@
         }
     }
 
-    async function sendRequest(method, path, bodyObj, reqBoxId, resBoxId) {
+    async function sendRequest(method, path, bodyObj, reqBoxId, resBoxId, extraHeaders = {}) {
         const baseUrl = getBase();
         const url = baseUrl + path;
         const reqEl = document.getElementById(reqBoxId);
@@ -267,10 +261,12 @@
 
         // 2. Execute the actual fetch
         try {
-            const fetchOpts = { method: method };
+            const fetchOpts = { method: method, credentials: 'include' };
             if (bodyObj) {
-                fetchOpts.headers = { 'Content-Type': 'application/json' };
+                fetchOpts.headers = { 'Content-Type': 'application/json', ...extraHeaders };
                 fetchOpts.body = JSON.stringify(bodyObj);
+            } else if (Object.keys(extraHeaders).length > 0) {
+                fetchOpts.headers = extraHeaders;
             }
 
             const response = await fetch(url, fetchOpts);
@@ -316,7 +312,6 @@
 
     function executeCheck() {
         const body = {
-            secret: document.getElementById('chk_secret').value,
             url: document.getElementById('chk_url').value,
             type: document.getElementById('chk_type').value
         };
@@ -383,7 +378,8 @@
             }
         }
 
-        sendRequest('POST', '/api/progress', body, 'req5', 'res5');
+        const workerSecret = document.getElementById('up_worker_secret').value.trim();
+        sendRequest('POST', '/api/progress', body, 'req5', 'res5', { 'X-Worker-Secret': workerSecret });
     }
 </script>
 
