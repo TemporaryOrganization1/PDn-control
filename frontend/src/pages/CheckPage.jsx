@@ -1,12 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart3, ChevronRight, FileText, Scale, Search, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { startCheck as apiStartCheck } from '../api';
+import { startCheck as apiStartCheck, getGuestRemaining } from '../api';
 
-export default function CheckPage({ onStartScan, onAuthRequired, user, guest }) {
+export default function CheckPage({ onStartScan, onAuthRequired, user }) {
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [guestRemaining, setGuestRemaining] = useState(null);
+  const [guestLimit, setGuestLimit] = useState(3);
+
+  // Fetch guest remaining count on mount if user is not authenticated
+  useEffect(() => {
+    if (!user) {
+      getGuestRemaining()
+        .then((data) => {
+          setGuestRemaining(data.remaining);
+          setGuestLimit(data.limit);
+        })
+        .catch(() => {
+          setGuestRemaining(null);
+        });
+    } else {
+      setGuestRemaining(null);
+    }
+  }, [user]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,13 +34,27 @@ export default function CheckPage({ onStartScan, onAuthRequired, user, guest }) 
     setLoading(true);
     try {
       const resp = await apiStartCheck(url, 'detail');
-      onStartScan(url, resp['req-id'], resp.data?.guest);
+
+      // Update guest remaining from response if present
+      if (resp.data?.guest) {
+        setGuestRemaining(resp.data.guest.remaining);
+        setGuestLimit(resp.data.guest.limit);
+      } else if (!user) {
+        // Refetch from server
+        getGuestRemaining().then((data) => {
+          setGuestRemaining(data.remaining);
+          setGuestLimit(data.limit);
+        });
+      }
+
+      onStartScan(url, resp['req-id']);
     } catch (err) {
-      setError(
-        err.code === 'ERR_GUEST_LIMIT'
-          ? 'Гостевой лимит исчерпан. Войдите или зарегистрируйтесь, чтобы продолжить проверки.'
-          : err.message || 'Не удалось запустить проверку',
-      );
+      if (err.code === 'ERR_GUEST_LIMIT') {
+        setError('Гостевой лимит исчерпан. Войдите или зарегистрируйтесь, чтобы продолжить проверки.');
+        setGuestRemaining(0);
+      } else {
+        setError(err.message || 'Не удалось запустить проверку');
+      }
     } finally {
       setLoading(false);
     }
@@ -58,9 +90,10 @@ export default function CheckPage({ onStartScan, onAuthRequired, user, guest }) 
         </div>
       )}
 
-      {!user && guest && (
+      {/* Guest remaining indicator — only for non-authenticated users */}
+      {!user && guestRemaining !== null && guestRemaining > 0 && (
         <div className="w-full max-w-2xl text-xs text-gray-400 mb-4 text-left">
-          Осталось гостевых проверок: {guest.remaining} из {guest.limit}
+          Осталось гостевых проверок: {guestRemaining} из {guestLimit}
         </div>
       )}
 
@@ -77,7 +110,7 @@ export default function CheckPage({ onStartScan, onAuthRequired, user, guest }) 
         />
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (!user && guestRemaining !== null && guestRemaining <= 0)}
           className="absolute right-2 top-1/2 -translate-y-1/2 bg-[#7c7c82] hover:bg-black text-white px-6 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Запуск...' : 'Проверить'} <ChevronRight size={16} />

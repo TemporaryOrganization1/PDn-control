@@ -22,14 +22,16 @@ import (
 )
 
 type Config struct {
-	ServerPort      string   `json:"serverPort"`
-	DatabaseURL     string   `json:"databaseUrl"`
-	CookieSecure    bool     `json:"cookieSecure"`
-	SessionTTLHours int      `json:"sessionTtlHours"`
-	GuestLimit      int      `json:"guestLimit"`
-	WorkerSecret    string   `json:"workerSecret"`
-	AllowedOrigins  []string `json:"allowedOrigins"`
-	Workers         []Worker `json:"workers"`
+	ServerPort           string   `json:"serverPort"`
+	DatabaseURL          string   `json:"databaseUrl"`
+	CookieSecure         bool     `json:"cookieSecure"`
+	SessionTTLHours      int      `json:"sessionTtlHours"`
+	GuestLimit           int      `json:"guestLimit"`
+	GuestCacheMaxItems   int      `json:"guestCacheMaxItems"`
+	GuestCacheTTLMinutes int      `json:"guestCacheTTLMinutes"`
+	WorkerSecret         string   `json:"workerSecret"`
+	AllowedOrigins       []string `json:"allowedOrigins"`
+	Workers              []Worker `json:"workers"`
 }
 
 type Worker struct {
@@ -48,7 +50,6 @@ type Server struct {
 
 const (
 	sessionCookieName = "pdn_session"
-	guestCookieName   = "pdn_guest_id"
 )
 
 func NewServer(cfg Config) (*Server, error) {
@@ -57,6 +58,12 @@ func NewServer(cfg Config) (*Server, error) {
 	}
 	if cfg.GuestLimit <= 0 {
 		cfg.GuestLimit = 3
+	}
+	if cfg.GuestCacheMaxItems <= 0 {
+		cfg.GuestCacheMaxItems = 10000
+	}
+	if cfg.GuestCacheTTLMinutes <= 0 {
+		cfg.GuestCacheTTLMinutes = 1440
 	}
 	if cfg.DatabaseURL == "" {
 		cfg.DatabaseURL = "postgres://geoip:geoip_secret@postgres:5432/geoip?sslmode=disable"
@@ -80,7 +87,7 @@ func NewServer(cfg Config) (*Server, error) {
 
 	s := &Server{
 		echo:      echo.New(),
-		store:     store.New(),
+		store:     store.NewWithGuestConfig(cfg.GuestCacheMaxItems, cfg.GuestCacheTTLMinutes),
 		authStore: authStore,
 		pool:      workerpool.NewPool(workerDefs),
 		config:    cfg,
@@ -109,6 +116,7 @@ func (s *Server) registerRoutes() {
 	s.echo.POST("/api/progress", s.handleProgressUpdate)
 	s.echo.GET("/api/workers", s.handleWorkerStatus)
 	s.echo.GET("/api/health", s.handleHealth)
+	s.echo.GET("/api/guest/remaining", s.handleGuestRemaining)
 }
 
 func (s *Server) Start() error {
@@ -155,8 +163,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, models.MeResponse{
-		User:  toAuthUser(user),
-		Guest: s.guestInfo(c),
+		User: toAuthUser(user),
 	})
 }
 
@@ -182,8 +189,7 @@ func (s *Server) handleLogin(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, models.MeResponse{
-		User:  toAuthUser(user),
-		Guest: s.guestInfo(c),
+		User: toAuthUser(user),
 	})
 }
 
@@ -197,8 +203,7 @@ func (s *Server) handleLogout(c echo.Context) error {
 
 func (s *Server) handleMe(c echo.Context) error {
 	return c.JSON(http.StatusOK, models.MeResponse{
-		User:  toAuthUser(s.currentUser(c)),
-		Guest: s.guestInfo(c),
+		User: toAuthUser(s.currentUser(c)),
 	})
 }
 
@@ -230,8 +235,7 @@ func (s *Server) handleChangePassword(c echo.Context) error {
 
 	user.PasswordHash = string(hash)
 	return c.JSON(http.StatusOK, models.MeResponse{
-		User:  toAuthUser(user),
-		Guest: s.guestInfo(c),
+		User: toAuthUser(user),
 	})
 }
 
@@ -262,18 +266,27 @@ func (s *Server) handleCheck(c echo.Context) error {
 	}
 
 	user := s.currentUser(c)
-	var guestStats *auth.GuestStats
+	var guestStats *models.GuestInfo
+
 	if user == nil {
-		guestID := s.ensureGuestID(c)
-		stats, err := s.authStore.ConsumeGuestAttempt(c.Request().Context(), guestID, s.config.GuestLimit)
+		clientIP := getClientIP(c)
+		remaining, err := s.store.IncrementGuestCheck(clientIP, s.config.GuestLimit)
 		if err != nil {
 			s.pool.ReleaseWorker(worker)
-			if errors.Is(err, auth.ErrGuestLimit) {
+			if errors.Is(err, store.ErrGuestLimit) {
 				return s.errResponse(c, http.StatusForbidden, "ERR_GUEST_LIMIT", req.ReqID, "guest check limit reached")
 			}
 			return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", req.ReqID, err.Error())
 		}
-		guestStats = &stats
+		used := s.config.GuestLimit - remaining
+		if used < 0 {
+			used = s.config.GuestLimit
+		}
+		guestStats = &models.GuestInfo{
+			Limit:     s.config.GuestLimit,
+			Used:      used,
+			Remaining: remaining,
+		}
 	}
 
 	s.store.Create(req.ReqID, req.URL, req.Type)
@@ -290,6 +303,21 @@ func (s *Server) handleCheck(c echo.Context) error {
 		Code:  "ERR_OK",
 		ReqID: req.ReqID,
 		Data:  data,
+	})
+}
+
+func (s *Server) handleGuestRemaining(c echo.Context) error {
+	clientIP := getClientIP(c)
+	remaining := s.store.GetGuestRemaining(clientIP, s.config.GuestLimit)
+	used := s.config.GuestLimit - remaining
+	if used < 0 {
+		used = s.config.GuestLimit
+	}
+
+	return c.JSON(http.StatusOK, models.GuestInfo{
+		Limit:     s.config.GuestLimit,
+		Used:      used,
+		Remaining: remaining,
 	})
 }
 
@@ -446,33 +474,16 @@ func (s *Server) clearCookie(c echo.Context, name string) {
 	})
 }
 
-func (s *Server) ensureGuestID(c echo.Context) string {
-	if cookie, err := c.Cookie(guestCookieName); err == nil && cookie.Value != "" {
-		return cookie.Value
+func getClientIP(c echo.Context) string {
+	ip := c.RealIP()
+	if ip == "" {
+		ip = c.Request().RemoteAddr
 	}
-	guestID := auth.NewPublicID()
-	c.SetCookie(&http.Cookie{
-		Name:     guestCookieName,
-		Value:    guestID,
-		Path:     "/",
-		MaxAge:   60 * 60 * 24 * 365,
-		HttpOnly: true,
-		Secure:   s.config.CookieSecure,
-		SameSite: http.SameSiteLaxMode,
-	})
-	return guestID
-}
-
-func (s *Server) guestInfo(c echo.Context) models.GuestInfo {
-	guestID := ""
-	if cookie, err := c.Cookie(guestCookieName); err == nil {
-		guestID = cookie.Value
+	// Strip port if present
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		ip = ip[:idx]
 	}
-	stats, err := s.authStore.GuestStats(c.Request().Context(), guestID, s.config.GuestLimit)
-	if err != nil {
-		return models.GuestInfo{Limit: s.config.GuestLimit, Used: 0, Remaining: s.config.GuestLimit}
-	}
-	return models.GuestInfo{Limit: stats.Limit, Used: stats.Used, Remaining: stats.Remaining}
+	return ip
 }
 
 func toAuthUser(user *auth.User) *models.AuthUser {

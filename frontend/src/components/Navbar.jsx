@@ -1,6 +1,6 @@
 import { LogIn, LogOut, Menu, UserPlus } from 'lucide-react';
 
-export default function Navbar({ screen, onNavigate, user, guest, onLogin, onRegister, onLogout }) {
+export default function Navbar({ screen, onNavigate, user, onLogin, onRegister, onLogout }) {
   const navItems = [
     { id: 'check', label: 'Проверка' },
     { id: 'results', label: 'Результаты' },
@@ -60,9 +60,6 @@ export default function Navbar({ screen, onNavigate, user, guest, onLogin, onReg
           </>
         ) : (
           <>
-            <span className="hidden lg:block text-xs text-gray-400 whitespace-nowrap">
-              Гостевых проверок: {guest?.remaining ?? 3}
-            </span>
             <button
               onClick={onLogin}
               className="p-2 rounded-lg hover:bg-gray-100"

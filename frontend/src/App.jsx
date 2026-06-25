@@ -10,15 +10,15 @@ import ResultsPage from './pages/ResultsPage';
 export default function App() {
   const [screen, setScreen] = useState('check');
   const [scan, setScan] = useState(null);
-  const [auth, setAuth] = useState({ user: null, guest: { limit: 3, used: 0, remaining: 3 } });
+  const [user, setUser] = useState(null);
   const [authModal, setAuthModal] = useState(null);
 
   const refreshAuth = async () => {
     try {
       const data = await getMe();
-      setAuth(data);
+      setUser(data.user);
     } catch {
-      setAuth({ user: null, guest: { limit: 3, used: 0, remaining: 3 } });
+      setUser(null);
     }
   };
 
@@ -26,9 +26,8 @@ export default function App() {
     refreshAuth();
   }, []);
 
-  const startScan = (scanUrl, reqId, guest) => {
+  const startScan = (scanUrl, reqId) => {
     setScan({ url: scanUrl, reqId });
-    if (guest) setAuth((prev) => ({ ...prev, guest }));
     setScreen('results');
   };
 
@@ -40,7 +39,7 @@ export default function App() {
 
   const navigate = (nextScreen) => {
     if (nextScreen === 'results' && !scan) return;
-    if (nextScreen === 'account' && !auth.user) {
+    if (nextScreen === 'account' && !user) {
       setAuthModal('login');
       return;
     }
@@ -52,8 +51,7 @@ export default function App() {
       <Navbar
         screen={screen}
         onNavigate={navigate}
-        user={auth.user}
-        guest={auth.guest}
+        user={user}
         onLogin={() => setAuthModal('login')}
         onRegister={() => setAuthModal('register')}
         onLogout={handleLogout}
@@ -64,8 +62,7 @@ export default function App() {
           {screen === 'check' && (
             <motion.div key="check" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <CheckPage
-                guest={auth.guest}
-                user={auth.user}
+                user={user}
                 onStartScan={startScan}
                 onAuthRequired={() => setAuthModal('register')}
               />
@@ -78,9 +75,9 @@ export default function App() {
             </motion.div>
           )}
 
-          {screen === 'account' && auth.user && (
+          {screen === 'account' && user && (
             <motion.div key="account" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <AccountPage user={auth.user} onAuthed={(data) => setAuth(data)} />
+              <AccountPage user={user} onAuthed={(data) => setUser(data.user)} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -90,7 +87,10 @@ export default function App() {
         <AuthModal
           mode={authModal}
           onClose={() => setAuthModal(null)}
-          onAuthed={(data) => setAuth(data)}
+          onAuthed={(data) => {
+            setUser(data.user);
+            setAuthModal(null);
+          }}
         />
       )}
 
