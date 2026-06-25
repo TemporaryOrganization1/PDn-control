@@ -12,6 +12,13 @@ async function parseResponse(res) {
   return data;
 }
 
+export async function getGuestRemaining() {
+  const res = await fetch(`${API_BASE}/guest/remaining`, {
+    credentials: 'include',
+  });
+  return parseResponse(res);
+}
+
 export async function startCheck(url, type = 'detail') {
   const normalized = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
   const res = await fetch(`${API_BASE}/check`, {

@@ -15,7 +15,7 @@ ONLY check for the presence of a cookie banner with specific buttons.
 
 1. "Separate Consent Document (152-FZ Art. 9, effective 01.09.2025)"
    - id - "sep-consent"
-   - Look for: A dedicated, separate document explicitly titled "Согласие на обработку персональных данных" (or similar).
+   - Look for: A dedicated, separate document explicitly titled "Согласие на обработку персональных данных", "Политика обработки персональных данных" or "Политика обработки данных" (or similar).
    - fail: Consent is embedded inside User Agreement / Terms of Service / Privacy Policy.
    - ok: Separate document exists as a distinct page or a distinct checkblock.
 
@@ -27,7 +27,7 @@ ONLY check for the presence of a cookie banner with specific buttons.
 
 3. "Privacy Policy (152-FZ Art. 18)"
    - id - "privacy-policy"
-   - Look for: Document named "Политика обработки персональных данных" or "Privacy Policy".
+   - Look for: Document, Page named "Политика конфиденциальности" or "Privacy Policy".
    - FAIL: No document found. Document exists but lacks: purposes of data processing, list of collected data, retention periods, data destruction procedure.
    - PASS: Complete document exists and is linked in footer.
 
@@ -72,31 +72,25 @@ ONLY check for the presence of a cookie banner with specific buttons.
    - FAIL: Collecting special category data without explicit written consent and exceptional legal basis.
    - PASS: No special categories collected.
 
+=== SELECTED LANGUAGE ===
+Selected language is RU or Russian.
+
+=== REPORT ERRORS ===
+For each found check report call function tool only if the result is not 'ok'. If the result is 'fail' for FAIL, 'warn' for WARN and the pages URL of data. 
+You can write brief description about error in clear russian. Give the results of found checks using function tool "reportError". 
+Field "about" must be in this language.
+
+{
+    "id": "minors-data",
+    "result": "fail",
+    "pages": ["https://example.com/fitness", "https://example.com/personal-data"],
+    "about": "не имеет форм где нужно получение согласие родителей"
+}
+
+Do not report the same error twice only if you have another different error on the same check report.
+
 === OUTPUT FORMAT ===
-For each check print in JSON format the result is 'ok' for PASS, 'fail' for FAIL, 'warn' for WARN and the pages URL of data. 
-You can write brief description about error in clear english. Give the result in \`\`\`json ... \`\`\` format. Finish the chat with all results as 'ok' if 
-the main page doesn't exist and tools return NOT FOUND.
-Example:
-\`\`\`json
-[
-    {
-        "id": "minors-data",
-        "result": "fail",
-        "pages": ["https://example.com/fitness", "https://example.com/personal-data"],
-        "about": "has no parental consent mechanism"
-    },
-    {
-        "id": "privacy-policy",
-        "result": "ok",
-        "pages": ["https://example.com/privacy-policy.pdf"],
-        "about": "has no parental consent mechanism"
-    },
-    {
-        "id": "ad-marking",
-        "result": "ok"
-    }
-]
-\`\`\`
+If you have finished you review use function tool "reportFinish". Use selected language.
 
 === VISITS ===
 It's more preferable if you will visit as more pages if you wish.
@@ -114,142 +108,223 @@ type MessageType = {
   'content': string
 };
 
+type ReportData = {
+  checks: {
+    id: string;
+    about: string;
+    pages: string[];
+    result: "ok" | "fail" | "warn";
+  }[];
+};
+
 export async function checkAi(sr: Data) {
-  const key = config.openrouter.apiKey || process.env.OPENROUTER_API_KEY || '';
-  const b = prompt + sr.baseUrl;
-  const tries = 10;
-  const model = config.openrouter.model || 'google/gemma-4-31b-it';
-  const maxTextSize = config.worker.maxTextSize || 500000;
-  const visitedPages = new Set<string>();
+    const key = config.openrouter.apiKey || process.env.OPENROUTER_API_KEY || '';
+    const b = prompt + sr.baseUrl;
+    const tries = 10;
+    const model = config.openrouter.model || 'google/gemma-4-31b-it';
+    const maxTextSize = config.worker.maxTextSize || 500000;
 
-  const messages: MessageType[] = [{
-    'role': 'system',
-    'content': b + prompt_tries + String(tries)
-  }];
+    const messages: MessageType[] = [{
+        'role': 'system',
+        'content': b + prompt_tries + String(tries)
+    }];
 
-  let openrouter = new OpenRouter({ apiKey: key });
-  let zzp = 0;
+    let openrouter = new OpenRouter({ apiKey: key });
+    let foundChecks: {[key: string]: boolean} = {};
 
-  for (let i = 0; i < tries; i++) {
-    const stream = await openrouter.chat.send({
-      "chatRequest": {
-        "model": model,
-        "messages": messages,
-        "stream": false,
-        "tools": [
-          {
-            "type": "function",
-            "function": {
-              "name": "open",
-              "description": "Open rendered page content by URL |url| from browser Google Chrome. The page is treated as a file if it exceeds maxTextSize. Use it to open page.",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "url": {
-                    "type": "string",
-                    "description": "The URL of the webpage to fetch and render"
-                  }
+    for (let i = 0; i < tries; i++) {
+        try {
+            const stream = await openrouter.chat.send({
+            "chatRequest": {
+                "model": model,
+                "messages": messages,
+                "stream": false,
+                "plugins": [
+                    {
+                        "id": "context-compression",
+                        "enabled": true
+                    }
+                ],
+                "tools": [
+                {
+                    "type": "function",
+                    "function": {
+                    "name": "open",
+                    "description": "Open rendered page content by URL |url| from browser Google Chrome. The page is treated as a file if it exceeds maxTextSize. Use it to open page.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "The URL of the webpage to fetch and render"
+                        }
+                        },
+                        "required": ["url"]
+                    }
+                    }
                 },
-                "required": ["url"]
-              }
-            }
-          },
-          {
-            "type": "function",
-            "function": {
-              "name": "eval_js",
-              "description": "Execute JavaScript code on the current page and return the result",
-              "parameters": {
-                "type": "object",
-                "properties": {
-                  "code": {
-                    "type": "string",
-                    "description": "JavaScript code to execute on the page (e.g. document.title, document.querySelectorAll('a').length). Example: (function () { return 5; })(); - returns 5"
-                  }
+                {
+                    "type": "function",
+                    "function": {
+                    "name": "eval_js",
+                    "description": "Execute JavaScript code on the current page and return the result",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                        "code": {
+                            "type": "string",
+                            "description": "JavaScript code to execute on the page (e.g. document.title, document.querySelectorAll('a').length). Example: (function () { return 5; })(); - returns 5"
+                        }
+                        },
+                        "required": ["code"]
+                    }
+                    }
                 },
-                "required": ["code"]
-              }
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "reportError",
+                        "description": "Report errors or warnings from page checks",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "checks": {
+                                    "type": "array",
+                                    "description": "List of found check results on current iteration",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {
+                                                "type": "string",
+                                                "description": "Unique identifier of the check"
+                                            },
+                                            "about": {
+                                                "type": "string",
+                                                "description": "About of found error in selected language. Use selected language. So in clear russian"
+                                            },
+                                            "pages": {
+                                                "type": "array",
+                                                "description": "List of URLs where the error or warn was found",
+                                                "items": {
+                                                    "type": "string",
+                                                    "format": "uri"
+                                                }
+                                            },
+                                            "result": {
+                                                "type": "string",
+                                                "enum": ["fail", "warn"],
+                                                "description": "Result status of the check"
+                                            }
+                                        },
+                                        "required": ["id", "about", "result", "pages"]
+                                    }
+                                }
+                            },
+                            "required": ["checks"]
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "finishReport",
+                        "description": "Finish your report",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "about": {
+                                    "type": "string",
+                                    "description": "About the website, debug information. Use selected language. So in clear Russian"
+                                }
+                            },
+                            "required": ["about"]
+                        }
+                    }
+                }
+                ]
             }
-          }
-        ]
-      }
-    });
+            });
 
-    const msg = stream.choices[0]?.message;
-    if (!msg) break;
+            const msg = stream.choices[0]?.message;
+            if (!msg) break;
 
-    if (msg.toolCalls) {
-      let sz = msg.toolCalls.length;
+            if (msg.toolCalls) {
+                let sz = msg.toolCalls.length;
 
-      while (msg.toolCalls.length) {
-        const toolCall = msg.toolCalls[msg.toolCalls.length - 1];
-        msg.toolCalls.pop();
+                while (msg.toolCalls.length) {
+                    const toolCall = msg.toolCalls[msg.toolCalls.length - 1];
+                    msg.toolCalls.pop();
 
-        if (toolCall && toolCall.type == "function") {
-          const func = toolCall.function;
+                    if (toolCall && toolCall.type == "function") {
+                    const func = toolCall.function;
 
-          if (func.name == "open") {
-            messages.push({ 'role': 'assistant', 'content': func.arguments });
+                    if (func.name == "open") {
+                        messages.push({ 'role': 'assistant', 'content': func.arguments });
 
-            const args = JSON.parse(func.arguments) as { url: string; };
-            let content = `=== REQUEST URL ===\nurl:${args.url}\n` + prompt_tries + String(tries - i);
+                        const args = JSON.parse(func.arguments) as { url: string; };
+                        let content = `=== REQUEST URL ===\nurl:${args.url}\n` + prompt_tries + String(tries - i);
 
-            console.log(`Visit ${args.url}`);
+                        console.log(`Visit ${args.url}`);
 
-            if (await sr.open(args.url)) {
-              const fullContent = await sr.page.content();
-              const isLargeFile = fullContent.length > maxTextSize;
-              
-              content += `\n === OPENED ${args.url} ===\n`;
-              content += `\n isLargeFile=${isLargeFile}\n\n\n`;
-            } else {
-              content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
+                        if (await sr.open(args.url)) {
+                        const fullContent = await sr.page.content();
+                        const isLargeFile = fullContent.length > maxTextSize;
+                        
+                        content += `\n === OPENED ${args.url} ===\n`;
+                        content += `\n isLargeFile=${isLargeFile}\n\n\n`;
+                        } else {
+                        content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
+                        }
+                        
+                        messages.push({ 'role': 'system', 'content': content });
+
+                    } else if (func.name == "eval_js") {
+                        messages.push({ 'role': 'assistant', 'content': func.arguments });
+
+                        const args = JSON.parse(func.arguments) as { code: string };
+                        console.log (args.code);
+                        let result = '';
+                        try {
+                        const pageResult = await sr.page.evaluate(args.code);
+                        result = JSON.stringify(pageResult, null, 2);
+                        } catch (e: any) {
+                        result = `JS Error: ${e.message || String(e)}`;
+                        }
+                        messages.push({ 'role': 'system', content: ' === JS EVAL RESULT ===\n' + result + '\n === END ===' });
+                    } else if (func.name == "reportError") {
+                        messages.push({ 'role': 'assistant', 'content': func.arguments });
+                        const args = JSON.parse(func.arguments) as ReportData;
+                        console.log(func.arguments);
+                        for ( const p of args.checks) {
+                            foundChecks[p.id] = true;
+                            sr.result.checks.push({ id: p.id, result: p.result, data: { pages: p.pages, about: p.about } });
+                        }
+                    }
+                    else if (func.name == "finishReport") {
+                        console.log(func.arguments);
+                        i = tries;
+                    }
+                    }
+                }
+
+                if (sz) continue;
             }
-            
-            messages.push({ 'role': 'system', 'content': content });
-
-          } else if (func.name == "eval_js") {
-            messages.push({ 'role': 'assistant', 'content': func.arguments });
-
-            const args = JSON.parse(func.arguments) as { code: string };
-            console.log (args.code);
-            let result = '';
-            try {
-              const pageResult = await sr.page.evaluate(args.code);
-              result = JSON.stringify(pageResult, null, 2);
-            } catch (e: any) {
-              result = `JS Error: ${e.message || String(e)}`;
-            }
-            messages.push({ 'role': 'system', content: ' === JS EVAL RESULT ===\n' + result + '\n === END ===' });
-          }
         }
-      }
-
-      if (sz) continue;
+        catch (e) {
+            continue;
+        }
     }
 
-    let response = stream.choices[0]?.message.content;
-    if (response) {
-      // Try to extract JSON array from the response
-      let jsonStr = response;
-      
-      // First try to find ```json ... ``` code block
-      const codeBlockMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) jsonStr = codeBlockMatch[1];
+    const checks = ["sep-consent", "foreign-words", "privacy-policy", 
+        "cookie-banner", "consent-forms", "email-pdn", "ad-marking", 
+        "minors-data", "special-categ"];
 
-      try {
-        const z = JSON.parse(jsonStr) as { id: string; result: 'ok' | 'fail' | 'warn'; pages?: string[]; about?: string }[];
-        for (const p of z) {
-          sr.result.checks.push({ id: p.id, result: p.result, data: { pages: p.pages, about: p.about } });
-        }
-      } catch (e) {
-        console.error('Failed to parse AI response:', e);
-        console.error('Raw JSON (first 1000 chars):', jsonStr.substring(0, 1000));
-        messages.push({ 'role': 'system', 'content': 'Invalid output. Output must be in JSON format.' });
-        continue;
-      }
+    for (const p of checks) {
+        if (p in foundChecks)
+            continue;
+        sr.result.checks.push ({
+            'id': p,
+            'result': 'ok'
+        });
     }
-
-    break;
-  }
 }
