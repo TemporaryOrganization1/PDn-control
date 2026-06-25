@@ -201,6 +201,7 @@ func (s *MemoryStore) AddResult(reqID string, r Result) {
 	if !ok {
 		return
 	}
+	log.Println("our result", r.Pages)
 	t.Results = append(t.Results, r)
 }
 
