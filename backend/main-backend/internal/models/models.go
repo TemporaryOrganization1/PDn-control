@@ -49,6 +49,7 @@ type ProgressUpdate struct {
 	Errors    []string `json:"errors,omitempty"`
 	Status    string   `json:"status,omitempty"`
 	Progress  int      `json:"progress,omitempty"`
+	UserEmail string   `json:"user-email,omitempty"`
 }
 
 type TaskState struct {

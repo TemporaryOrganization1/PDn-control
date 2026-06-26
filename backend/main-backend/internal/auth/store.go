@@ -9,10 +9,15 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/pdfGen"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 )
 
 var (
@@ -35,10 +40,11 @@ type GuestStats struct {
 }
 
 type Store struct {
-	db *sql.DB
+	db          *sql.DB
+	reportsDir  string
 }
 
-func NewStore(databaseURL string) (*Store, error) {
+func NewStore(databaseURL string, reportsDir string) (*Store, error) {
 	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -54,7 +60,13 @@ func NewStore(databaseURL string) (*Store, error) {
 		return nil, fmt.Errorf("ping database: %w", err)
 	}
 
-	s := &Store{db: db}
+	// Ensure reports directory exists
+	if err := os.MkdirAll(reportsDir, 0755); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create reports directory: %w", err)
+	}
+
+	s := &Store{db: db, reportsDir: reportsDir}
 	if err := s.migrate(ctx); err != nil {
 		db.Close()
 		return nil, err
@@ -68,6 +80,14 @@ func (s *Store) Close() error {
 
 func (s *Store) migrate(ctx context.Context) error {
 	stmts := []string{
+		`CREATE TABLE IF NOT EXISTS pdf_reports (
+			id TEXT PRIMARY KEY,
+			email TEXT NOT NULL,
+			url TEXT NOT NULL DEFAULT '',
+			file_path TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_pdf_reports_email ON pdf_reports(email)`,
 		`CREATE TABLE IF NOT EXISTS auth_users (
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
@@ -96,6 +116,40 @@ func (s *Store) migrate(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// SaveReport generates a PDF report for the given targetURL and results,
+// saves it to the reports directory, and records it in pdf_reports table.
+// Returns the generated report ID and the file path.
+func (s *Store) SaveReport(ctx context.Context, email, targetURL string, results []store.Result) (string, error) {
+	reportID := newID()
+	hostname := pdfGen.GetHostname(targetURL)
+	fileName := fmt.Sprintf("%s_%s.pdf", hostname, reportID[:8])
+	filePath := filepath.Join(s.reportsDir, fileName)
+
+	log.Printf("[Auth] Generating PDF report %s for %s (%s)", reportID, email, targetURL)
+
+	if err := pdfGen.GeneratePDFReport(targetURL, results, filePath); err != nil {
+		return "", fmt.Errorf("generate pdf report: %w", err)
+	}
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO pdf_reports (id, email, url, file_path, created_at)
+		VALUES ($1, $2, $3, $4, NOW())
+	`, reportID, email, targetURL, filePath)
+	if err != nil {
+		// Clean up the file if DB insert fails
+		os.Remove(filePath)
+		return "", fmt.Errorf("insert pdf report record: %w", err)
+	}
+
+	log.Printf("[Auth] PDF report saved: id=%s email=%s path=%s", reportID, email, filePath)
+	return reportID, nil
+}
+
+// ReportsDir returns the directory where PDF reports are stored.
+func (s *Store) ReportsDir() string {
+	return s.reportsDir
 }
 
 func NormalizeEmail(email string) string {
@@ -146,6 +200,67 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, userID, passwordHash str
 		return fmt.Errorf("update password hash: %w", err)
 	}
 	return nil
+}
+
+// Report represents a PDF report record.
+type Report struct {
+	ID        string    `json:"id"`
+	Email     string    `json:"email"`
+	URL       string    `json:"url"`
+	FilePath  string    `json:"file_path"`
+	CreatedAt time.Time `json:"created_at"`
+	FileName  string    `json:"file_name"` // derived from file_path for download
+}
+
+// ReportsByEmail returns all reports for the given email, ordered by creation date descending.
+func (s *Store) ReportsByEmail(ctx context.Context, email string) ([]Report, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, email, url, file_path, created_at
+		FROM pdf_reports
+		WHERE email = $1
+		ORDER BY created_at DESC
+	`, NormalizeEmail(email))
+	if err != nil {
+		return nil, fmt.Errorf("query reports: %w", err)
+	}
+	defer rows.Close()
+
+	var reports []Report
+	for rows.Next() {
+		var r Report
+		if err := rows.Scan(&r.ID, &r.Email, &r.URL, &r.FilePath, &r.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan report: %w", err)
+		}
+		r.FileName = filepath.Base(r.FilePath)
+		reports = append(reports, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+	return reports, nil
+}
+
+// ReportByID returns a single report by its ID.
+func (s *Store) ReportByID(ctx context.Context, id string) (*Report, error) {
+	var r Report
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email, url, file_path, created_at
+		FROM pdf_reports
+		WHERE id = $1
+	`, id).Scan(&r.ID, &r.Email, &r.URL, &r.FilePath, &r.CreatedAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("query report: %w", err)
+	}
+	r.FileName = filepath.Base(r.FilePath)
+	return &r, nil
+}
+
+// Deprecated: Use SaveReport instead.
+func (s *Store) AddReport(email string, results []store.Result) {
+	log.Printf("[Auth] AddReport is deprecated, use SaveReport. Called with email=%s results=%d", email, len(results))
 }
 
 func (s *Store) CreateSession(ctx context.Context, userID string, ttl time.Duration) (string, error) {

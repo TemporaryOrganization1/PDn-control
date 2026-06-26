@@ -16,6 +16,7 @@ type Task struct {
 	Progress  int       `json:"progress"`
 	Results   []Result  `json:"results"`
 	Errors    []string  `json:"errors"`
+	ReportID  string    `json:"report_id,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -177,6 +178,16 @@ func (s *MemoryStore) Get(reqID string) *Task {
 	return s.tasks[reqID]
 }
 
+func (s *MemoryStore) SetReportID(reqID, reportID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.tasks[reqID]
+	if !ok {
+		return
+	}
+	t.ReportID = reportID
+}
+
 func (s *MemoryStore) UpdateProgress(reqID string, progress int, status string, completed []string, errors []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -201,6 +212,7 @@ func (s *MemoryStore) AddResult(reqID string, r Result) {
 	if !ok {
 		return
 	}
+	log.Println("our result", r)
 	t.Results = append(t.Results, r)
 }
 
