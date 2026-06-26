@@ -15,7 +15,7 @@
 
 ### Graphical Interface — Frontend Prototype
 
-- **Interactive prototype:** [http://2.56.183.107:8080/](http://2.56.183.107:8080/)
+- **Interactive prototype:** 2.56.183.107:8080 - Not relevant right now.
 - **Source:** [`frontend/`](../../frontend/) (React + Vite + Tailwind CSS)
 
 ### API Interface
