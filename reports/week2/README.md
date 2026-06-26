@@ -15,7 +15,7 @@
 
 ### Graphical Interface — Frontend Prototype
 
-- **Interactive prototype:** [http://2.56.183.107:8080/](http://2.56.183.107:8080/)
+- **Interactive prototype:** No relevant link right now.
 - **Source:** [`frontend/`](../../frontend/) (React + Vite + Tailwind CSS)
 
 ### API Interface
@@ -27,13 +27,13 @@
 
 ### Other Non-Graphical Interface
 
-- **Interactive mock/demonstration:** The deployed frontend prototype at [http://2.56.183.107:8080/](http://2.56.183.107:8080/) serves as the interactive demonstration.
+- **Interactive mock/demonstration:** The deployed frontend prototype at (No relevant link right now.) serves as the interactive demonstration.
 - **Interface documentation:** See [API specification](../../api/openapi.yaml) and [MVP v0 Report](mvp-v0-report.md).
 
 ## MVP v0
 
 - [MVP v0 Report](mvp-v0-report.md) — architecture, technology stack, and implementation details
-- **Deployed MVP v0:** [http://2.56.183.107:8080/](http://2.56.183.107:8080/)
+- **Deployed MVP v0:** No relevant linkright now.
 - **Run instructions:** See [Root README](../../README.md) — requires Docker Compose and Node.js
 - **Video demonstration:** [Google Drive — Frontend Preview](https://drive.google.com/file/d/18236Tzx7L1ns-j0dkFesosEBqWZj3c8a/view?usp=sharing)
 

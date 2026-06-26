@@ -212,7 +212,11 @@ func (s *MemoryStore) AddResult(reqID string, r Result) {
 	if !ok {
 		return
 	}
+<<<<<<< HEAD
 	log.Println("our result", r)
+=======
+	log.Println("our result", r.Pages)
+
 	t.Results = append(t.Results, r)
 }
 
