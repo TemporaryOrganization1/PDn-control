@@ -24,7 +24,10 @@ type Pool struct {
 	mu      sync.RWMutex
 }
 
-func NewPool(workerURLs []struct{ URL string; MaxLoad int }) *Pool {
+func NewPool(workerURLs []struct {
+	URL     string
+	MaxLoad int
+}) *Pool {
 	workers := make([]*Worker, len(workerURLs))
 	for i, w := range workerURLs {
 		workers[i] = &Worker{URL: w.URL, MaxLoad: w.MaxLoad}
