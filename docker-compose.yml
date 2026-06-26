@@ -116,10 +116,13 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "80:80"
+      - "80:80"      
+      - "443:443"
     depends_on:
       - main-backend
-    restart: unless-stopped
+    restart: unless-stopped    
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   pgdata:
