@@ -40,6 +40,6 @@ export async function prepareSslConnection (sr: Data) {
                 'data': { 'endpoints': data.endpoints }
             });
         },
-        'init': () => { return {'endpoints': new Set<string>()}; }
+        'init': () => { return {'endpoints': {}}; }
     });
 }
