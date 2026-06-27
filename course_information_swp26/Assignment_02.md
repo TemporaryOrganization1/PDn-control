@@ -2,7 +2,7 @@
 
 ## Part 1: Prepare the Product Repository
 
-1. Create a new product repository and complete all requirements under **Required Starting Assignment 2** in the Product Repository Requirements.
+1. Create a new product repository and complete all requirements under **Required Starting Assignment 2** in the [Product Repository Requirements](Repository_Requirements.md#required-starting-assignment-2). Ensure that the customer's written consent to the MIT-licensed public development model is obtained before creating the repository, as specified in the repository requirements.
 
 2. Create the following report structure:
 
@@ -22,7 +22,7 @@
 
 3. Complete the repository setup, basic PR/MR workflow, and Lychee link-checking requirements before submission.
 
-4. Use `reports/week2/README.md` as the public index for the Assignment 2 submission. It must link to every applicable required Week 2 file and external artifact. Keep the substantive content in the dedicated files specified below rather than duplicating it only in the report index.
+4. Use `reports/week2/README.md` as the public index for the Assignment 2 submission. It must link to every applicable required Week 2 file and external artifact. Keep substantive content in the dedicated files specified below rather than placing it directly in this report index. The README should link to those files, not replicate their content.
 
 ## Part 2: Document and Prioritize User Stories
 
@@ -49,6 +49,7 @@ reports/week2/user-stories.md
    * Stable IDs must not be changed, reused, or reassigned.
    * Preserve the IDs when stories are edited or later migrated into issues.
    * Mark removed stories instead of reusing their IDs.
+   * Gaps in the numbering sequence are expected when stories are removed; do not renumber to fill them.
 
 4. Assign a MoSCoW priority to every active user story relative to the intended product scope for the duration of the course:
 
@@ -57,14 +58,18 @@ reports/week2/user-stories.md
    * `Could Have`: valuable but less important.
    * `Won't Have`: a valid story intentionally excluded from the intended product scope for the course. Explain why it is excluded in the story's notes.
 
-   Requirement Status indicates whether a story is a current product requirement:
+   Requirement status indicates whether a story is a current product requirement:
 
    * `Active`: an accepted, current product requirement.
    * `Removed`: no longer considered a product requirement because it is invalid, duplicated, obsolete, infeasible, or otherwise no longer needed.
 
-   Requirement Status is separate from MoSCoW priority and implementation workflow status.
+   Requirement status is separate from MoSCoW priority and implementation workflow status. These three dimensions serve different purposes:
 
-5. Select a small, non-empty initial proposed MVP v1 scope from the `Must Have` user stories and list the selected stable IDs in an `## Initial proposed MVP v1 scope` section. Keep the scope small enough to prototype and discuss meaningfully. Do not select `Should Have`, `Could Have`, or `Won't Have` stories.
+   * **Requirement status** (Active / Removed) — whether the story is a current product requirement.
+   * **MoSCoW priority** (Must / Should / Could / Won't Have) — the story's importance relative to the intended product scope.
+   * **Implementation workflow** (e.g., To Do / In Progress / Done) — tracks execution progress, which is not required for Assignment 2.
+
+5. Select a small, non-empty initial proposed MVP v1 scope from the active `Must Have` user stories and list the selected stable IDs in an `## Initial proposed MVP v1 scope` section. Removed stories do not count toward this selection. Keep the scope small enough to prototype and discuss meaningfully. Do not select `Should Have`, `Could Have`, or `Won't Have` stories.
 
    This is an initial proposal, not a final delivery commitment. It will be refined, estimated, and finalized in Assignment 3.
 
@@ -73,7 +78,7 @@ reports/week2/user-stories.md
    ```markdown
    ## US-01: Short title
 
-   **Requirement Status:** Active
+   **Requirement status:** Active
    **MoSCoW priority:** Must Have
 
    As a [type of user / persona],
@@ -90,7 +95,7 @@ reports/week2/user-stories.md
    ```markdown
    ## US-09: Short title
 
-   **Requirement Status:** Removed
+   **Requirement status:** Removed
    **Previous MoSCoW priority:** Could Have
 
    As a [type of user / persona],
@@ -107,16 +112,16 @@ reports/week2/user-stories.md
 
 ## Part 3: Design the Product Interface
 
-Prototype every externally used interface needed by the user stories in the initial proposed MVP v1 scope. You may identify one primary interface, but do not omit another interface required to complete a selected story. Stories may share screens and journeys, and prototypes do not need production behavior. Use the applicable paths below.
+Prototype every externally used interface needed by the user stories in the initial proposed MVP v1 scope. You may identify one primary interface, but do not omit another interface required to complete a selected story. For example, if a user story requires a web interface that communicates with a supporting API, prototype the web interface (the primary interface); the supporting API needs separate prototyping only if it is itself an externally used interface. Stories may share screens and journeys, and prototypes do not need production behavior. Use the applicable paths below.
 
-1. For a product with a graphical interface, design an interactive prototype in Figma or another accessible prototyping tool. Include navigation between screens and important states where relevant, such as empty, success, and error states.
+1. For a product with a graphical interface, design an interactive prototype in Figma or another accessible prototyping tool. Include navigation between screens and important states where relevant (e.g., empty, success, and error states) for the key workflows covered by the selected MVP v1 scope.
 
 2. For a product whose externally used interface is an API, create:
 
    The API artifacts serve as the interface prototype. Create `api/openapi.yaml` and `api/postman_collection.json`, and include:
 
    * OpenAPI specification for the proposed interface
-   * Accessible rendered Swagger UI
+   * Accessible self-hosted rendered Swagger UI (a shared Swagger Editor URL such as `editor.swagger.io` is not sufficient)
    * Accessible implementation or working mock for each documented endpoint
    * Postman collection demonstrating representative successful and error responses
    * Public view-only Postman workspace/collection link
@@ -140,7 +145,7 @@ Prototype every externally used interface needed by the user stories in the init
 
 6. Make all selected prototype and interface artifacts publicly viewable but not publicly editable, and keep them accessible until the course has been graded.
 
-7. Use placeholders such as `{{access_token}}` instead of real credentials or PII in public interface artifacts.
+7. Use placeholders such as `{{access_token}}` instead of real credentials or PII in public interface artifacts. Do not commit `.env` files, API keys, tokens, or other secrets to the repository.
 
 ## Part 4: Deploy MVP v0
 
@@ -150,6 +155,19 @@ The prototype and MVP v0 have different purposes and evaluation criteria, but th
 * MVP v0 is a runnable or deployed technical product foundation with a working smoke check. It does not need to implement a complete user story or reproduce the prototype.
 * MVP v0 may reuse or implement elements of the prototype where useful.
 * Runnable prototype code, including a static application such as TypeScript generated from a Figma prototype, may also serve as MVP v0 when it is accessible over the internet, usable for its demonstrated purpose, and satisfies the MVP v0 smoke-check requirements.
+
+The table below summarises the different purposes and criteria:
+
+| Aspect                                        | Prototype                                                   | MVP v0                                            |
+| --------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| **Purpose**                                   | Explore and communicate the proposed MVP v1 user experience | Establish a runnable technical product foundation |
+| **Primary audience**                          | Team, customer (for feedback)                               | TA (for evaluation)                               |
+| **Needs customer approval?**                  | No                                                          | No                                                |
+| **Needs production behavior?**                | No                                                          | No                                                |
+| **Needs to implement a complete user story?** | No                                                          | No                                                |
+| **Must be runnable / deployed?**              | No (interactive mock is sufficient)                         | Yes                                               |
+| **Must pass a smoke check?**                  | No                                                          | Yes                                               |
+| **May use mocks / placeholders?**             | Yes                                                         | Yes                                               |
 
 MVP v0 is evaluated by the TA. It does not need to be shown to or approved by the customer.
 
@@ -173,7 +191,7 @@ MVP v0 is evaluated by the TA. It does not need to be shown to or approved by th
 
 3. Define and document at least one repeatable smoke-check scenario in `reports/week2/mvp-v0-report.md`. Include access instructions, steps, and expected results. The smoke check must demonstrate that MVP v0 is accessible and usable for its demonstrated purpose. Use a scenario appropriate to the product:
 
-   * **Web/mobile:** the application opens and primary navigation works.
+   * **Web/mobile:** the application opens, primary navigation works, and at least one interactive data-flow element is demonstrated (e.g., form submission, API call, or state change).
    * **API/service:** the service starts, a health endpoint works, and Swagger UI is accessible when the API is part of the documented external interface.
    * **CLI:** the command runs and `--help` works.
    * **Library:** the package builds and a minimal usage example runs.
@@ -197,7 +215,7 @@ MVP v0 is evaluated by the TA. It does not need to be shown to or approved by th
 9. In the Moodle PDF, explain exactly how the TA can access MVP v0. Include the deployment URL or runnable-artifact link, dedicated limited-permission test credentials if needed, and a link to the documented smoke-check scenario.
 
 > [!IMPORTANT]
-> Never submit real, personal, or production credentials.
+> Never submit real, personal, or production credentials. This includes API keys, tokens, passwords, and other secrets — even sandbox or test credentials from third-party services. Add a sanitized `.env.example` file and ensure `.env` and other secret files are listed in `.gitignore`.
 
 ## Part 5: Review with the Customer
 
@@ -215,13 +233,13 @@ MVP v0 is evaluated by the TA. It does not need to be shown to or approved by th
    * The MoSCoW priorities
    * The initial proposed MVP v1 scope
 
-   Confirm in the meeting summary that written consent to the public MIT-licensed development model was obtained before repository creation. Capture the approvals in the transcript. After incorporating feedback, obtain customer approval of the Assignment 2 proposed MVP v1 scope and the final updated user stories and priorities. If capturing approval in the transcript is not possible, retain written customer approval.
+   Confirm in the meeting summary that written consent to the public MIT-licensed development model was obtained before repository creation. Written consent includes a message via Telegram, email, or another chat service — a paper signature is not required. Capture the approvals in the transcript. After incorporating feedback, obtain customer approval of the Assignment 2 proposed MVP v1 scope and the final updated user stories and priorities. If capturing approval in the transcript is not possible, retain written customer approval.
 
 4. Show the prototype and interface artifacts to the customer and obtain their feedback. Customer approval of the prototype and interface artifacts is not required.
 
 5. Update `reports/week2/user-stories.md`, priorities, initial proposed MVP v1 scope, and prototype and interface artifacts where appropriate.
 
-6. **Always ask for permission before recording starts.** Before recording, inform the customer that the recording and a sanitized English transcript will be shared privately with instructors for assessment, and obtain permission for this private sharing. Recording, transcript, and meeting summary are mandatory unless the customer refuses recording or private sharing. Ask separately for permission to publish the sanitized English transcript. If the customer refuses recording or private sharing, document the refusal, notify the TA, and provide detailed English meeting notes instead.
+6. **Always ask for permission before recording starts.** Before recording, inform the customer that the recording and a sanitized English transcript will be shared privately with instructors for assessment, and obtain permission for this private sharing. Recording, transcript, and meeting summary are mandatory unless the customer refuses recording or private sharing. Separately ask the customer whether the sanitized transcript may also be published in the repository. If the customer refuses recording or private sharing, document the refusal, notify the TA, and provide detailed English meeting notes instead.
 
 7. Write the English customer meeting transcript in:
 
@@ -231,9 +249,11 @@ MVP v0 is evaluated by the TA. It does not need to be shown to or approved by th
 
    Clean it for readability without changing meaning. Place each timestamp on a separate line. Remove PII and confidential business information while preserving enough context for evaluation. Use `[inaudible]` and `[redacted]` where appropriate.
 
-   Before publication, provide the final sanitized transcript to the customer for review. Publish it only after receiving explicit approval. No response does not constitute approval. If approval is not received, do not commit the transcript. State this in `reports/week2/README.md` and include the sanitized transcript only in the Moodle PDF.
+   PII includes real names (replace with GitHub/GitLab usernames or pseudonyms), email addresses, phone numbers, and other personally identifying details. The goal is to keep the transcript useful for assessment while protecting privacy.
 
-8. If recording or private instructor sharing is refused, write detailed English notes in:
+   During the meeting (before recording), ask the customer for a one-time decision on whether the sanitized transcript may be published in the repository. Record this decision in the meeting summary. If the customer agrees, publish the sanitized transcript without an additional review round. If the customer refuses, do not commit the transcript; include it only in the Moodle PDF and state this in `reports/week2/README.md`.
+
+8. If recording or private sharing with the course instructors is refused, write detailed English notes in:
 
    ```text
    reports/week2/customer-meeting-notes.md
@@ -260,7 +280,7 @@ reports/week2/analysis.md
 Include:
 
 1. `## Learning points`: what the team learned from writing user stories, prioritization, prototyping, interface design, MVP v0 deployment, and customer validation of the proposed product interface.
-2. `## Validated assumptions`: assumptions or design decisions confirmed or rejected through the prototype, MVP v0 technical work, research, or customer review.
+2. `## Validated assumptions`: assumptions or design decisions confirmed or rejected through the prototype, MVP v0 technical work, research, or customer review. For example: "We assumed users need feature X — confirmed during the customer meeting" or "We assumed technology Y would support our deployment — rejected after testing in MVP v0."
 3. `## Needs clarification`: unresolved questions, assumptions, requirements, constraints, and technical risks.
 4. `## Planned response`: how learning points will affect MVP v1, with links to affected stories or artifacts.
 
@@ -272,7 +292,7 @@ Write:
 reports/week2/llm-report.md
 ```
 
-Describe how AI/LLM tools were used. If no AI tools were used, state that explicitly.
+Describe how AI/LLM tools were used throughout the assignment. This includes all AI/LLM-assisted activities: coding, writing, prototyping, transcription, research, idea generation, and any other use. If no AI/LLM tools were used, state that explicitly.
 
 ## Assignment Report in the Repository
 
@@ -295,11 +315,11 @@ Use this report as an index. Provide direct links to every applicable required r
 4. Link to `reports/week2/mvp-v0-report.md`, the deployed MVP v0 or runnable artifact, run instructions, and public video demonstration.
 5. Link to the minimal PR/MR template and reviewed PRs/MRs created during Week 2.
 6. Link to the Lychee configuration and latest successful protected-default-branch run.
-7. List and justification of excluded Lychee links, plus confirmation of manual verification.
-8. Screenshots embedded from `reports/week2/images/`:
+7. List and justification of excluded Lychee links, plus confirmation of manual verification (visit each excluded link in a browser to confirm it is accessible before submission).
+8. Screenshots embedded from `reports/week2/images/` (use PNG format; keep file sizes reasonable):
 
    * Protected default branch settings
-   * Example reviewed PR/MR
+   * Example reviewed PR/MR (must be a review by another team member, not a self-review)
    * Selected prototype and interface artifacts
    * Deployed MVP v0 or runnable artifact
 
@@ -308,7 +328,7 @@ Use this report as an index. Provide direct links to every applicable required r
     * References the stable IDs covered by the prototype.
     * Explains the selected prototype and interface artifacts and references the stable user-story IDs represented by them.
     * Links to `reports/week2/mvp-v0-report.md`, which explains the MVP v0 foundation and documents the repeatable smoke-check scenario.
-    * References stable user-story IDs represented by MVP v0 where applicable. MVP v0 is a product foundation and does not need to implement a complete user story.
+    * References stable user-story IDs represented by MVP v0 where applicable. For example, if MVP v0 sets up authentication infrastructure, reference the related user story (e.g., US-02: User login) even if login is not yet functional. MVP v0 is a product foundation and does not need to implement a complete user story.
 10. Link to the published customer transcript; link to the customer notes if recording or private sharing was refused; or state that the transcript is included only in Moodle with the customer's permission.
 11. Link to the customer meeting summary.
 12. Link to the Week 2 analysis.
@@ -319,9 +339,9 @@ Use this report as an index. Provide direct links to every applicable required r
 Create one PDF containing:
 
 1. Project name and team number.
-2. Table with team members, GitHub/GitLab usernames, assigned roles, and required university-identity mapping.
-3. Summary of contributions.
-4. Commit-hash permalink to `reports/week2/README.md`.
+2. Table with team members, University emails, GitHub/GitLab usernames, assigned Scrum roles (Product Owner, Scrum Master, Developer), assigned technical responsibilities (e.g., Frontend, Backend, DevOps).
+3. Summary of contributions: a per-person breakdown of what each team member did during the week.
+4. Commit-hash permalink to `reports/week2/README.md`. Use the full commit hash (e.g., from `git log` or the GitHub/GitLab permalink feature), not a branch name.
 5. Commit-hash permalink to the product repository tree at the submission commit. The commit must be on the protected default branch.
 6. Live links to the selected prototype and interface artifacts, MVP v0 deployment/runnable artifact, and public MVP v0 video.
 7. Customer recording link, only if the customer permitted private instructor sharing. Store it outside the repository and make it accessible only to instructors. If recording or private sharing was refused, state this and include the detailed notes.

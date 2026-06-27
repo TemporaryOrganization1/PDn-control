@@ -1,12 +1,9 @@
 import puppeteer from 'puppeteer';
 import { check, prepare } from './checks.js';
 import { Data } from './data.js';
-import { delay } from './delay.js';
 import { getDomain } from './url.js';
-import { initReader } from './checks/country.js';
 
 async function run() {
-    await initReader ();
     const baseUrl = 'https://innopolis.university/';
     const domain = getDomain (baseUrl);
 
@@ -47,7 +44,7 @@ async function run() {
     await prepare (sr);
 
     if (await sr.checkConnection ()) {
-        await check (sr);
+        await check (sr, 'detail');
     }
     else {
         console.error ('sr.checkConnection failed');

@@ -5,3 +5,5 @@ dist/
 *.log
 .env
 backend/reports
+coverage/
+coverage.out
