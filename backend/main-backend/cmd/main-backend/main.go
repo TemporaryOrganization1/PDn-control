@@ -57,6 +57,9 @@ func main() {
 			mainCfg.Server.GuestLimit = parsed
 		}
 	}
+	if reportsDir := os.Getenv("REPORTS_DIR"); reportsDir != "" {
+		mainCfg.Server.ReportsDir = reportsDir
+	}
 	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
 		mainCfg.Server.AllowedOrigins = splitCSV(origins)
 	}

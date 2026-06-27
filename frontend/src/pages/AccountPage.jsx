@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { CheckCircle2, History, KeyRound, Settings } from 'lucide-react';
-import { changePassword } from '../api';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, Download, History, KeyRound, Settings, ExternalLink, FileText } from 'lucide-react';
+import { changePassword, getReports, downloadReport } from '../api';
 
 export default function AccountPage({ user, onAuthed }) {
   const [activeTab, setActiveTab] = useState('history');
@@ -10,6 +10,8 @@ export default function AccountPage({ user, onAuthed }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [reports, setReports] = useState([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
 
   const tabs = [
     { id: 'history', label: 'История проверок', icon: History },
@@ -19,6 +21,32 @@ export default function AccountPage({ user, onAuthed }) {
   const resetMessages = () => {
     setError('');
     setSuccess('');
+  };
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      setReportsLoading(true);
+      getReports()
+        .then((data) => {
+          console.log('Reports loaded:', data);
+          setReports(data)
+        })
+        .catch((err) => {
+          console.error('Failed to load reports:', err);
+          setReports([])
+        })
+        .finally(() => setReportsLoading(false));
+    }
+  }, [activeTab]);
+
+  const handleDownload = async (reportId) => {
+    try {
+      await downloadReport(reportId);
+    } catch (err) {
+      console.error('Download failed:', err);
+      setError(err.message || 'Не удалось скачать отчёт');
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
   const submitPassword = async (e) => {
@@ -47,6 +75,20 @@ export default function AccountPage({ user, onAuthed }) {
       else setError(err.message || 'Не удалось изменить пароль.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    try {
+      return new Date(dateStr).toLocaleDateString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return dateStr;
     }
   };
 
@@ -86,15 +128,59 @@ export default function AccountPage({ user, onAuthed }) {
 
         <div className="p-6">
           {activeTab === 'history' && (
-            <div className="min-h-56 flex flex-col items-center justify-center text-center">
-              <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
-                <History size={22} className="text-gray-500" />
+            reportsLoading ? (
+              <div className="min-h-56 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
               </div>
-              <h2 className="font-bold text-lg mb-2">История проверок пока пуста</h2>
-              <p className="text-sm text-gray-500 max-w-md leading-relaxed">
-                Позже здесь появятся сохраненные проверки сайтов и быстрый доступ к их результатам.
-              </p>
-            </div>
+            ) : reports.length === 0 ? (
+              <div className="min-h-56 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
+                  <History size={22} className="text-gray-500" />
+                </div>
+                <h2 className="font-bold text-lg mb-2">История проверок пока пуста</h2>
+                <p className="text-sm text-gray-500 max-w-md leading-relaxed">
+                  Запустите проверку сайта — результаты и PDF-отчёт будут сохранены здесь.
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {reports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="flex items-center justify-between p-4 rounded-lg border border-gray-100 hover:border-gray-300 transition-all"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                        <FileText size={20} className="text-gray-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{report.url}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          <p className="text-xs text-gray-400">{formatDate(report.created_at)}</p>
+                          <a
+                            href={report.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-gray-400 hover:text-black flex items-center gap-1"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink size={10} />
+                            Открыть
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDownload(report.id)}
+                      className="bg-black text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-gray-800 transition-colors shrink-0 ml-3"
+                    >
+                      <Download size={14} />
+                      PDF-отчёт
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
           {activeTab === 'settings' && (

@@ -19,6 +19,10 @@ WORKDIR /app
 
 COPY --from=builder /main-backend .
 COPY config.json .
+COPY internal/pdfGen/DejaVuSans.ttf .
+COPY internal/pdfGen/DejaVuSans-Bold.ttf .
+
+RUN mkdir -p /app/backend/reports
 
 EXPOSE 4000
 

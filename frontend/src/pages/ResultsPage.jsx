@@ -2,11 +2,14 @@ import { useState, useEffect, useRef } from 'react';
 import { Download, CheckCircle2, Clock, XCircle, FileText, Globe, Server, Lock, ChevronDown, ChevronRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Gauge from '../components/Gauge';
-import { getProgress, getCheckInfo, calcRiskScore } from '../api';
+import { getProgress, getCheckInfo, calcRiskScore, downloadReport } from '../api';
 
 function getHostname(url) {
-  try { return new URL(url.startsWith('http') ? url : `https://${url}`).hostname; }
-  catch { return url || 'example.ru'; }
+  try {
+    return new URL(url.startsWith('http') ? url : `https://${url}`).hostname;
+  } catch {
+    return url || 'example.ru';
+  }
 }
 
 function formatDate() {
@@ -120,6 +123,7 @@ export default function ResultsPage({ url, reqId, onBack }) {
   const [results, setResults] = useState([]);
   const [error, setError] = useState(null);
   const [progress, setProgress] = useState(0);
+  const [reportId, setReportId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   const pollRef = useRef(null);
   const cancelledRef = useRef(false);
@@ -138,6 +142,8 @@ export default function ResultsPage({ url, reqId, onBack }) {
 
             if (task.status === 'completed') {
               setResults(task.results || []);
+              console.log('Task completed, report_id:', task.report_id);
+              if (task.report_id) setReportId(task.report_id);
               setScanning(false);
               return;
             }
@@ -277,9 +283,24 @@ export default function ResultsPage({ url, reqId, onBack }) {
                 <p className="text-[10px] text-gray-400 uppercase font-bold">Нарушений</p>
                 <p className="text-2xl font-bold text-red-500">{violations.length}</p>
               </div>
-              <button className="bg-black text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 font-medium">
-                <Download size={16} /> PDF
-              </button>
+              {reportId ? (
+                <button
+                  onClick={() => {
+                    console.log('Downloading report:', reportId);
+                    downloadReport(reportId).catch(err => {
+                      console.error('Download error:', err);
+                      alert('Не удалось скачать PDF: ' + err.message);
+                    });
+                  }}
+                  className="bg-black text-white px-4 py-2 rounded-lg text-sm flex items-center gap-2 font-medium"
+                >
+                  <Download size={16} /> PDF
+                </button>
+              ) : (
+                <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2 font-medium cursor-not-allowed">
+                  <Download size={16} /> PDF
+                </button>
+              )}
             </div>
           </div>
 

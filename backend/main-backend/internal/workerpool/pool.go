@@ -100,6 +100,7 @@ func (p *Pool) SendTask(workerURL string, task map[string]string) (map[string]an
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
+	log.Println("send Task result", result)
 
 	log.Printf("[Pool] Task sent to %s", workerURL)
 	return result, nil

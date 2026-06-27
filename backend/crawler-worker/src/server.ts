@@ -40,7 +40,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
     return;
   }
 
-  const { url, type, 'req-id': reqId, fallback, 'progress-secret': progressSecret } = parsed;
+  const { url, type, 'req-id': reqId, fallback, 'progress-secret': progressSecret, 'user-email': userEmail } = parsed;
 
   if (!url || !type || !reqId) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -65,6 +65,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
         completed,
         errors,
         data: resultData,
+        'user-email': userEmail,
       });
       const urlObj = new URL(fallback);
       const options: http.RequestOptions = {

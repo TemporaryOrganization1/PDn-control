@@ -204,3 +204,59 @@ export function calcRiskScore(results) {
   const score = 100 - (fails * 25 + warns * 10);
   return Math.max(0, Math.min(100, score));
 }
+
+export async function getReports() {
+  const res = await fetch(`${API_BASE}/reports`, {
+    credentials: 'include',
+  });
+  return parseResponse(res);
+}
+
+export async function downloadReport(reportId) {
+  try {
+    const res = await fetch(`${API_BASE}/reports/${encodeURIComponent(reportId)}`, {
+      credentials: 'include',
+    });
+    
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('Download failed:', res.status, text);
+      let errorMsg = `HTTP ${res.status}`;
+      try {
+        const data = JSON.parse(text);
+        errorMsg = data.msg || data.code || errorMsg;
+      } catch {
+        errorMsg = text || errorMsg;
+      }
+      throw new Error(errorMsg);
+    }
+    
+    const blob = await res.blob();
+    console.log('Downloaded blob:', blob.size, 'bytes, type:', blob.type);
+    
+    if (blob.size === 0) {
+      throw new Error('Downloaded file is empty');
+    }
+    
+    const contentDisposition = res.headers.get('Content-Disposition');
+    let filename = 'report.pdf';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+    
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  } catch (err) {
+    console.error('Download error:', err);
+    throw err;
+  }
+}

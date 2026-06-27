@@ -2,6 +2,7 @@
   "server": {
     "serverPort": "4000",
     "databaseUrl": "postgres://geoip:geoip_secret@postgres:5432/geoip?sslmode=disable",
+    "reportsDir": "/app/backend/reports",
     "cookieSecure": false,
     "sessionTtlHours": 720,
     "guestLimit": 3,
