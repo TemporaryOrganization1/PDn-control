@@ -16,6 +16,7 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates
 
 WORKDIR /app
+ENV PDF_FONT_DIR=/app
 
 COPY --from=builder /main-backend .
 COPY config.json .
