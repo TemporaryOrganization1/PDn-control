@@ -116,6 +116,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NGINX_CONFIG: ${NGINX_CONFIG}
     container_name: frontend
     ports:
       - "80:80"      
