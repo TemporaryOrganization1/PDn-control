@@ -12,6 +12,7 @@ export default function AccountPage({ user, onAuthed }) {
   const [loading, setLoading] = useState(false);
   const [reports, setReports] = useState([]);
   const [reportsLoading, setReportsLoading] = useState(true);
+  const [reportsError, setReportsError] = useState('');
 
   const tabs = [
     { id: 'history', label: 'История проверок', icon: History },
@@ -24,22 +25,25 @@ export default function AccountPage({ user, onAuthed }) {
   };
 
   useEffect(() => {
-    if (activeTab === 'history') {
-      setReportsLoading(true);
-      getReports()
-        .then((data) => {
-          console.log('Reports loaded:', data);
-          setReports(data)
-        })
-        .catch((err) => {
-          console.error('Failed to load reports:', err);
-          setReports([])
-        })
-        .finally(() => setReportsLoading(false));
-    }
+    if (activeTab !== 'history') return;
+
+    setReportsLoading(true);
+    setReportsError('');
+    getReports()
+      .then((data) => {
+        setReports(Array.isArray(data) ? data : []);
+      })
+      .catch((err) => {
+        console.error('Failed to load reports:', err);
+        setReports([]);
+        setReportsError(err.message || 'Не удалось загрузить историю проверок.');
+      })
+      .finally(() => setReportsLoading(false));
   }, [activeTab]);
 
   const handleDownload = async (reportId) => {
+    if (!reportId) return;
+
     try {
       await downloadReport(reportId);
     } catch (err) {
@@ -132,14 +136,22 @@ export default function AccountPage({ user, onAuthed }) {
               <div className="min-h-56 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
               </div>
+            ) : reportsError ? (
+              <div className="min-h-56 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center mb-4">
+                  <History size={22} className="text-red-500" />
+                </div>
+                <h2 className="font-bold text-lg mb-2">История временно недоступна</h2>
+                <p className="text-sm text-gray-500 max-w-md leading-relaxed">{reportsError}</p>
+              </div>
             ) : reports.length === 0 ? (
               <div className="min-h-56 flex flex-col items-center justify-center text-center">
                 <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center mb-4">
                   <History size={22} className="text-gray-500" />
                 </div>
-                <h2 className="font-bold text-lg mb-2">История проверок пока пуста</h2>
+                <h2 className="font-bold text-lg mb-2">История проверок пока пустая</h2>
                 <p className="text-sm text-gray-500 max-w-md leading-relaxed">
-                  Запустите проверку сайта — результаты и PDF-отчёт будут сохранены здесь.
+                  Запустите проверку сайта, и результаты появятся здесь после завершения.
                 </p>
               </div>
             ) : (
@@ -157,6 +169,9 @@ export default function AccountPage({ user, onAuthed }) {
                         <p className="font-medium text-sm truncate">{report.url}</p>
                         <div className="flex items-center gap-3 mt-1">
                           <p className="text-xs text-gray-400">{formatDate(report.created_at)}</p>
+                          {report.check_type && (
+                            <p className="text-xs text-gray-400 uppercase">{report.check_type}</p>
+                          )}
                           <a
                             href={report.url}
                             target="_blank"
@@ -170,13 +185,20 @@ export default function AccountPage({ user, onAuthed }) {
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleDownload(report.id)}
-                      className="bg-black text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-gray-800 transition-colors shrink-0 ml-3"
-                    >
-                      <Download size={14} />
-                      PDF-отчёт
-                    </button>
+                    {report.report_id ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDownload(report.report_id)}
+                        className="bg-black text-white px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-1.5 hover:bg-gray-800 transition-colors shrink-0 ml-3"
+                      >
+                        <Download size={14} />
+                        PDF-отчёт
+                      </button>
+                    ) : (
+                      <span className="bg-gray-100 text-gray-500 px-3 py-2 rounded-lg text-xs font-medium shrink-0 ml-3">
+                        PDF недоступен
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

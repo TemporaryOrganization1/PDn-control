@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
-
 )
 
 // CheckInfo holds the display metadata for a specific check ID.
@@ -276,16 +276,19 @@ func drawDataDetails(pdf *gofpdf.Fpdf, id string, data map[string]interface{}) {
 }
 
 // GeneratePDFReport creates a professional PDF report from the check results.
-// NOTE: This function requires DejaVuSans.ttf font file in the working directory
-// to properly render Cyrillic characters.
+// NOTE: This function requires DejaVuSans.ttf and DejaVuSans-Bold.ttf in PDF_FONT_DIR
+// or in /app inside the Docker image.
 // outputPath specifies where to save the resulting PDF file.
 func GeneratePDFReport(targetURL string, results []store.Result, outputPath string) error {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(15, 15, 15)
 	pdf.AddPage()
 
-	// Add UTF-8 font for Cyrillic support
-	// Make sure DejaVuSans.ttf is in your project directory
+	fontDir := os.Getenv("PDF_FONT_DIR")
+	if fontDir == "" {
+		fontDir = "/app"
+	}
+	pdf.SetFontLocation(fontDir)
 	pdf.AddUTF8Font("DejaVu", "", "DejaVuSans.ttf")
 	pdf.AddUTF8Font("DejaVu", "B", "DejaVuSans-Bold.ttf")
 	pdf.SetFont("DejaVu", "", 10)

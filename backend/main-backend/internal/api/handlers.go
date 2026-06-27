@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -321,14 +320,13 @@ func (s *Server) handleListReports(c echo.Context) error {
 		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
 	}
 
-	// Only return reports belonging to the authenticated user
-	reports, err := s.authStore.ReportsByEmail(c.Request().Context(), user.Email)
+	history, err := s.authStore.CheckHistoryByEmail(c.Request().Context(), user.Email)
 	if err != nil {
-		log.Printf("[API] Failed to list reports for %s: %v", user.Email, err)
+		log.Printf("[API] Failed to list check history for %s: %v", user.Email, err)
 		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
 	}
 
-	return c.JSON(http.StatusOK, reports)
+	return c.JSON(http.StatusOK, history)
 }
 
 func (s *Server) handleDownloadReport(c echo.Context) error {
@@ -344,7 +342,7 @@ func (s *Server) handleDownloadReport(c echo.Context) error {
 		return s.errResponse(c, http.StatusNotFound, "ERR_NOT_FOUND", "", "report not found")
 	}
 
-	log.Printf("[API] Download attempt: user=%v, report_email=%s, report_id=%s", 
+	log.Printf("[API] Download attempt: user=%v, report_email=%s, report_id=%s",
 		user != nil, report.Email, reportID)
 
 	// Check authorization:
@@ -363,7 +361,7 @@ func (s *Server) handleDownloadReport(c echo.Context) error {
 			return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
 		}
 	}
-	
+
 	log.Printf("[API] Access granted for report %s", reportID)
 
 	// Check if file exists
@@ -419,47 +417,7 @@ func (s *Server) dispatchTask(user *auth.User, req models.CheckRequest, worker *
 		s.store.UpdateProgress(req.ReqID, 0, "failed", nil, []string{err.Error()})
 		return
 	}
-
-	// Process results from the worker response
-	results1 := []store.Result{}
-	if data, ok := result["data"]; ok {
-		if checkResults, ok := data.([]any); ok {
-			for _, cr := range checkResults {
-				if crMap, ok := cr.(map[string]any); ok {
-					about, ok := crMap["about"].(string)
-					if !ok {
-						about = ""
-					}
-					tempResult := store.Result{
-						ID:     fmt.Sprintf("%v", crMap["id"]),
-						Result: fmt.Sprintf("%v", crMap["result"]),
-						Pages:  toStringSlice(crMap["pages"]),
-						About:  about,
-						Data:   crMap["data"],
-					}
-					results1 = append(results1, tempResult)
-					s.store.AddResult(req.ReqID, tempResult)
-				}
-			}
-		}
-	}
-
-	// Generate PDF report if we have results
-	if len(results1) > 0 {
-		email := ""
-		if user != nil {
-			email = user.Email
-		}
-		reportID, err := s.authStore.SaveReport(context.Background(), email, req.URL, results1)
-		if err != nil {
-			log.Printf("[API] Failed to save PDF report for task %s: %v", req.ReqID, err)
-		} else {
-			log.Printf("[API] PDF report saved for task %s: id=%s", req.ReqID, reportID)
-			s.store.SetReportID(req.ReqID, reportID)
-		}
-	}
-
-	s.store.UpdateProgress(req.ReqID, 100, "completed", nil, nil)
+	log.Printf("[API] Task %s accepted by %s: %v", req.ReqID, worker.URL, result)
 }
 
 func (s *Server) handleProgress(c echo.Context) error {
@@ -488,52 +446,52 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 
 	s.store.UpdateProgress(update.ReqID, update.Progress, update.Status, update.Completed, update.Errors)
 
-	// Store results and generate PDF if provided
-	results1 := []store.Result{}
-	if update.Data != nil {
-		if results, ok := update.Data.([]any); ok {
-			for _, r := range results {
-				if rm, ok := r.(map[string]any); ok {
-					about, ok := rm["about"].(string)
-					if !ok {
-						about = ""
+	results := normalizeResults(update.Data)
+	if isFinalProgress(update) && len(results) > 0 {
+		task := s.store.Get(update.ReqID)
+		targetURL := ""
+		checkType := ""
+		existingReportID := ""
+		if task != nil {
+			targetURL = task.URL
+			checkType = task.Type
+			existingReportID = task.ReportID
+		}
+
+		s.store.SetResults(update.ReqID, results)
+
+		email := auth.NormalizeEmail(update.UserEmail)
+		historyReportID := ""
+		if email != "" {
+			history, err := s.authStore.SaveCheckHistory(c.Request().Context(), email, update.ReqID, targetURL, checkType, update.Status, results)
+			if err != nil {
+				log.Printf("[API] Failed to save check history for %s: %v", update.ReqID, err)
+			} else if history != nil {
+				historyReportID = history.ReportID
+				if history.ReportID != "" {
+					s.store.SetReportID(update.ReqID, history.ReportID)
+					existingReportID = history.ReportID
+				}
+			}
+		}
+
+		if existingReportID == "" && historyReportID == "" {
+			log.Printf("[API] Saving PDF report: req=%s, email=%s, results=%d", update.ReqID, email, len(results))
+			reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, results)
+			if err != nil {
+				log.Printf("[API] Failed to save PDF report for progress update %s: %v", update.ReqID, err)
+			} else {
+				log.Printf("[API] PDF report saved for progress update %s: id=%s", update.ReqID, reportID)
+				s.store.SetReportID(update.ReqID, reportID)
+				if email != "" {
+					if err := s.authStore.SetHistoryReportID(c.Request().Context(), update.ReqID, reportID); err != nil {
+						log.Printf("[API] Failed to attach PDF report to history for %s: %v", update.ReqID, err)
 					}
-					tempResult := store.Result{
-						ID:     fmt.Sprintf("%v", rm["id"]),
-						Result: fmt.Sprintf("%v", rm["result"]),
-						Pages:  toStringSlice(rm["pages"]),
-						About:  about,
-						Data:   rm["data"],
-					}
-					results1 = append(results1, tempResult)
-					s.store.AddResult(update.ReqID, tempResult)
 				}
 			}
 		}
 	}
-	
-	// Generate PDF report when we have results
-	if len(results1) > 0 {
-		// Use user email from the progress update (sent by worker)
-		email := update.UserEmail
-		
-		task := s.store.Get(update.ReqID)
-		targetURL := ""
-		if task != nil {
-			targetURL = task.URL
-		}
-		
-		log.Printf("[API] Saving PDF report: req=%s, email=%s, results=%d", update.ReqID, email, len(results1))
-		
-		reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, results1)
-		if err != nil {
-			log.Printf("[API] Failed to save PDF report for progress update %s: %v", update.ReqID, err)
-		} else {
-			log.Printf("[API] PDF report saved for progress update %s: id=%s", update.ReqID, reportID)
-			s.store.SetReportID(update.ReqID, reportID)
-		}
-	}
-	
+
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -633,16 +591,54 @@ func allowedOrigins(origins []string) []string {
 }
 
 func toStringSlice(v any) []string {
-	if arr, ok := v.([]any); ok {
+	switch arr := v.(type) {
+	case []string:
+		return append([]string(nil), arr...)
+	case []any:
 		result := make([]string, 0, len(arr))
 		for _, item := range arr {
-			z, ok := item.(string)
-			if !ok {
-				z = ""
-			}
-			result = append(result, z)
+			result = append(result, fmt.Sprintf("%v", item))
 		}
 		return result
 	}
 	return nil
+}
+
+func isFinalProgress(update models.ProgressUpdate) bool {
+	return update.Status == "completed" || update.Progress >= 100
+}
+
+func normalizeResults(data any) []store.Result {
+	items, ok := data.([]any)
+	if !ok {
+		return nil
+	}
+
+	results := make([]store.Result, 0, len(items))
+	for _, item := range items {
+		rm, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		dataMap, _ := rm["data"].(map[string]any)
+		pages := toStringSlice(rm["pages"])
+		if len(pages) == 0 && dataMap != nil {
+			pages = toStringSlice(dataMap["pages"])
+		}
+
+		about, _ := rm["about"].(string)
+		if about == "" && dataMap != nil {
+			about, _ = dataMap["about"].(string)
+		}
+
+		results = append(results, store.Result{
+			ID:     fmt.Sprintf("%v", rm["id"]),
+			Result: fmt.Sprintf("%v", rm["result"]),
+			Pages:  pages,
+			About:  about,
+			Data:   rm["data"],
+		})
+	}
+	return results
 }

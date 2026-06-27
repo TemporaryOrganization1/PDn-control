@@ -212,12 +212,17 @@ func (s *MemoryStore) AddResult(reqID string, r Result) {
 	if !ok {
 		return
 	}
-<<<<<<< HEAD
-	log.Println("our result", r)
-=======
-	log.Println("our result", r.Pages)
-
 	t.Results = append(t.Results, r)
+}
+
+func (s *MemoryStore) SetResults(reqID string, results []Result) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.tasks[reqID]
+	if !ok {
+		return
+	}
+	t.Results = append([]Result(nil), results...)
 }
 
 func (s *MemoryStore) SetWorker(reqID, workerURL string) {
