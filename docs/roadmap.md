@@ -20,3 +20,25 @@
 * [#23](https://github.com/TemporaryOrganization1/PDn-control/issues/23) US-006: Total possible fine calculation
 * [#25](https://github.com/TemporaryOrganization1/PDn-control/issues/25) US-008: AI privacy policy analysis
 * [#28](https://github.com/TemporaryOrganization1/PDn-control/issues/28) US-011: Web Interface
+
+## Sprint 2
+
+**Milestone:** Sprint 2
+
+**Dates:** 2026-06-22 - 2026-06-28
+
+**Sprint Goal:** Add additional functionality to the website, implement quality requirements and different tests.
+
+**Focus / Expected Outcome:** The team will implemente pdf report generation and history of checks, as well as a new frontend design.
+
+**Linked Planned Items:**
+* [#84](https://github.com/TemporaryOrganization1/PDn-control/issues/84) Remake overall frontend
+* [#19](https://github.com/TemporaryOrganization1/PDn-control/issues/19) US-002: PDF report generation
+    * [#52](https://github.com/TemporaryOrganization1/PDn-control/issues/52) PDF template
+    * [#53](https://github.com/TemporaryOrganization1/PDn-control/issues/53) PDF backend
+* [#22](https://github.com/TemporaryOrganization1/PDn-control/issues/22) Query history
+    * [#82](https://github.com/TemporaryOrganization1/PDn-control/issues/82) Frontend for History
+    * [#83](https://github.com/TemporaryOrganization1/PDn-control/issues/83) Backend for History
+
+**Next sprint**
+* The next sprint will most likely focus on paid subscription handling, account deletion, total fine calculation and connecting of new frontend to backend.
