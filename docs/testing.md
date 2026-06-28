@@ -22,7 +22,7 @@ Global repository coverage is lower because command entrypoints, DB-backed store
 |---|---|---|---|---|
 | Unit tests | Guest quota, task state, URL parsing, frontend API helpers, result scoring. | `go test ./...`, `npm test -- --coverage` | Passing locally via Docker. | GitHub Actions `Quality Gates` workflow and local Docker runs. |
 | Integration tests | Worker pool HTTP dispatch with `httptest`; GeoIP MMDB download with `httptest`; crawler check subscriptions with fake request/response objects. | `go test ./...`, `npm test -- --coverage` | Passing locally via Docker. | GitHub Actions `Quality Gates` workflow and local Docker runs. |
-| Automated QRTs | QR-001, QR-002, and QR-003 candidates are covered by build, test, and CI checks; formal QRT traceability is maintained in `docs/quality-requirement-tests.md` when updated. | `Quality Gates` workflow | Pending protected-branch CI evidence. | [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
+| Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection. | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1`; `npm run typecheck`; `npm test -- --run tests/runner.test.ts`; `go test ./internal/api -run TestValidEmail -count=1` | Passing locally via Docker. Pending protected-branch CI evidence after merge. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
 
 ## CI and QA Check Status
 

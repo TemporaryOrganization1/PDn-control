@@ -176,7 +176,7 @@ https://github.com/TemporaryOrganization1/PDn-control/blob/main/CHANGELOG.md
 
 ## 21. Process_Requirements.md
 
-https://github.com/TemporaryOrganization1/PDn-control/blob/main/Process_Requirements.md
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/course_information_swp26/Process_Requirements.md
 
 ## 22. roadmap.md
 

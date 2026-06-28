@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestPoolCapacityAndRelease(t *testing.T) {
@@ -34,6 +35,26 @@ func TestPoolCapacityAndRelease(t *testing.T) {
 	p.ReleaseWorker(first)
 	if got := p.GetAvailableCount(); got != 1 {
 		t.Fatalf("available count after release = %d, want 1", got)
+	}
+}
+
+func TestQRTWorkerSelectionCompletesWithinThreshold(t *testing.T) {
+	p := NewPool([]struct {
+		URL     string
+		MaxLoad int
+	}{
+		{URL: "http://worker-a", MaxLoad: 1},
+	})
+
+	start := time.Now()
+	worker := p.GetFreeWorker()
+	elapsed := time.Since(start)
+
+	if worker == nil {
+		t.Fatal("worker selection returned nil, want available worker")
+	}
+	if elapsed > 50*time.Millisecond {
+		t.Fatalf("worker selection took %s, want <= 50ms", elapsed)
 	}
 }
 
