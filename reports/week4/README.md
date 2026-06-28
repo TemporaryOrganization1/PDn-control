@@ -24,6 +24,54 @@ Automated tests were added for critical product logic and important component in
 
 Critical modules meet the 30% line coverage threshold documented in [docs/testing.md](../../docs/testing.md).
 
+## Part 4 Quality Requirement Test Summary
+
+Automated quality requirement tests are maintained in [docs/quality-requirement-tests.md](../../docs/quality-requirement-tests.md) and run in the [Quality Gates](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml) workflow.
+
+| QRT | Linked QR | Automated evidence |
+|---|---|---|
+| QRT-001 Scan dispatch responsiveness | QR-001 Time behaviour | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1` |
+| QRT-002 Crawler type-check feedback | QR-002 Analysability | `npm run typecheck` in the crawler-worker CI job |
+| QRT-003 Invalid input protection | QR-003 User error protection | `go test ./internal/api -run TestValidEmail -count=1`; `npm test -- --run tests/runner.test.ts` |
+
+## Screenshot Items 18-24 Evidence
+
+### 18. Quality model and selected ISO/IEC 25010 sub-characteristics
+
+The project uses the ISO/IEC 25010 quality model. The Assignment 4 quality requirements use three different sub-characteristics: Time behaviour ([QR-001](../../docs/quality-requirements.md#qr-001-scan-dispatch-responsiveness)), Analysability ([QR-002](../../docs/quality-requirements.md#qr-002-type-check-feedback-for-crawler-changes)), and User error protection ([QR-003](../../docs/quality-requirements.md#qr-003-invalid-input-protection)).
+
+### 19. Testing status summary
+
+Critical modules and current line coverage are documented in [docs/testing.md](../../docs/testing.md#critical-modules-and-coverage). The current critical-module coverage values are: main-backend store 73.3%, main-backend workerpool 91.1%, GeoIP downloader 66.7%, frontend API helpers 61.13%, crawler URL parsing 94.44%, crawler HTTPS check 100%, and crawler SSL/TLS check 97.22%.
+
+### 20. Links to unit tests
+
+- [Main backend store tests](../../backend/main-backend/internal/store/store_test.go)
+- [Main backend API helper tests](../../backend/main-backend/internal/api/handlers_test.go)
+- [Frontend API helper tests](../../frontend/src/api.test.js)
+- [Crawler URL and runner tests](../../backend/crawler-worker/tests/)
+
+### 21. Links to integration tests
+
+- [Worker pool HTTP dispatch integration test](../../backend/main-backend/internal/workerpool/pool_test.go)
+- [GeoIP downloader HTTP integration test](../../backend/geoip-service/internal/downloader/downloader_test.go)
+- [Crawler HTTPS/SSL subscription interaction tests](../../backend/crawler-worker/tests/checks.test.ts)
+
+### 22. Links to automated quality requirement tests
+
+- [Quality requirement test definitions](../../docs/quality-requirement-tests.md)
+- [QRT-001 workerpool test](../../backend/main-backend/internal/workerpool/pool_test.go)
+- [QRT-002 crawler type-check gate](../../backend/crawler-worker/tsconfig.json)
+- [QRT-003 invalid input tests](../../backend/main-backend/internal/api/handlers_test.go) and [crawler runner test](../../backend/crawler-worker/tests/runner.test.ts)
+
+### 23. Link to the CI pipeline
+
+[Quality Gates CI pipeline](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml)
+
+### 24. Link to the latest protected-default-branch CI run
+
+[Latest successful Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949)
+
 ## Additional QA Check Options Considered
 
 | Option | Assessment |
