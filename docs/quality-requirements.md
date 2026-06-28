@@ -1,29 +1,33 @@
-## QR-001: Scan response time
+# Quality Requirements
+
+The project uses ISO/IEC 25010 quality sub-characteristics to define measurable quality requirements. These requirements and their linked automated quality requirement tests are maintained product assets starting in Assignment 4.
+
+## QR-001: Scan dispatch responsiveness
 
 **ISO/IEC 25010 sub-characteristic:** Time behaviour
 
-**Scenario:** When an authenticated or guest user submits a website compliance check request under normal operating conditions, the results should be recieved in under 60 seconds.
+**Scenario:** When the main backend selects an available crawler worker under the standard CI test environment, the worker pool shall reserve and return the worker within 50 ms.
 
-**Why this matters:** User wants to see results as fast as possible and their satisfaction reduces with a long wait time.
+**Why this matters:** Users need quick feedback after submitting a compliance check. Slow internal dispatch delays scan acceptance and makes the product feel unavailable even when workers exist.
 
-**Linked quality requirement tests:** QRT-001(No link yet)
+**Linked quality requirement tests:** [QRT-001](quality-requirement-tests.md#qrt-001-scan-dispatch-responsiveness)
 
-## QR-002: Type-check feedback time
+## QR-002: Type-check feedback for crawler changes
 
-**ISO/IEC 25010 sub-characteristic:** User Error Protection
+**ISO/IEC 25010 sub-characteristic:** Analysability
 
-**Scenario:** When a user tries to register or login on the website, if email entered in the form is invalid, display a clear error message below
+**Scenario:** When a developer opens or updates a pull request under the CI environment, the crawler-worker TypeScript gate shall analyze the crawler code and fail the build when type or interface errors are detected.
 
-**Why this matters:** We want user to avoid making typos in their email or register non-existent email
+**Why this matters:** The crawler coordinates browser automation, URL parsing, and compliance checks. Fast type feedback helps developers diagnose interface mistakes before they reach the deployed workers.
 
-**Linked quality requirement tests:** QRT-002(No link yet)
+**Linked quality requirement tests:** [QRT-002](quality-requirement-tests.md#qrt-002-crawler-type-check-feedback)
 
-## QR-003: Website availability
+## QR-003: Invalid input protection
 
-**ISO/IEC 25010 sub-characteristic:** Availability
+**ISO/IEC 25010 sub-characteristic:** User error protection
 
-**Scenario:** When all required services are running under normal operating conditions, the application shall successfully complete a compliance check without internal server errors.
+**Scenario:** When a user or caller submits invalid website or identity input under the standard automated test environment, the product shall reject the invalid input without starting downstream scan work or accepting malformed identity data.
 
-**Why this matters:** The application's work has to be stable
+**Why this matters:** Clear rejection of invalid input prevents wasted crawler capacity, misleading scan status, and account data quality problems.
 
-**Linked quality requirement tests:** QRT-003(No link yet)
+**Linked quality requirement tests:** [QRT-003](quality-requirement-tests.md#qrt-003-invalid-input-protection)
