@@ -25,3 +25,20 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 ### Security
+
+## [1.1.0] - 2026-06-28
+
+### Added
+- PDF report generation
+- User history
+- Auto tests and user acceptance tests
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
