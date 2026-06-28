@@ -118,11 +118,26 @@ Critical modules and current line coverage are documented in [docs/testing.md](.
 
 ![Main branch protection or repository rules evidence](images/branch-protection.png)
 
-## 26. 
+## 26. Screenshots and report links for linting, coverage, tests, and the additional QA check
 
-## 27. 
+The public evidence is stored in [reports/week4/images](images/) and indexed below:
 
-## 28. 
+| Evidence | Link |
+|---|---|
+| Latest protected-default-branch CI run with required jobs passing | [ci-run.png](images/ci-run.png) |
+| Branch protection or repository rules evidence | [branch-protection.png](images/branch-protection.png) |
+| Coverage or test report evidence | [coverage-report.png](images/coverage-report.png) |
+| Additional QA dependency vulnerability scan evidence | [additional-qa-check.png](images/additional-qa-check.png) |
+
+The same checks run in the [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml): Go formatting, `go vet`, Go tests with coverage, frontend build/tests with coverage, crawler-worker typecheck/tests with coverage, automated QRTs, and dependency vulnerability scans.
+
+## 27. Continued governance by tests, CI, QRTs, and Definition of Done
+
+The Assignment 4 quality gates are maintained project assets, not one-time submission artifacts. Future PBIs must satisfy the updated [Definition of Done](../../docs/definition-of-done.md), keep the [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml) passing, maintain the automated tests and QRTs listed in [docs/testing.md](../../docs/testing.md) and [docs/quality-requirement-tests.md](../../docs/quality-requirement-tests.md), and preserve or replace critical-module coverage with equivalent or stronger evidence when product code changes.
+
+## 28. SemVer release
+
+[Assignment 4 Sprint increment release: Ver2](https://github.com/TemporaryOrganization1/PDn-control/releases/tag/Ver2)
 
 ## 29. Changelog
 https://github.com/TemporaryOrganization1/PDn-control/blob/main/CHANGELOG.md
@@ -134,7 +149,15 @@ https://drive.google.com/file/d/1EK3FeMgBvvt5LsQfZjFtHYNZrx8vPAq4/view?usp=shari
 ## 31. Optional link
 Will not publish
 
-## 32. 
+## 32. Public sanitized UAT results summary
+
+The Week 4 customer session covered three active UAT scenarios from [docs/user-acceptance-tests.md](../../docs/user-acceptance-tests.md).
+
+| UAT scenario | Result | Summary |
+|---|---|---|
+| UAT-001: Run a Website Compliance Check | Passed with follow-up feedback | The customer could run the main compliance-check flow and view detected violations. Follow-up work remains for real risk scoring, fine calculation, and better handling of common analytics domains. |
+| UAT-002: Register a New Account | Partially passed | Basic registration and login were demonstrated, but the customer required email verification before the account flow can be considered complete. |
+| UAT-003: Guest Scan Limit | Passed with follow-up feedback | The three-free-scan limit was demonstrated. The customer requested clearer paid/subscription guidance after the free limit is reached. |
 
 ## 33. Transcript
 
@@ -164,21 +187,15 @@ The current product has all the main functionality implemented, lacking only tot
 
 Implement new frontend design, paid and free subscriptions management, total fine calculation, and email verification.
 
-## 40. Contribution
+## 40. Contribution traceability
 
-Dinislam Baizigitov - https://github.com/TemporaryOrganization1/PDn-control/pull/90
-https://github.com/TemporaryOrganization1/PDn-control/pull/81
-
-Egor Oleshko - https://github.com/TemporaryOrganization1/PDn-control/pull/105
-https://github.com/TemporaryOrganization1/PDn-control/pull/106
-https://github.com/TemporaryOrganization1/PDn-control/pull/107
-https://github.com/TemporaryOrganization1/PDn-control/pull/103
-Ruslan Stecenko - https://github.com/TemporaryOrganization1/PDn-control/pull/112
-https://github.com/TemporaryOrganization1/PDn-control/pull/99
-https://github.com/TemporaryOrganization1/PDn-control/pull/96
-https://github.com/TemporaryOrganization1/PDn-control/pull/92
-Timur Zainullin - https://github.com/TemporaryOrganization1/PDn-control/pull/80
-Lenar Gabdrakhimov - https://github.com/TemporaryOrganization1/PDn-control/pull/111
+| Team member | Issues, PRs/MRs, review activity, testing, quality, automation, or documentation work |
+|---|---|
+| Dinislam Baizigitov | [PR #90](https://github.com/TemporaryOrganization1/PDn-control/pull/90), [PR #81](https://github.com/TemporaryOrganization1/PDn-control/pull/81) |
+| Egor Oleshko | [PR #105](https://github.com/TemporaryOrganization1/PDn-control/pull/105), [PR #106](https://github.com/TemporaryOrganization1/PDn-control/pull/106), [PR #107](https://github.com/TemporaryOrganization1/PDn-control/pull/107), [PR #103](https://github.com/TemporaryOrganization1/PDn-control/pull/103) |
+| Ruslan Stecenko | [PR #112](https://github.com/TemporaryOrganization1/PDn-control/pull/112), [PR #99](https://github.com/TemporaryOrganization1/PDn-control/pull/99), [PR #96](https://github.com/TemporaryOrganization1/PDn-control/pull/96), [PR #92](https://github.com/TemporaryOrganization1/PDn-control/pull/92) |
+| Timur Zainullin | [PR #80](https://github.com/TemporaryOrganization1/PDn-control/pull/80) |
+| Lenar Gabdrakhimov | [PR #111](https://github.com/TemporaryOrganization1/PDn-control/pull/111) |
 
 ## 41. Images
 
