@@ -1,77 +1,190 @@
-# Week 4 Report: Testing, QA, and CI Evidence
-
-This Week 4 report section indexes the public evidence created for Assignment 4 testing, QA, automated quality gates, and CI configuration.
-
-## Product
+## 1. Produсе
 
 PDn-control is a website compliance checker for Federal Law No. 152 and related Russian regulations.
 
-- Deployed product: [https://pdn2.neurolife.tech/](https://pdn2.neurolife.tech/)
-- Testing status artifact: [docs/testing.md](../../docs/testing.md)
-- Quality gates workflow: [Quality Gates](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml)
-- Link checking workflow: [Link Checker](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/link-check.yml)
-- Latest protected-default-branch Quality Gates run: [successful `main` run](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949)
+## 2. Product backlog
 
-## Part 7 Testing Summary
+https://github.com/orgs/TemporaryOrganization1/projects/2
 
-Automated tests were added for critical product logic and important component interactions:
+## 3. Sprint backlog
 
-| Area | Test evidence |
-|---|---|
-| Main backend guest quota, task state, and worker dispatch | `backend/main-backend/internal/store/store_test.go`, `backend/main-backend/internal/workerpool/pool_test.go`, `backend/main-backend/internal/api/handlers_test.go` |
-| GeoIP downloader interaction | `backend/geoip-service/internal/downloader/downloader_test.go` |
-| Frontend API request/error/risk-score logic | `frontend/src/api.test.js` |
-| Crawler URL parsing, HTTPS/SSL checks, and invalid-run orchestration | `backend/crawler-worker/tests/` |
+https://github.com/orgs/TemporaryOrganization1/projects/4
 
-Critical modules meet the 30% line coverage threshold documented in [docs/testing.md](../../docs/testing.md).
+## 4. Milestone
 
-## Part 4 Quality Requirement Test Summary
+https://github.com/TemporaryOrganization1/PDn-control/milestone/2
 
-Automated quality requirement tests are maintained in [docs/quality-requirement-tests.md](../../docs/quality-requirement-tests.md) and run in the [Quality Gates](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml) workflow.
+## 5. Sprint
+- Goal and scope: implement tests, CI configuration, history and pdf report generationm as well as new frontend design
+- Date: 22.06.2026 - 28.06.2026
 
-| QRT | Linked QR | Automated evidence |
-|---|---|---|
-| QRT-001 Scan dispatch responsiveness | QR-001 Time behaviour | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1` |
-| QRT-002 Crawler type-check feedback | QR-002 Analysability | `npm run typecheck` in the crawler-worker CI job |
-| QRT-003 Invalid input protection | QR-003 User error protection | `go test ./internal/api -run TestValidEmail -count=1`; `npm test -- --run tests/runner.test.ts` |
+## 6. Story points:
+- 13
+
+## 7. Summary of product changes
+- PDF report generation
+- History of tests
+
+## 8. Link to product
+
+https://pdn2.neurolife.tech/
+
+## 9. Access
+The site is publicably available
+
+## 10. Customer Feedback Response
+
+This table summarizes customer feedback from the MVP v1 review in Week 3 and the follow-up Sprint Review/UAT discussion in Week 4. The source evidence is the [Week 3 customer review summary](../week3/customer-review-summary.md), [Week 3 customer review transcript](../week3/customer-review-transcript.md), [Week 4 customer review summary](customer-review-summary.md), and [Week 4 customer review transcript](customer-review-transcript.md).
+
+| Feedback point | Resulting PBI or issue | Status | Response |
+|---|---|---|---|
+| The frontend design was rejected as too weak for a B2C product. The customer requested a substantially better design and recommended using Cursor/Kombai-style tooling. | [#84 Remake overall frontend](https://github.com/TemporaryOrganization1/PDn-control/issues/84) | In progress / carried to next Sprint | A high-priority redesign PBI was created. The new frontend was not ready to demonstrate during the Week 4 review, so the work remains a Sprint 3 priority. |
+| Account creation exists, but registration is incomplete without email verification. | [#104 Email verification](https://github.com/TemporaryOrganization1/PDn-control/issues/104) | Planned for next Sprint | Basic authentication was demonstrated, but verification by email was deferred. A dedicated PBI now tracks the required email-code verification flow. |
+| PDF report download was missing or incomplete in the MVP v1 review. | [#19 US-002: PDF report generation](https://github.com/TemporaryOrganization1/PDn-control/issues/19), [PR #90](https://github.com/TemporaryOrganization1/PDn-control/pull/90) | Done | PDF report generation and download were implemented and demonstrated in Week 4. |
+| Users need history of previous checks in their account. During Week 4, history initially worked locally but not on the deployed server. | [#22 US-005: Query history](https://github.com/TemporaryOrganization1/PDn-control/issues/22), [#82 Frontend for History](https://github.com/TemporaryOrganization1/PDn-control/issues/82), [#83 Backend for History](https://github.com/TemporaryOrganization1/PDn-control/issues/83), [#91 No history on the server](https://github.com/TemporaryOrganization1/PDn-control/issues/91) | Done | History frontend and backend were implemented. The deployed-server history bug was tracked separately and fixed. |
+| The Results button should not feel broken when no scan has started; it should explain that there are no results yet and guide the user to start a scan. | [#113 Add empty-state guidance when no scan results exist](https://github.com/TemporaryOrganization1/PDn-control/issues/113) | Backlog / not done this Sprint | The request was captured as a UX improvement PBI after the Week 4 review. It is deferred to a later Sprint because the current Sprint focused on core report/history work and quality automation. |
+| The displayed risk score must be based on real scan data, not random placeholder values. | [#24 US-007: Risk-scoring display](https://github.com/TemporaryOrganization1/PDn-control/issues/24) | Open / carried to next Sprint | The placeholder was identified as misleading during the Week 4 review. The existing risk-scoring PBI remains open and should be completed with real scoring logic. |
+| `mc.yandex.ru` and similar common Russian analytics/service domains should not create misleading foreign-hosting violations for the checked site. | [#114 Handle common Russian analytics domains without false foreign-hosting violations](https://github.com/TemporaryOrganization1/PDn-control/issues/114) | Backlog / not done this Sprint | A correctness PBI was created to separate the checked site's own infrastructure from known third-party service behavior where feasible. |
+| Fine calculation must be available in the report. | [#23 US-006: Total possible fine calculation](https://github.com/TemporaryOrganization1/PDn-control/issues/23) | Open / planned for next Sprint | The customer repeated that fine calculation is required. The feature remains open and is planned for the next Sprint together with real scoring. |
+| After the free scan limit, the product should clearly tell the user to buy or subscribe rather than only blocking further checks. | [#115 Define paid subscription prompt after free scan limit](https://github.com/TemporaryOrganization1/PDn-control/issues/115) | Backlog / not done this Sprint | The current guest-limit behavior was implemented, but the paid/subscription conversion flow still needs product wording and UI. A new PBI tracks that follow-up. |
+
+## 11. Feedback Not Addressed In This Sprint
+
+The frontend redesign, email verification, real risk scoring, fine calculation, `mc.yandex.ru` handling, empty Results state, and subscription prompt were not completed in Sprint 2. They were either already present as open PBIs or were converted into new backlog items after the Week 4 review. The team prioritized making the increment demonstrable and verifiable through PDF reports, history, automated tests, quality requirement tests, CI, coverage, and dependency vulnerability scanning.
+
+## 12. Roadmap
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/docs/roadmap.md
+
+## 13. Definition of done
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/docs/definition-of-done.md
+
+## 14. Quality requirements
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/docs/quality-requirements.md
+
+## 15. Quality requirements tests
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/docs/quality-requirement-tests.md
+
+## 16. Testing
+
+[docs/testing.md](../../docs/testing.md)
+
+## 17. User acceptance tests
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/docs/user-acceptance-tests.md
 
 ## Screenshot Items 18-24 Evidence
 
-### 18. Quality model and selected ISO/IEC 25010 sub-characteristics
+## 18. Quality model and selected ISO/IEC 25010 sub-characteristics
 
 The project uses the ISO/IEC 25010 quality model. The Assignment 4 quality requirements use three different sub-characteristics: Time behaviour ([QR-001](../../docs/quality-requirements.md#qr-001-scan-dispatch-responsiveness)), Analysability ([QR-002](../../docs/quality-requirements.md#qr-002-type-check-feedback-for-crawler-changes)), and User error protection ([QR-003](../../docs/quality-requirements.md#qr-003-invalid-input-protection)).
 
-### 19. Testing status summary
+## 19. Testing status summary
 
 Critical modules and current line coverage are documented in [docs/testing.md](../../docs/testing.md#critical-modules-and-coverage). The current critical-module coverage values are: main-backend store 73.3%, main-backend workerpool 91.1%, GeoIP downloader 66.7%, frontend API helpers 61.13%, crawler URL parsing 94.44%, crawler HTTPS check 100%, and crawler SSL/TLS check 97.22%.
 
-### 20. Links to unit tests
+## 20. Links to unit tests
 
 - [Main backend store tests](../../backend/main-backend/internal/store/store_test.go)
 - [Main backend API helper tests](../../backend/main-backend/internal/api/handlers_test.go)
 - [Frontend API helper tests](../../frontend/src/api.test.js)
 - [Crawler URL and runner tests](../../backend/crawler-worker/tests/)
 
-### 21. Links to integration tests
+## 21. Links to integration tests
 
 - [Worker pool HTTP dispatch integration test](../../backend/main-backend/internal/workerpool/pool_test.go)
 - [GeoIP downloader HTTP integration test](../../backend/geoip-service/internal/downloader/downloader_test.go)
 - [Crawler HTTPS/SSL subscription interaction tests](../../backend/crawler-worker/tests/checks.test.ts)
 
-### 22. Links to automated quality requirement tests
+## 22. Links to automated quality requirement tests
 
 - [Quality requirement test definitions](../../docs/quality-requirement-tests.md)
 - [QRT-001 workerpool test](../../backend/main-backend/internal/workerpool/pool_test.go)
 - [QRT-002 crawler type-check gate](../../backend/crawler-worker/tsconfig.json)
 - [QRT-003 invalid input tests](../../backend/main-backend/internal/api/handlers_test.go) and [crawler runner test](../../backend/crawler-worker/tests/runner.test.ts)
 
-### 23. Link to the CI pipeline
+## 23. Link to the CI pipeline
 
 [Quality Gates CI pipeline](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml)
 
-### 24. Link to the latest protected-default-branch CI run
+## 24. Link to the latest protected-default-branch CI run
 
 [Latest successful Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949)
+
+## 25. Branch protection or repository rules evidence
+
+![Main branch protection or repository rules evidence](images/branch-protection.png)
+
+## 26. 
+
+## 27. 
+
+## 28. 
+
+## 29. Changelog
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/CHANGELOG.md
+
+## 30. Demo video
+
+https://drive.google.com/file/d/1EK3FeMgBvvt5LsQfZjFtHYNZrx8vPAq4/view?usp=sharing 
+
+## 31. Optional link
+Will not publish
+
+## 32. 
+
+## 33. Transcript
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week4/customer-review-transcript.md
+
+## 34. Summary 
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week4/customer-review-summary.md
+
+## 35. Reflection
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week4/reflection.md
+
+## 36. Retrospective
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week4/retrospective.md
+
+## 37. LLM report
+
+https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week4/llm-report.md
+
+## 38. Summary of current product
+
+The current product has all the main functionality implemented, lacking only total fine calculation. The work for it is in process, as well as for new frontend design.
+
+## 39. Next steps
+
+Implement new frontend design, paid and free subscriptions management, total fine calculation, and email verification.
+
+## 40. Contribution
+
+Dinislam Baizigitov - https://github.com/TemporaryOrganization1/PDn-control/pull/90
+https://github.com/TemporaryOrganization1/PDn-control/pull/81
+
+Egor Oleshko - https://github.com/TemporaryOrganization1/PDn-control/pull/105
+https://github.com/TemporaryOrganization1/PDn-control/pull/106
+https://github.com/TemporaryOrganization1/PDn-control/pull/107
+https://github.com/TemporaryOrganization1/PDn-control/pull/103
+Ruslan Stecenko - https://github.com/TemporaryOrganization1/PDn-control/pull/112
+https://github.com/TemporaryOrganization1/PDn-control/pull/99
+https://github.com/TemporaryOrganization1/PDn-control/pull/96
+https://github.com/TemporaryOrganization1/PDn-control/pull/92
+Timur Zainullin - https://github.com/TemporaryOrganization1/PDn-control/pull/80
+Lenar Gabdrakhimov - https://github.com/TemporaryOrganization1/PDn-control/pull/111
+
+## 41. Images
+
+https://github.com/TemporaryOrganization1/PDn-control/tree/main/reports/week4/images
+
+
 
 ## Part 8 CI Configuration Evidence
 
@@ -153,3 +266,38 @@ During implementation, the Go vulnerability scan found reachable vulnerabilities
 - Browser E2E and accessibility checks are deferred; current frontend automation covers API helper logic and build integrity.
 - Global repository coverage is lower than critical-module coverage because DB-backed stores, PDF rendering, full UI pages, and full live-browser crawler flows remain only partially automated.
 - Dependency audit results depend on the public vulnerability databases available when CI runs.
+
+
+- Deployed product: [https://pdn2.neurolife.tech/](https://pdn2.neurolife.tech/)
+- Testing status artifact: [docs/testing.md](../../docs/testing.md)
+- Quality gates workflow: [Quality Gates](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml)
+- Link checking workflow: [Link Checker](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/link-check.yml)
+- Latest protected-default-branch Quality Gates run: [successful `main` run](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949)
+
+
+# Week 4 Report: Testing, QA, and CI Evidence
+
+This Week 4 report section indexes the public evidence created for Assignment 4 testing, QA, automated quality gates, and CI configuration.
+
+## Part 7 Testing Summary
+
+Automated tests were added for critical product logic and important component interactions:
+
+| Area | Test evidence |
+|---|---|
+| Main backend guest quota, task state, and worker dispatch | `backend/main-backend/internal/store/store_test.go`, `backend/main-backend/internal/workerpool/pool_test.go`, `backend/main-backend/internal/api/handlers_test.go` |
+| GeoIP downloader interaction | `backend/geoip-service/internal/downloader/downloader_test.go` |
+| Frontend API request/error/risk-score logic | `frontend/src/api.test.js` |
+| Crawler URL parsing, HTTPS/SSL checks, and invalid-run orchestration | `backend/crawler-worker/tests/` |
+
+Critical modules meet the 30% line coverage threshold documented in [docs/testing.md](../../docs/testing.md).
+
+## Part 4 Quality Requirement Test Summary
+
+Automated quality requirement tests are maintained in [docs/quality-requirement-tests.md](../../docs/quality-requirement-tests.md) and run in the [Quality Gates](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml) workflow.
+
+| QRT | Linked QR | Automated evidence |
+|---|---|---|
+| QRT-001 Scan dispatch responsiveness | QR-001 Time behaviour | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1` |
+| QRT-002 Crawler type-check feedback | QR-002 Analysability | `npm run typecheck` in the crawler-worker CI job |
+| QRT-003 Invalid input protection | QR-003 User error protection | `go test ./internal/api -run TestValidEmail -count=1`; `npm test -- --run tests/runner.test.ts` |
