@@ -1,6 +1,6 @@
-# Week 4 Report: Part 7 Testing and QA Evidence
+# Week 4 Report: Testing, QA, and CI Evidence
 
-This partial Week 4 report indexes the public evidence created for Assignment 4 Part 7. Other Week 4 report sections are intentionally outside this implementation scope.
+This Week 4 report section indexes the public evidence created for Assignment 4 testing, QA, automated quality gates, and CI configuration.
 
 ## Product
 
@@ -10,6 +10,7 @@ PDn-control is a website compliance checker for Federal Law No. 152 and related 
 - Testing status artifact: [docs/testing.md](../../docs/testing.md)
 - Quality gates workflow: [Quality Gates](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml)
 - Link checking workflow: [Link Checker](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/link-check.yml)
+- Latest protected-default-branch Quality Gates run: [successful `main` run](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949)
 
 ## Part 7 Testing Summary
 
@@ -72,6 +73,53 @@ Critical modules and current line coverage are documented in [docs/testing.md](.
 
 [Latest successful Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949)
 
+## Part 8 CI Configuration Evidence
+
+The repository uses GitHub Actions as the platform-supported CI system required for Assignment 4 Part 8.
+
+| CI requirement | Evidence |
+|---|---|
+| CI runs on pull requests. | `.github/workflows/quality.yml` and `.github/workflows/link-check.yml` both include `pull_request` triggers. |
+| CI runs on changes to the protected default branch. | `.github/workflows/quality.yml` and `.github/workflows/link-check.yml` both include `push` triggers for `main`. |
+| Required checks are inspectable. | The [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml) has separate jobs for the main backend, GeoIP service, frontend, and crawler worker. |
+| Linting, formatting, or type checking is included where applicable. | Go formatting checks, `go vet`, and crawler-worker `npm run typecheck` run in `quality.yml`. |
+| Build or testable snapshot creation is included where applicable. | The frontend runs `npm run build` in `quality.yml`; Go services and the crawler worker create testable snapshots through their automated test commands. |
+| Unit tests are included. | Go and Node test suites run in `quality.yml` with coverage enabled. |
+| Integration tests are included. | Worker-pool HTTP dispatch, GeoIP downloader HTTP interaction, and crawler check interaction tests run through the same CI test jobs. |
+| Automated quality requirement tests are included. | QRT checks for scan dispatch responsiveness, crawler type-check feedback, and invalid input protection run in `quality.yml`. |
+| Line coverage reporting is included. | Go jobs generate `coverage.out`; Node jobs generate coverage folders; CI uploads coverage artifacts. |
+| Additional QA check is included and is not link checking. | Dependency vulnerability scanning runs through `govulncheck` for Go modules and `npm audit --audit-level=high --omit=dev` for Node production dependencies. |
+| Link checking is present but not counted as the additional QA check. | The separate [Link Checker workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/link-check.yml) runs Lychee for Markdown links. |
+| Latest protected-default-branch CI run passes. | [Latest successful Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Branch protection or repository rules evidence is preserved. | Screenshot stored at `reports/week4/images/branch-protection.png`. |
+
+## CI Screenshot Evidence
+
+The following screenshots are stored in `reports/week4/images/` as public Assignment 4 evidence.
+
+| Required screenshot | File | What it shows |
+|---|---|---|
+| Latest protected-default-branch CI run | `ci-run.png` | The successful `Quality Gates` run on `main`, with all required jobs visible as passing. |
+| Branch protection or repository rules evidence | `branch-protection.png` | The rule protecting `main`, including required status checks or equivalent repository rules. |
+| Coverage or test report | `coverage-report.png` | Coverage output or the uploaded coverage artifacts from the successful CI run. |
+| Additional QA check result | `additional-qa-check.png` | Passing `govulncheck` or `npm audit` step inside the successful CI run. |
+
+### Latest protected-default-branch CI run
+
+![Latest successful Quality Gates run on main](images/ci-run.png)
+
+### Branch protection or repository rules evidence
+
+![Main branch protection or repository rules evidence](images/branch-protection.png)
+
+### Coverage or test report
+
+![Coverage or test report evidence](images/coverage-report.png)
+
+### Additional QA check result
+
+![Additional QA dependency vulnerability scan evidence](images/additional-qa-check.png)
+
 ## Additional QA Check Options Considered
 
 | Option | Assessment |
@@ -101,7 +149,7 @@ During implementation, the Go vulnerability scan found reachable vulnerabilities
 
 ## Limitations And Deferred QA Work
 
-- The latest protected-default-branch CI result must be captured after this branch is merged or opened as a PR.
+- The latest protected-default-branch CI result is linked above and the public screenshots are embedded in this report.
 - Browser E2E and accessibility checks are deferred; current frontend automation covers API helper logic and build integrity.
 - Global repository coverage is lower than critical-module coverage because DB-backed stores, PDF rendering, full UI pages, and full live-browser crawler flows remain only partially automated.
 - Dependency audit results depend on the public vulnerability databases available when CI runs.

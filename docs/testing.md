@@ -20,27 +20,27 @@ Global repository coverage is lower because command entrypoints, DB-backed store
 
 | Test type | Scope | Command or CI check | Latest result | Evidence |
 |---|---|---|---|---|
-| Unit tests | Guest quota, task state, URL parsing, frontend API helpers, result scoring. | `go test ./...`, `npm test -- --coverage` | Passing locally via Docker. | GitHub Actions `Quality Gates` workflow and local Docker runs. |
-| Integration tests | Worker pool HTTP dispatch with `httptest`; GeoIP MMDB download with `httptest`; crawler check subscriptions with fake request/response objects. | `go test ./...`, `npm test -- --coverage` | Passing locally via Docker. | GitHub Actions `Quality Gates` workflow and local Docker runs. |
-| Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection. | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1`; `npm run typecheck`; `npm test -- --run tests/runner.test.ts`; `go test ./internal/api -run TestValidEmail -count=1` | Passing locally via Docker. Pending protected-branch CI evidence after merge. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
+| Unit tests | Guest quota, task state, URL parsing, frontend API helpers, result scoring. | `go test ./...`, `npm test -- --coverage` | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Integration tests | Worker pool HTTP dispatch with `httptest`; GeoIP MMDB download with `httptest`; crawler check subscriptions with fake request/response objects. | `go test ./...`, `npm test -- --coverage` | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection. | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1`; `npm run typecheck`; `npm test -- --run tests/runner.test.ts`; `go test ./internal/api -run TestValidEmail -count=1` | Passing in the latest protected-branch CI run. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
 
 ## CI and QA Check Status
 
 | Gate or check | Required for Done? | Latest protected-branch status | Evidence |
 |---|---|---|---|
-| Go formatting check | Yes | Pending next `main` run. | [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
-| Go static analysis (`go vet`) | Yes | Pending next `main` run. | [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
-| Go tests and coverage | Yes | Passing locally via Docker. Pending protected-branch run. | `backend/main-backend/coverage.out`, `backend/geoip-service/coverage.out` generated locally; CI uploads coverage artifacts. |
-| Frontend build and tests | Yes | Passing locally via Docker. Pending protected-branch run. | `npm run build`; `npm test -- --coverage`. |
-| Crawler-worker typecheck, tests, and coverage | Yes | Passing locally via Docker. Pending protected-branch run. | `npm run typecheck`; `npm test -- --coverage`. |
-| Additional QA check: dependency vulnerability scan | Yes | Passing locally via Docker. Pending protected-branch run. | `govulncheck` for Go modules; `npm audit --audit-level=high --omit=dev` for Node packages. |
+| Go formatting check | Yes | Passing. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Go static analysis (`go vet`) | Yes | Passing. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Go tests and coverage | Yes | Passing. | `backend/main-backend/coverage.out` and `backend/geoip-service/coverage.out` are uploaded by CI as coverage artifacts in the [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Frontend build and tests | Yes | Passing. | Frontend build, tests, and coverage run in the [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Crawler-worker typecheck, tests, and coverage | Yes | Passing. | Crawler-worker typecheck, tests, and coverage run in the [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Additional QA check: dependency vulnerability scan | Yes | Passing. | `govulncheck` for Go modules and `npm audit --audit-level=high --omit=dev` for Node packages run in the [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
 | Lychee link checking | Yes, but not the additional QA check. | Existing workflow. | [Link Checker workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/link-check.yml). |
 
 ## Additional QA Check Rationale
 
 | QA objective or risk | Additional QA check | Scope | Latest result | Evidence | Limitations or follow-up |
 |---|---|---|---|---|---|
-| Vulnerable dependencies can expose the deployed checker, reports, authentication, crawler workers, or GeoIP service to avoidable security and reliability risks. | Automated dependency vulnerability scanning. | Go modules with `govulncheck`; Node production dependencies with `npm audit --audit-level=high --omit=dev`. | Passing locally after upgrading Go services to Go 1.25 and updating vulnerable Go dependencies. | `Quality Gates` workflow. | Audit results depend on the public vulnerability databases available at run time. Dev dependency findings are reviewed separately from production dependency gates. |
+| Vulnerable dependencies can expose the deployed checker, reports, authentication, crawler workers, or GeoIP service to avoidable security and reliability risks. | Automated dependency vulnerability scanning. | Go modules with `govulncheck`; Node production dependencies with `npm audit --audit-level=high --omit=dev`. | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). | Audit results depend on the public vulnerability databases available at run time. Dev dependency findings are reviewed separately from production dependency gates. |
 
 ## Manual Evidence That Does Not Count as QRT
 
