@@ -1,4 +1,6 @@
 node_modules/
+.next/
+*.tsbuildinfo
 dist/
 .pnpm-store/
 .DS_Store

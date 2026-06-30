@@ -9,7 +9,7 @@ This document is the maintained testing status artifact for Assignment 4 Part 7 
 | `backend/main-backend/internal/store/store.go` | Tracks scan progress, results, report IDs, and guest request limits. | 30% | 73.3% | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/main-backend`; `go tool cover -func=coverage.out`. |
 | `backend/main-backend/internal/workerpool/pool.go` | Selects crawler workers, enforces worker capacity, and dispatches scan tasks. | 30% | 91.1% | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/main-backend`; `go tool cover -func=coverage.out`. |
 | `backend/geoip-service/internal/downloader/downloader.go` | Downloads and stores the GeoIP database used by jurisdiction checks. | 30% | 66.7% package coverage; `DownloadMMDB` 71.0%. | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/geoip-service`; `go tool cover -func=coverage.out`. |
-| `frontend/src/api.js` | Normalizes scan requests, handles API errors, and calculates displayed risk score. | 30% | 61.13% | `npm test -- --coverage` in `frontend`. |
+| `frontend_2.0/lib/api.ts` | Normalizes scan requests and handles API errors for the Next frontend. | Typecheck/lint | Pending coverage migration | `npm run check` in `frontend_2.0`. |
 | `backend/crawler-worker/src/url.ts` | Normalizes target domains used by crawler checks. | 30% | 94.44% | `npm test -- --coverage` in `backend/crawler-worker`. |
 | `backend/crawler-worker/src/checks/https.ts` | Detects insecure HTTP endpoints during scans. | 30% | 100% | `npm test -- --coverage` in `backend/crawler-worker`. |
 | `backend/crawler-worker/src/checks/ssl.ts` | Detects self-signed or insecure SSL/TLS endpoints during scans. | 30% | 97.22% | `npm test -- --coverage` in `backend/crawler-worker`. |
@@ -20,7 +20,7 @@ Global repository coverage is lower because command entrypoints, DB-backed store
 
 | Test type | Scope | Command or CI check | Latest result | Evidence |
 |---|---|---|---|---|
-| Unit tests | Guest quota, task state, URL parsing, frontend API helpers, result scoring. | `go test ./...`, `npm test -- --coverage` | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
+| Unit tests | Guest quota, task state, URL parsing, frontend API helpers, result scoring. | `go test ./...`, `npm run check` | Backend tests plus Next lint/typecheck. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
 | Integration tests | Worker pool HTTP dispatch with `httptest`; GeoIP MMDB download with `httptest`; crawler check subscriptions with fake request/response objects. | `go test ./...`, `npm test -- --coverage` | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
 | Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection. | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1`; `npm run typecheck`; `npm test -- --run tests/runner.test.ts`; `go test ./internal/api -run TestValidEmail -count=1` | Passing in the latest protected-branch CI run. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28302778949). |
 
@@ -59,6 +59,6 @@ The host shell used for this update did not expose `go` or `npm` in `PATH`, so v
 ```bash
 docker run --rm -v "${PWD}:/work" -w /work/backend/main-backend golang:1.25 sh -lc "/usr/local/go/bin/gofmt -w internal/store/store_test.go internal/workerpool/pool_test.go internal/api/handlers_test.go && /usr/local/go/bin/go test ./... -covermode=atomic -coverprofile=coverage.out && /usr/local/go/bin/go tool cover -func=coverage.out && /usr/local/go/bin/go run golang.org/x/vuln/cmd/govulncheck@latest ./..."
 docker run --rm -v "${PWD}:/work" -w /work/backend/geoip-service golang:1.25 sh -lc "/usr/local/go/bin/gofmt -w internal/downloader/downloader_test.go && /usr/local/go/bin/go test ./... -covermode=atomic -coverprofile=coverage.out && /usr/local/go/bin/go tool cover -func=coverage.out && /usr/local/go/bin/go run golang.org/x/vuln/cmd/govulncheck@latest ./..."
-docker run --rm -v "${PWD}:/work" -w /work/frontend node:20-alpine sh -lc "npm ci && npm run build && npm test -- --coverage && npm audit --audit-level=high --omit=dev"
+docker run --rm -v "${PWD}:/work" -w /work/frontend_2.0 node:24-alpine sh -lc "npm ci && npm run check && npm run build && npm audit --audit-level=high --omit=dev"
 docker run --rm -e PUPPETEER_SKIP_DOWNLOAD=true -v "${PWD}:/work" -w /work/backend/crawler-worker node:22 sh -lc "npm ci && npm run typecheck && npm test -- --coverage && npm audit --audit-level=high --omit=dev"
 ```

@@ -89,6 +89,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			file_path TEXT NOT NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
+		`ALTER TABLE pdf_reports ADD COLUMN IF NOT EXISTS req_id TEXT NULL`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_pdf_reports_req_id ON pdf_reports(req_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_pdf_reports_email ON pdf_reports(email)`,
 		`CREATE TABLE IF NOT EXISTS auth_users (
 			id TEXT PRIMARY KEY,
@@ -123,10 +125,26 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_check_history_email_created_at ON check_history(email, created_at DESC)`,
 		`INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, report_id, created_at)
-			SELECT 'legacy-' || id, email, 'legacy-' || id, url, 'unknown', 'completed', '[]'::jsonb, id, created_at
+			SELECT 'legacy-' || id, email, COALESCE(NULLIF(req_id, ''), 'legacy-' || id), url, 'unknown', 'completed', '[]'::jsonb, id, created_at
 			FROM pdf_reports
 			WHERE email <> ''
+				AND NOT EXISTS (
+					SELECT 1
+					FROM check_history h
+					WHERE h.report_id = pdf_reports.id
+						OR (pdf_reports.req_id IS NOT NULL AND h.req_id = pdf_reports.req_id)
+				)
 			ON CONFLICT (req_id) DO NOTHING`,
+		`DELETE FROM check_history legacy
+			WHERE legacy.req_id LIKE 'legacy-%'
+				AND legacy.report_id IS NOT NULL
+				AND EXISTS (
+					SELECT 1
+					FROM check_history current
+					WHERE current.report_id = legacy.report_id
+						AND current.req_id <> legacy.req_id
+						AND current.req_id NOT LIKE 'legacy-%'
+				)`,
 	}
 
 	for _, stmt := range stmts {
@@ -140,7 +158,17 @@ func (s *Store) migrate(ctx context.Context) error {
 // SaveReport generates a PDF report for the given targetURL and results,
 // saves it to the reports directory, and records it in pdf_reports table.
 // Returns the generated report ID and the file path.
-func (s *Store) SaveReport(ctx context.Context, email, targetURL string, results []store.Result) (string, error) {
+func (s *Store) SaveReport(ctx context.Context, email, targetURL, reqID string, results []store.Result) (string, error) {
+	if reqID != "" {
+		existingID, err := s.reportIDByReqID(ctx, reqID)
+		if err != nil {
+			return "", err
+		}
+		if existingID != "" {
+			return existingID, nil
+		}
+	}
+
 	reportID := newID()
 	hostname := sanitizeFileBase(pdfGen.GetHostname(targetURL))
 	fileName := fmt.Sprintf("%s_%s.pdf", hostname, reportID[:8])
@@ -153,30 +181,64 @@ func (s *Store) SaveReport(ctx context.Context, email, targetURL string, results
 	}
 
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO pdf_reports (id, email, url, file_path, created_at)
-		VALUES ($1, $2, $3, $4, NOW())
-	`, reportID, email, targetURL, filePath)
+		INSERT INTO pdf_reports (id, email, url, file_path, req_id, created_at)
+		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NOW())
+		ON CONFLICT (req_id) DO NOTHING
+	`, reportID, email, targetURL, filePath, reqID)
 	if err != nil {
 		// Clean up the file if DB insert fails
 		os.Remove(filePath)
 		return "", fmt.Errorf("insert pdf report record: %w", err)
 	}
 
+	if reqID != "" {
+		existingID, err := s.reportIDByReqID(ctx, reqID)
+		if err != nil {
+			os.Remove(filePath)
+			return "", err
+		}
+		if existingID != reportID {
+			os.Remove(filePath)
+			return existingID, nil
+		}
+	}
+
 	log.Printf("[Auth] PDF report saved: id=%s email=%s path=%s", reportID, email, filePath)
 	return reportID, nil
 }
 
+func (s *Store) reportIDByReqID(ctx context.Context, reqID string) (string, error) {
+	if reqID == "" {
+		return "", nil
+	}
+
+	var id string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id
+		FROM pdf_reports
+		WHERE req_id = $1
+	`, reqID).Scan(&id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("query report by req_id: %w", err)
+	}
+	return id, nil
+}
+
 // CheckHistory represents a completed check. PDF metadata is optional.
 type CheckHistory struct {
-	ID        string    `json:"id"`
-	Email     string    `json:"email,omitempty"`
-	ReqID     string    `json:"req_id"`
-	URL       string    `json:"url"`
-	CheckType string    `json:"check_type"`
-	Status    string    `json:"status"`
-	ReportID  string    `json:"report_id"`
-	CreatedAt time.Time `json:"created_at"`
-	FileName  string    `json:"file_name"`
+	ID        string         `json:"id"`
+	Email     string         `json:"email,omitempty"`
+	ReqID     string         `json:"req_id"`
+	URL       string         `json:"url"`
+	CheckType string         `json:"check_type"`
+	Status    string         `json:"status"`
+	ReportID  string         `json:"report_id"`
+	CreatedAt time.Time      `json:"created_at"`
+	FileName  string         `json:"file_name"`
+	Results   []store.Result `json:"results,omitempty"`
 }
 
 // SaveCheckHistory upserts a completed check independently from PDF generation.
@@ -235,10 +297,13 @@ func (s *Store) SetHistoryReportID(ctx context.Context, reqID, reportID string) 
 func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckHistory, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT h.id, h.email, h.req_id, h.url, h.check_type, h.status,
-			COALESCE(h.report_id, ''), h.created_at, COALESCE(r.file_path, '')
+			COALESCE(h.report_id, ''), h.created_at, COALESCE(r.file_path, ''),
+			COALESCE(h.results_json, '[]'::jsonb)
 		FROM check_history h
 		LEFT JOIN pdf_reports r ON r.id = h.report_id
 		WHERE h.email = $1
+			AND h.report_id IS NOT NULL
+			AND h.report_id <> ''
 		ORDER BY h.created_at DESC
 	`, NormalizeEmail(email))
 	if err != nil {
@@ -250,11 +315,17 @@ func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckH
 	for rows.Next() {
 		var h CheckHistory
 		var filePath string
-		if err := rows.Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt, &filePath); err != nil {
+		var rawResults []byte
+		if err := rows.Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt, &filePath, &rawResults); err != nil {
 			return nil, fmt.Errorf("scan check history: %w", err)
 		}
 		if filePath != "" {
 			h.FileName = filepath.Base(filePath)
+		}
+		if len(rawResults) > 0 {
+			if err := json.Unmarshal(rawResults, &h.Results); err != nil {
+				return nil, fmt.Errorf("unmarshal check history results: %w", err)
+			}
 		}
 		history = append(history, h)
 	}

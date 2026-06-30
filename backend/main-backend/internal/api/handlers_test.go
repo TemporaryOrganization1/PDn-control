@@ -75,8 +75,19 @@ func TestProgressAndOriginHelpers(t *testing.T) {
 		t.Fatal("running 99 percent progress update should not be final")
 	}
 
-	if got := allowedOrigins(nil); len(got) != 3 {
-		t.Fatalf("default allowed origins length = %d, want 3", len(got))
+	got := allowedOrigins(nil)
+	if len(got) != 5 {
+		t.Fatalf("default allowed origins length = %d, want 5", len(got))
+	}
+	foundNextDevOrigin := false
+	for _, origin := range got {
+		if origin == "http://localhost:8080" {
+			foundNextDevOrigin = true
+			break
+		}
+	}
+	if !foundNextDevOrigin {
+		t.Fatalf("default allowed origins = %#v, want localhost:8080", got)
 	}
 	custom := []string{"https://pdn2.neurolife.tech"}
 	if got := allowedOrigins(custom); len(got) != 1 || got[0] != custom[0] {

@@ -1,6 +1,8 @@
 # Product Repository Requirements
 
-These requirements apply to the product repository throughout the course. Each section states when its requirements become mandatory.
+These requirements apply to the product repository throughout the course. Use [Artifact Requirements](Artifact_Requirements.md) as the authoritative source for shared artifact semantics, recurring artifact structures, and public/private artifact handling. Each section states when its requirements become mandatory.
+
+## Required Starting Assignment 2
 
 ## Baseline Repository Requirements
 
@@ -20,7 +22,7 @@ These requirements apply to the product repository throughout the course. Each s
 
 7. Maintain a root `README.md` containing the project description, local setup instructions, links to the main documentation, and the current deployment or runnable artifact where applicable.
 
-8. Keep the repository and required external artifacts accessible until the course has been graded.
+8. Keep the repository accessible until the course has been graded. Use [Artifact Requirements](Artifact_Requirements.md) for shared external artifact accessibility rules.
 
 ### Licensing and Attribution
 
@@ -93,27 +95,9 @@ These requirements apply to the product repository throughout the course. Each s
 
 5. Do not commit large binaries, datasets, recordings, model weights, or similar large files to normal Git history. Add them to `.gitignore`. When genuinely required, use approved external storage or Git LFS.
 
-6. Use external storage according to the artifact's sensitivity:
+6. Do not commit credentials, PII, confidential customer materials, raw recordings, recording links, or test credentials.
 
-   * Store public, non-sensitive artifacts in package registries or publicly accessible cloud storage.
-   * Store private recordings or instructor-only evidence in access-controlled university storage or cloud storage shared only with instructors.
-   * Do not store or submit real, personal, or production credentials, secrets, or unnecessary PII.
-   * Dedicated limited-permission test credentials may be submitted privately when an assignment requires them.
-
-7. Do not use Git LFS or public external storage to publish private or confidential information.
-
-8. Do not commit credentials, PII, confidential customer materials, raw recordings, recording links, or test credentials.
-
-9. Sanitize public repository documents. Use GitHub/GitLab usernames, roles, or pseudonyms such as "customer" instead of real names where possible.
-
-10. Use only sanitized demo/test data in public deployments, video demonstrations, screenshots, API documentation, Swagger/Postman examples, and other public materials.
-
-11. Keep public and private evidence separate:
-
-    * Public reports, releases, CI/test/coverage evidence, sanitized screenshots, public sanitized demo videos, and sanitized customer summaries may be committed or linked publicly.
-    * Private recordings, private transcripts or notes when publication is refused, exact recording timecodes, university emails, private credentials, private access instructions, private consent evidence, and customer-identifying evidence must be submitted only through Moodle or another instructor-approved private channel.
-    * Presentation slides may be committed only when the copy is intentionally public and sanitized.
-    * Rehearsed presentation videos must remain private unless the team intentionally publishes a sanitized version.
+7. Use [Artifact Requirements](Artifact_Requirements.md) for external storage rules, sanitization rules, and public/private artifact handling.
 
 ### Sensitive-Data Incident Response
 
@@ -125,11 +109,13 @@ If credentials, PII, confidential information, or other sensitive data are accid
 4. Remove the sensitive data from current files and Git history.
 5. Privately document what was exposed, when it was exposed, and the remediation performed; send this documentation to the TA.
 
+## Required Starting Assignment 3
+
 ## Issue-Linked Workflow Requirements
 
 ### Issue-Linked Workflow
 
-Use [Process Requirements](Process_Requirements.md) as the authoritative source for reusable Scrum and workflow semantics such as Product Backlog structure, Sprint semantics, issue roles, Work Status meanings, acceptance criteria terminology, and evidence expectations. This section defines only how those shared requirements must be configured or enforced in the repository platform.
+Use [Process Requirements](Process_Requirements.md) as the authoritative source for reusable Scrum and workflow semantics such as Product Backlog structure, Sprint semantics, issue roles, Work Status meanings, acceptance criteria terminology, and evidence expectations. Use [Artifact Requirements](Artifact_Requirements.md) as the authoritative source for explicit deliverable artifact semantics. This section defines only how those shared requirements must be configured or enforced in the repository platform.
 
 1. Create and use templates appropriate to the selected platform:
 
@@ -168,7 +154,7 @@ Use [Process Requirements](Process_Requirements.md) as the authoritative source 
 
 Use releases and changelog entries to preserve traceability between delivered product increments, source code, and user-visible changes.
 
-Process Requirements define the Sprint milestone and Sprint increment semantics. This section defines how repository releases, tags, changelog entries, artifacts, and demo links preserve delivered-increment evidence.
+Process Requirements define the Sprint milestone and Sprint increment semantics. Artifact Requirements define the shared release and milestone artifact expectations. This section defines only the repository and tag mechanics.
 
 1. Version releases using [Semantic Versioning](https://semver.org/) and prefix Git tags with `v`, for example `v0.1.0`.
 
@@ -180,40 +166,32 @@ Process Requirements define the Sprint milestone and Sprint increment semantics.
    * Link the milestone to the selected release in the assignment report.
    * Map each later release-mapped MVP milestone to a release with higher SemVer precedence.
 
-   A Sprint milestone remains the planning and inspection container. A SemVer release is the packaged delivered increment created from the protected default branch after the Sprint work is completed; it may map to a Sprint increment, but it does not replace the Sprint milestone.
-
 4. Each submitted tag and release must point to a commit on the protected default branch.
 
 5. Do not move, replace, or delete tags/releases mapped to submitted MVP milestones until the course has been graded.
 
 6. Protect mapped tags from modification or deletion where supported.
 
-7. Include runnable built artifacts where applicable. Libraries may provide a package/build artifact and runnable example. Hosted applications may link to the deployment and access instructions.
+7. Maintain `CHANGELOG.md` in the repository root following [Keep a Changelog](https://keepachangelog.com/).
 
-8. Provide links to run instructions unless an assignment explicitly specifies otherwise.
+8. Maintain `[Unreleased]` during development and add an issue-linked entry for every user-visible change using applicable categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`.
 
-9. Provide a public sanitized video demonstration shorter than two minutes unless an assignment explicitly specifies otherwise. If the requirement applies, surface the video link in the relevant assignment report artifacts.
-
-10. Maintain `CHANGELOG.md` in the repository root following [Keep a Changelog](https://keepachangelog.com/).
-
-11. Maintain `[Unreleased]` during development and add an issue-linked entry for every user-visible change using applicable categories: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, and `Security`.
-
-12. Extend the PR/MR template with a changelog checklist requiring exactly one selection:
+9. Extend the PR/MR template with a changelog checklist requiring exactly one selection:
 
     * Added or updated a user-visible entry in `CHANGELOG.md`.
     * Not applicable because the change is not user-visible.
 
-13. When creating a release, move included entries into a dated SemVer section, link it to the release, and create a new empty `[Unreleased]` section.
+10. When creating a release, move included entries into a dated SemVer section, link it to the release, and create a new empty `[Unreleased]` section.
 
 ## Required Starting Assignment 4
 
 ### Quality Automation and CI
 
-Use [Process Requirements](Process_Requirements.md) as the authoritative source for architecture, quality requirements, quality requirement tests, Definition of Done, traceability, UAT, and Sprint evidence. This section defines the repository automation and evidence required starting in Assignment 4.
+Use [Process Requirements](Process_Requirements.md) as the authoritative source for architecture, quality requirements, quality requirement tests, Definition of Done, traceability, UAT, and Sprint evidence. Use [Artifact Requirements](Artifact_Requirements.md) as the authoritative source for the maintained artifact structure of Assignment 4 documentation artifacts. This section defines the repository automation required starting in Assignment 4.
 
-The automation, tests, coverage evidence, automated quality requirement tests, additional QA checks, and CI gates and evidence introduced for Assignment 4 and referenced by the Definition of Done are maintained repository requirements. They must continue to apply during later project work unless a later requirement explicitly supersedes them or the team replaces a check with a documented equivalent or stronger check.
+The automation, tests, automated quality requirement tests, additional QA checks, and CI gates introduced for Assignment 4 and referenced by the Definition of Done are maintained repository requirements. They must continue to apply during later project work unless a later requirement explicitly supersedes them or the team replaces a check with a documented equivalent or stronger check.
 
-Process Requirements define what counts as a quality requirement, QRT, UAT, or Done status. This section defines how those requirements must be automated, evidenced, and kept active in the repository.
+Process Requirements define what counts as a quality requirement, QRT, UAT, or Done status. Artifact Requirements define the maintained artifact structures and evidence handling. This section defines how those requirements must be automated and kept active in the repository.
 
 Architecture documentation and ADRs introduced in Assignment 5 are maintained repository requirements after they are introduced.
 
@@ -257,76 +235,28 @@ Architecture documentation and ADRs introduced in Assignment 5 are maintained re
 
    Starting in Assignment 5, teams must also maintain:
 
-   * `docs/architecture.md`
-   * At least three ADRs in `docs/adr/`
+   * `docs/architecture/README.md`
+   * At least three ADRs in `docs/architecture/adr/`
 
-10. Teams must identify the product's critical modules and report line coverage for those modules. Critical modules are source files, packages, or product areas responsible for core user workflows, persistence, external integration, security, business rules, or other behavior where defects would materially affect the product.
+10. Teams must identify the product's critical modules for testing and coverage purposes. Critical modules are source files, packages, or product areas responsible for core user workflows, persistence, external integration, security, business rules, or other behavior where defects would materially affect the product.
 
 11. Each critical module must have at least 30% automated line coverage unless a TA explicitly approves another threshold.
 
 12. If global repository coverage is lower than critical-module coverage, explain why and identify the untested or lightly tested areas.
 
-13. Maintain `docs/testing.md` as the canonical testing status artifact. It must show, at minimum:
+13. Use [Artifact Requirements](Artifact_Requirements.md) for the maintained structure and content of `docs/testing.md`, `docs/quality-requirements.md`, `docs/quality-requirement-tests.md`, and `docs/user-acceptance-tests.md`.
 
-    * Critical modules and their coverage status
-    * Unit test status
-    * Integration test status
-    * Automated quality requirement test status
-    * Linting, formatting, type checking, and additional QA check status
-    * Additional QA check objective or risk addressed, scope, latest result, evidence, and limitations or follow-up work
-    * CI links, latest protected-default-branch result, and branch protection or rules evidence
-    * Manual test evidence where automation is not feasible and where the evidence does not count as a quality requirement test
-    * Which Assignment 4 quality gates remain active for later project work, or which documented replacements supersede them
+14. Automated unit tests must cover critical product logic.
 
-14. Use tables similar to this structure in `docs/testing.md`:
+15. Automated integration tests must cover important interactions between product components where applicable. Examples include API routes with persistence, service boundaries, bot command or webhook flows, configuration validation, or UI components interacting with application state or API boundaries. Full browser end-to-end testing is not required in Assignment 4.
 
-    ```markdown
-    ## Critical Modules and Coverage
+16. If a product has little traditional source code, for example a no-code or configuration-heavy product, the team must still automate meaningful checks where possible.
 
-    | Critical module | Why critical | Required line coverage | Current line coverage | Evidence |
-    |---|---|---:|---:|---|
-    | `src/search.ts` | Main user workflow. | 30% | 42% | [Coverage run](...) |
+17. The team Definition of Done must require relevant CI checks, test evidence, coverage expectations, and quality gates before a PBI can be marked `Done`.
 
-    ## Automated Test Status
+18. The Definition of Done must continue to govern later project work. Later PBIs must satisfy the relevant tests, CI gates, quality requirement checks, and evidence rules for the changed product areas.
 
-    | Test type | Scope | Command or CI check | Latest result | Evidence |
-    |---|---|---|---|---|
-    | Unit tests | Critical product logic | `npm test -- --coverage` | Passing | [CI run](...) |
-    | Integration tests | API and database interaction | `npm run test:integration` | Passing | [CI run](...) |
-    | Automated QRTs | QR-001, QR-002, QR-003 | `npm run test:quality` | Passing | [QRT report](...) |
-
-    ## CI and QA Check Status
-
-    | Gate or check | Required for Done? | Latest protected-branch status | Evidence |
-    |---|---|---|---|
-    | Linting | Yes | Passing | [CI run](...) |
-    | Formatting or type checking | Yes | Passing | [CI run](...) |
-    | Additional QA check | Yes | Passing | [Check report](...) |
-
-    ## Additional QA Check Rationale
-
-    | QA objective or risk | Additional QA check | Scope | Latest result | Evidence | Limitations or follow-up |
-    |---|---|---|---|---|---|
-    | Dependencies with known vulnerabilities may expose users or deployments to avoidable risk. | Automated dependency vulnerability scan. | Product dependency manifests and lockfiles. | Passing | [CI run](...) | Some vulnerabilities may require manual triage or delayed upstream fixes. |
-
-    ## Manual Evidence That Does Not Count as QRT
-
-    | Evidence | Scope | Result | Follow-up PBI or issue |
-    |---|---|---|---|
-    | Customer UAT observation | Checkout flow | Passed with minor wording feedback | [#42](...) |
-    ```
-
-15. Automated unit tests must cover critical product logic.
-
-16. Automated integration tests must cover important interactions between product components where applicable. Examples include API routes with persistence, service boundaries, bot command or webhook flows, configuration validation, or UI components interacting with application state or API boundaries. Full browser end-to-end testing is not required in Assignment 4.
-
-17. If a product has little traditional source code, for example a no-code or configuration-heavy product, the team must still automate meaningful checks where possible and explain the adapted testing strategy in `docs/testing.md`.
-
-18. The team Definition of Done must require relevant CI checks, test evidence, coverage expectations, and quality gates before a PBI can be marked `Done`.
-
-19. The Definition of Done must continue to govern later project work. Later PBIs must satisfy the relevant tests, CI gates, quality requirement checks, and evidence rules for the changed product areas.
-
-20. The latest protected-default-branch CI run must pass before submission unless the applicable assignment public report clearly documents a temporary external outage or TA-approved exception. The applicable assignment public report must also include inspectable branch protection or rules evidence.
+19. The latest protected-default-branch CI run must pass before submission unless the applicable assignment public report clearly documents a temporary external outage or TA-approved exception.
 
 ## Recommended Throughout the Course
 

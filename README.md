@@ -6,7 +6,7 @@ Crawls a target site, runs security and legal checks, and displays violations wi
 ## Architecture
 
 ```text
-Frontend (React)
+Frontend (Next.js + nginx proxy)
       |
       v
 Main Backend (Go/Echo)
@@ -51,7 +51,8 @@ This starts:
 
 | Service          | Container name     | Port |
 |------------------|--------------------|------|
-| Frontend         | frontend           | 80   |
+| Public frontend proxy | frontend       | 80/443 |
+| Next.js frontend | frontend-app       | internal 8080 |
 | Main backend API | main-backend       | internal |
 | Crawler workers  | crawler-worker-*   | internal |
 | GeoIP service    | geoip-service      | internal |
@@ -62,12 +63,12 @@ The frontend is served at [http://localhost](http://localhost).
 ### 3. Run frontend in dev mode
 
 ```bash
-cd frontend
+cd frontend_2.0
 npm install
-npm run dev
+BACKEND_ORIGIN=http://localhost:4000 npm run dev:docker
 ```
 
-The dev server runs at [http://localhost:5173](http://localhost:5173) with hot reload.
+The dev server runs at [http://localhost:8080](http://localhost:8080) with hot reload when using the `dev:docker` script.
 
 ## API
 
@@ -76,7 +77,7 @@ The dev server runs at [http://localhost:5173](http://localhost:5173) with hot r
 | Main API  | `http://localhost/api` | [`api/openapi.yaml`](api/openapi.yaml) |
 | GeoIP API | internal Docker network only | - |
 
-A Swagger UI is available at [http://localhost/swagger.html](http://localhost/swagger.html).
+The OpenAPI contract is maintained in [`api/openapi.yaml`](api/openapi.yaml).
 
 ## Reports
 

@@ -1,6 +1,6 @@
 # Process Requirements
 
-These requirements define the reusable Scrum, workflow, and product-management expectations used across the course. Assignment documents may add stricter or more specific requirements for a particular week, but they must not redefine the same shared terms differently.
+These requirements define the reusable Scrum, workflow, and product-management expectations used across the course. Use [Artifact Requirements](Artifact_Requirements.md) as the authoritative source for shared artifact semantics, recurring artifact structures, and public/private artifact handling. Assignment documents may add stricter or more specific requirements for a particular week, but they must not redefine the same shared terms differently.
 
 ## Product Backlog Items and Scope
 
@@ -12,9 +12,7 @@ These requirements define the reusable Scrum, workflow, and product-management e
 
 4. Course Tasks are not PBIs even if the team tracks them in the same platform.
 
-5. By default, artifacts under `reports/` are Course Task artifacts.
-
-6. Maintained artifacts such as `docs/user-stories.md`, `docs/roadmap.md`, `docs/definition-of-done.md`, root setup documentation, deployment/run instructions, interface specifications, and `CHANGELOG.md` are not Course Tasks when they improve the maintained product repository.
+5. Use [Artifact Requirements](Artifact_Requirements.md) for shared artifact classification and maintained-artifact handling rules.
 
 ## Product Goal and Product Backlog Management
 
@@ -71,17 +69,57 @@ These requirements define the reusable Scrum, workflow, and product-management e
 
 4. A PBI that is expected to be implemented, reviewed, or verified must not be treated as ready for execution without acceptance criteria appropriate to that work.
 
-## Architecture, Quality Requirements, and Quality Requirement Tests
+## Architecture Documentation and ADRs
+
+1. Software architecture is the set of structures needed to reason about the system. These structures comprise software elements, relations among them, and properties of both.
+
+2. Architecture documentation should describe the current system structure, important elements, relations between them, external systems, deployment-relevant boundaries, and quality-relevant properties at a level that helps the team reason about product change.
+
+3. Starting in Assignment 5, treat architecture documentation as a maintained product asset. Later project work must keep it current when product scope, architecture, deployment model, integrations, or important risks change materially.
+
+4. Assignment documents may require specific architecture-view sets or stricter architecture-documentation minima for a particular week. This shared section defines the reusable architecture and ADR semantics, not one permanent fixed view set for every later assignment.
+
+5. Use Architecture Decision Records (ADRs) to preserve important architecture decisions, rationale, tradeoffs, and their relationship to quality requirements.
+
+6. Starting in Assignment 5, treat ADRs as maintained product assets. Preserve ADR history when a decision changes instead of deleting or silently replacing earlier decisions.
+
+7. Each ADR must have a stable ID using the format:
+
+   ```text
+   ADR-001
+   ```
+
+8. Use stable ADR IDs consistently once assigned. Do not change, reuse, or reassign them.
+
+9. ADR status is one of:
+
+   * `Proposed` - a documented candidate decision that has not yet been adopted
+   * `Accepted` - the current adopted decision
+   * `Superseded` - replaced by a later ADR; include an explicit `Superseded by: ADR-...` link
+   * `Deprecated` - no longer recommended or no longer applicable without one direct replacement ADR
+
+10. Each ADR must define:
+
+    * Stable ID
+    * Status
+    * Context
+    * Decision
+    * Consequences and tradeoffs
+    * Quality requirements addressed where applicable
+
+11. Architecture documentation should explain what the documented structure, views, and decisions help the reader reason about, including important boundaries, interactions, deployment concerns, and major quality implications.
+
+12. Architecture documentation should identify which quality requirements or quality concerns the current structure particularly supports, constrains, or leaves risky.
+
+13. Preserve traceability between architecture elements, ADRs, quality requirements, quality requirement tests, PBIs, PRs/MRs, CI jobs, manual evidence where applicable, and reported test results after the relevant artifacts are introduced.
+
+14. Use [Artifact Requirements](Artifact_Requirements.md) for the maintained artifact structure of `docs/architecture/README.md`, `docs/architecture/adr/`, the supporting view directories under `docs/architecture/`, and the hosted documentation site.
+
+## Quality Requirements and Quality Requirement Tests
 
 1. Quality requirements describe how well the product must satisfy stakeholder needs. They are non-functional requirements that influence architecture, technology choices, testing strategy, and release readiness.
 
-2. Software architecture is the set of structures needed to reason about the system. These structures comprise software elements, relations among them, and properties of both.
-
-3. Architecture documentation should describe the current system structure, important elements, relations between them, external systems, and quality-relevant properties at a level that helps the team reason about product change.
-
-4. Use Architecture Decision Records (ADRs) to preserve important quality-relevant architecture decisions, rationale, and tradeoffs.
-
-5. Use a recognized quality model to structure quality requirements. For this course, use ISO/IEC 25010 quality characteristics and sub-characteristics where applicable. Required quality requirements should be distinguished at the sub-characteristic level, such as:
+2. Use a recognized quality model to structure quality requirements. For this course, use ISO/IEC 25010 quality characteristics and sub-characteristics where applicable. Required quality requirements should be distinguished at the sub-characteristic level, such as:
 
    * Time behaviour
    * Resource utilization
@@ -94,41 +132,41 @@ These requirements define the reusable Scrum, workflow, and product-management e
    * Modifiability
    * Testability
 
-6. Each quality requirement must have a stable ID using the format:
+3. Each quality requirement must have a stable ID using the format:
 
    ```text
    QR-001
    ```
 
-7. A quality requirement must explain:
+4. A quality requirement must explain:
 
    * The selected ISO/IEC 25010 quality sub-characteristic
    * Why that quality requirement matters for this product and stakeholders
    * The measurable scenario
    * The automated quality requirement tests that verify it
 
-   After ADRs are introduced in Assignment 5, each quality requirement must also link to the architecture decisions that address it.
+   After ADRs are introduced in Assignment 5, each relevant quality requirement must also link to the architecture decisions that address it.
 
-8. Specify each quality requirement as a measurable scenario using this structure:
+5. Specify each quality requirement as a measurable scenario using this structure:
 
    ```text
    When <source> <stimulus> under <environment>,
    the <artifact> shall <response> within <response measure>.
    ```
 
-9. The response measure must be concrete enough to test. Avoid vague measures such as `fast`, `secure`, `user-friendly`, or `reliable` without measurable criteria.
+6. The response measure must be concrete enough to test. Avoid vague measures such as `fast`, `secure`, `user-friendly`, or `reliable` without measurable criteria.
 
-10. Each quality requirement must have at least one linked automated quality requirement test with a stable ID using the format:
+7. Each quality requirement must have at least one linked automated quality requirement test with a stable ID using the format:
 
     ```text
     QRT-001
     ```
 
-11. A quality requirement test is an automated test or CI check that directly verifies one or more measurable quality requirement scenarios.
+8. A quality requirement test is an automated test or CI check that directly verifies one or more measurable quality requirement scenarios.
 
     Repository requirements define which CI jobs and repository evidence must exist. This section defines only whether a test or check qualifies as a QRT for traceability and quality-requirement verification.
 
-12. Quality requirement tests must define:
+9. Quality requirement tests must define:
 
     * Stable ID
     * Linked quality requirement ID
@@ -138,82 +176,15 @@ These requirements define the reusable Scrum, workflow, and product-management e
     * Expected measurable result
     * Evidence location
 
-13. Required unit tests, coverage checks, type checking, or static analysis may count as quality requirement tests only when they directly verify a measurable quality requirement scenario. For example, type checking may verify an Analysability scenario, and unit-test coverage may verify a Testability scenario.
+10. Required unit tests, coverage checks, type checking, or static analysis may count as quality requirement tests only when they directly verify a measurable quality requirement scenario. For example, type checking may verify an Analysability scenario, and unit-test coverage may verify a Testability scenario.
 
-14. Manual quality evidence, manual reviews, observations, and UATs may support testing status, but they do not count as quality requirement tests unless a later assignment or TA-approved exception explicitly allows it.
+11. Manual quality evidence, manual reviews, observations, and UATs may support testing status, but they do not count as quality requirement tests unless a later assignment or TA-approved exception explicitly allows it.
 
-15. Treat quality requirements and quality requirement tests as maintained product assets starting in Assignment 4. Treat architecture documentation and ADRs as maintained product assets starting in Assignment 5. Later project work must keep introduced assets current, extend them when product scope or risk changes, and preserve history when a requirement, test, or decision is replaced.
+12. Treat quality requirements and quality requirement tests as maintained product assets starting in Assignment 4. Later project work must keep introduced assets current, extend them when product scope or risk changes, and preserve history when a requirement or test is replaced.
 
-16. Preserve traceability between architecture elements, ADRs, quality requirements, quality requirement tests, PBIs, PRs/MRs, CI jobs, manual evidence where applicable, and reported test results after the relevant artifacts are introduced.
+13. Relevant ADRs should link back to the quality requirements they address.
 
-17. Use one section per quality requirement. This structure is recommended:
-
-    ```markdown
-    ## QR-001: Search response time
-
-    **ISO/IEC 25010 sub-characteristic:** Time behaviour
-
-    **Scenario:** When an end user submits a course search request under normal production-like load, the search API shall return matching results within 2 seconds for 95% of requests.
-
-    **Why this matters:** Users need quick feedback when searching available courses because slow search blocks the main workflow.
-
-    **Linked quality requirement tests:** [QRT-001](quality-requirement-tests.md#qrt-001-search-response-time)
-    ```
-
-18. Example quality requirements may use maintainability sub-characteristics when the scenario is measurable. For example:
-
-    ```markdown
-    ## QR-002: Type-check feedback time
-
-    **ISO/IEC 25010 sub-characteristic:** Analysability
-
-    **Scenario:** When a developer opens or updates a pull request under the CI build environment, the product type-checking or static-analysis gate shall analyze the changed product code and complete within 5 seconds, failing the build if type or interface errors are detected.
-
-    **Why this matters:** Developers need fast feedback about type and interface mistakes so they can diagnose change impact before merging.
-
-    **Linked quality requirement tests:** [QRT-002](quality-requirement-tests.md#qrt-002-ci-type-check-feedback-time)
-    ```
-
-    ```markdown
-    ## QR-003: Critical module testability
-
-    **ISO/IEC 25010 sub-characteristic:** Testability
-
-    **Scenario:** When a developer changes a critical product module under the standard CI environment, the module shall have automated unit tests that achieve at least 30% line coverage for that module.
-
-    **Why this matters:** Critical product logic must be directly verifiable so defects can be detected before merge.
-
-    **Linked quality requirement tests:** [QRT-003](quality-requirement-tests.md#qrt-003-critical-module-unit-coverage)
-    ```
-
-19. Use one section per quality requirement test. This structure is recommended:
-
-    ```markdown
-    ## QRT-002: CI type-check feedback time
-
-    **Linked quality requirement:** QR-002
-
-    **Verification method:** Automated CI check.
-
-    **Test data, setup, or environment:** Standard CI build environment for pull requests and protected default-branch updates.
-
-    **Automated command or CI check:** CI type-checking or static-analysis job.
-
-    **Expected measurable result:** The gate completes in 5 seconds or less and fails when type or interface errors are detected.
-
-    **Evidence link:** Latest protected default-branch CI run showing the job result and duration.
-    ```
-
-20. Use this table to distinguish the main evidence types:
-
-    | Evidence type | What it means | Can it count as QRT? |
-    |---|---|---|
-    | Quality requirement | Measurable non-functional product requirement with `QR-NNN` ID. | No; it is the requirement being verified. |
-    | QRT | Automated test or CI check with `QRT-NNN` ID that directly verifies a measurable QR scenario. | Yes. |
-    | Unit test | Automated test for isolated product logic or a small module. | Only if linked to a measurable QR scenario. |
-    | Integration test | Automated test for interaction between product components, such as API plus persistence or UI component plus state/API boundary. | Only if linked to a measurable QR scenario. |
-    | UAT | Customer-executed end-user scenario. | No. |
-    | Manual evidence | Observation, review, screenshot, or exploratory check. | No. |
+14. Use [Artifact Requirements](Artifact_Requirements.md) for the maintained artifact structure of `docs/quality-requirements.md` and `docs/quality-requirement-tests.md`.
 
 ## User Acceptance Tests
 
@@ -225,30 +196,18 @@ These requirements define the reusable Scrum, workflow, and product-management e
    UAT-001
    ```
 
-3. Each maintained UAT scenario should include:
-
-   * Stable scenario ID
-   * Scenario status, such as `Active`, `Retired`, or `Superseded`
-   * User goal
-   * Preconditions
-   * Step-by-step instructions
-   * Expected outcome for each important step or for the scenario as a whole
-   * Assignment-specific execution results when required
-   * Customer comments or observed issues after execution
-   * Resulting PBIs or issues after execution
-
-4. Keep UAT IDs stable:
+3. Keep UAT IDs stable:
 
    * If a UAT scenario is still valid but needs clarification, edit it in place and keep the same ID.
    * If the clarification or refinement preserves the same user goal, keep the same ID.
    * If a UAT scenario becomes obsolete, mark it `Retired` with a short reason. Do not delete it or reuse its ID.
    * If the user goal or scenario meaning changes materially, create a new UAT ID and optionally mark the old one `Retired` or `Superseded`.
 
-5. Preserve UAT execution history when an assignment requires customer execution evidence. Add new execution-result sections instead of overwriting previous assignment results.
+4. Preserve UAT execution history when an assignment requires customer execution evidence. Add new execution-result sections instead of overwriting previous assignment results.
 
-6. UAT results that reveal product gaps, defects, or changed stakeholder expectations must be converted into traceable Product Backlog decisions.
+5. UAT results that reveal product gaps, defects, or changed stakeholder expectations must be converted into traceable Product Backlog decisions.
 
-7. This section defines maintained UAT scenario structure and traceability rules. Repository requirements and assignment documents define storage, evidence, and public or private artifact handling.
+6. Use [Artifact Requirements](Artifact_Requirements.md) for the maintained artifact structure of `docs/user-acceptance-tests.md` and for UAT result artifact handling.
 
 ## Traceability and User-Story Index
 
@@ -312,7 +271,7 @@ These requirements define the reusable Scrum, workflow, and product-management e
 
    A SemVer release is the packaged delivered increment created from the protected default branch after Sprint work is completed. A release may map to the delivered Sprint increment, but it does not replace the Sprint milestone.
 
-   Repository requirements define how releases, tags, artifacts, and changelog entries are created and preserved. This section defines the Sprint and release roles in planning and inspection.
+   [Product Repository Requirements](Repository_Requirements.md) define how releases, tags, and changelog entries are created and preserved. [Artifact Requirements](Artifact_Requirements.md) define their shared artifact requirements. This section defines the Sprint and release roles in planning and inspection.
 
 7. Hold a Daily Scrum or equivalent daily developer coordination event during the Sprint to inspect progress toward the Sprint Goal and adapt the plan for the next day of work.
 
@@ -358,7 +317,7 @@ These requirements define the reusable Scrum, workflow, and product-management e
 
 4. A linked PR/MR is the default implementation evidence for a change.
 
-5. Explicit named deliverables are required only when the expected evidence is not obvious from a normal linked PR/MR, such as a design artifact, API specification, deployment artifact, or documentation artifact.
+5. Explicit named deliverables are required only when the expected evidence is not obvious from a normal linked PR/MR. Use [Artifact Requirements](Artifact_Requirements.md) for shared deliverable artifact expectations.
 
 6. Implementation PRs/MRs normally link to the supporting PBIs that do the work. They do not need to link directly to the parent user-story issue when traceability is preserved through linked supporting PBIs, related PRs/MRs, and verification evidence.
 
@@ -402,7 +361,7 @@ Use the following Work Status values consistently wherever the course requires i
 
 6. When later project work changes the product stack, architecture, quality requirements, critical modules, or CI configuration, update the Definition of Done so it continues to describe the current completion standard.
 
-7. This section defines completion semantics. Repository requirements and assignment documents define specific CI gates, tests, coverage thresholds, platform enforcement, and automation evidence.
+7. This section defines completion semantics. [Product Repository Requirements](Repository_Requirements.md) and assignment documents define specific CI gates, tests, coverage thresholds, and platform enforcement. [Artifact Requirements](Artifact_Requirements.md) define the maintained artifact structure and evidence expectations.
 
 ## Roadmap
 
@@ -412,20 +371,8 @@ Use the following Work Status values consistently wherever the course requires i
    docs/roadmap.md
    ```
 
-2. `docs/roadmap.md` is the Sprint-by-Sprint delivery plan. It must not duplicate the full user-story index or repeat full mutable issue content that already lives in the issue tracker.
+2. `docs/roadmap.md` is the Sprint-by-Sprint delivery plan.
 
-3. Structure the roadmap as a list of Sprints. For each Sprint, include:
+3. Update the roadmap as the product direction and Product Backlog evolve.
 
-   * Sprint name or number
-   * Link to the corresponding Sprint milestone
-   * Sprint start and finish dates
-   * Sprint Goal
-   * Short focus or expected outcome statement
-   * Linked planned items for that Sprint, such as user stories and supporting PBIs
-
-4. Keep the roadmap lightweight and traceable:
-
-   * Use links to issues or other tracked PBIs instead of copying their full descriptions.
-   * Summarize the intended Sprint outcome briefly instead of restating backlog metadata such as MoSCoW priority, Requirement status, Work Status, or full acceptance criteria.
-
-5. Update the roadmap as the product direction and Product Backlog evolve.
+4. Use [Artifact Requirements](Artifact_Requirements.md) for the maintained artifact structure of `docs/roadmap.md`.

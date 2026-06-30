@@ -477,7 +477,7 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 
 		if existingReportID == "" && historyReportID == "" {
 			log.Printf("[API] Saving PDF report: req=%s, email=%s, results=%d", update.ReqID, email, len(results))
-			reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, results)
+			reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, update.ReqID, results)
 			if err != nil {
 				log.Printf("[API] Failed to save PDF report for progress update %s: %v", update.ReqID, err)
 			} else {
@@ -572,7 +572,11 @@ func toAuthUser(user *auth.User) *models.AuthUser {
 	if user == nil {
 		return nil
 	}
-	return &models.AuthUser{ID: user.ID, Email: user.Email}
+	return &models.AuthUser{
+		ID:        user.ID,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+	}
 }
 
 func validEmail(email string) bool {
@@ -585,7 +589,7 @@ func validEmail(email string) bool {
 
 func allowedOrigins(origins []string) []string {
 	if len(origins) == 0 {
-		return []string{"http://localhost", "http://localhost:5173", "http://127.0.0.1:5173"}
+		return []string{"http://localhost", "http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8080", "http://127.0.0.1:8080"}
 	}
 	return origins
 }

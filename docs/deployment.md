@@ -18,7 +18,8 @@ Create a server-side `.env` file or provide equivalent environment variables bef
 
 ## Services
 
-- `frontend`: nginx serving the React app on port `80` and proxying `/api/` to `main-backend`.
+- `frontend`: public nginx reverse proxy on port `80`/`443`; `/api/` goes to `main-backend`, all other routes go to `frontend-app`.
+- `frontend-app`: Next.js application built from `frontend_2.0` and listening internally on port `8080`.
 - `main-backend`: Go API for authentication, guest limits, scan orchestration, and progress/results.
 - `crawler-worker-1..3`: Node/Chromium workers that perform website checks.
 - `geoip-service`: GeoIP data updater and lookup service.
@@ -28,5 +29,5 @@ Create a server-side `.env` file or provide equivalent environment variables bef
 
 - If the server does not terminate HTTPS before requests reach the frontend, keep `COOKIE_SECURE=false`; otherwise login and password-change cookies will not work in browsers.
 - The frontend currently publishes port `80`. If another web server already uses that port, change the `frontend.ports` mapping or put the app behind a reverse proxy.
-- Query history is only a placeholder in the personal account. No history data is persisted yet.
+- Query history is persisted for authenticated users and returned through `GET /api/reports`.
 - Go module sums are tracked in `go.sum`, so local Go checks and Docker builds use the same dependency integrity data.

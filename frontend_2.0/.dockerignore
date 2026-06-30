@@ -1,0 +1,9 @@
+.next
+node_modules
+npm-debug.log*
+pnpm-lock.yaml
+.env*
+Dockerfile.dev
+docker-compose.yml
+test
+tsconfig.tsbuildinfo

@@ -54,6 +54,27 @@ paths:
         '200':
           description: Logged out
 
+  /auth/change-password:
+    post:
+      summary: Change the current user's password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '400':
+          description: Weak password or invalid payload
+        '401':
+          description: Unauthorized or invalid current password
+
   /auth/me:
     get:
       summary: Get current user and guest limit state
@@ -118,6 +139,56 @@ paths:
         '403':
           description: Invalid worker secret
 
+  /reports:
+    get:
+      summary: Get check history for the current user
+      responses:
+        '200':
+          description: Check history ordered newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CheckHistory'
+        '401':
+          description: Unauthorized
+
+  /reports/{reportId}:
+    get:
+      summary: Download a PDF report
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: PDF report
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Report not found
+
+  /guest/remaining:
+    get:
+      summary: Get remaining guest checks for the current client
+      responses:
+        '200':
+          description: Guest limit state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GuestInfo'
+
   /workers:
     get:
       summary: Get worker pool status
@@ -147,6 +218,17 @@ components:
           minLength: 8
           example: strong-password
 
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 8
+        newPassword:
+          type: string
+          minLength: 8
+
     AuthUser:
       type: object
       properties:
@@ -155,6 +237,9 @@ components:
         email:
           type: string
           format: email
+        created_at:
+          type: string
+          format: date-time
 
     GuestInfo:
       type: object
@@ -228,6 +313,11 @@ components:
           type: array
           items:
             type: string
+        report_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
 
     CheckResult:
       type: object
@@ -242,3 +332,33 @@ components:
             type: string
         about:
           type: string
+        data:
+          type: object
+          additionalProperties: true
+
+    CheckHistory:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        req_id:
+          type: string
+        url:
+          type: string
+        check_type:
+          type: string
+        status:
+          type: string
+        report_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        file_name:
+          type: string
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckResult'
