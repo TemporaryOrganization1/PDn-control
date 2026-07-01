@@ -51,7 +51,7 @@ This starts:
 
 | Service          | Container name     | Port |
 |------------------|--------------------|------|
-| Public frontend proxy | frontend       | 80/443 |
+| Public frontend proxy | frontend       | 80 |
 | Next.js frontend | frontend-app       | internal 8080 |
 | Main backend API | main-backend       | internal |
 | Crawler workers  | crawler-worker-*   | internal |
@@ -63,7 +63,7 @@ The frontend is served at [http://localhost](http://localhost).
 ### 3. Run frontend in dev mode
 
 ```bash
-cd frontend_2.0
+cd frontend
 npm install
 BACKEND_ORIGIN=http://localhost:4000 npm run dev:docker
 ```
