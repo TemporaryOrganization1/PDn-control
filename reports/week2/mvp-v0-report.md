@@ -110,8 +110,8 @@ MVP v0 bridges the gap between the non-functional prototype and the feature-comp
    ```
    All three services should show status `Up`.
 
-6. **Access Swagger UI:**
-   Download https://github.com/TemporaryOrganization1/PDn-control/blob/main/frontend/swagger.html and open it in browser.
+6. **Access OpenAPI contract:**
+   Open `api/openapi.yaml` in Swagger UI or import `api/postman_collection.json` into Postman.
 
 7. **Stop services:**
    ```bash
@@ -154,10 +154,10 @@ curl http://localhost:4000/api/health
 
 ---
 
-#### Step 2: Access Swagger UI
+#### Step 2: Access OpenAPI contract
 
-Download https://github.com/TemporaryOrganization1/PDn-control/blob/main/frontend/swagger.html and open it in browser.
-**Expected result:** The Swagger UI page loads, displaying all available API endpoints.
+Open `api/openapi.yaml` in Swagger UI or import `api/postman_collection.json` into Postman.
+**Expected result:** The API endpoints are listed and documented.
 
 ---
 
