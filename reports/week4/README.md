@@ -90,7 +90,7 @@ Critical modules and current line coverage are documented in [docs/testing.md](.
 
 - [Main backend store tests](../../backend/main-backend/internal/store/store_test.go)
 - [Main backend API helper tests](../../backend/main-backend/internal/api/handlers_test.go)
-- [Frontend API helper tests](../../frontend/src/api.test.js)
+- [Frontend API helper tests](../../frontend/lib/api.test.ts)
 - [Crawler URL and runner tests](../../backend/crawler-worker/tests/)
 
 ## 21. Links to integration tests
@@ -304,7 +304,7 @@ Automated tests were added for critical product logic and important component in
 |---|---|
 | Main backend guest quota, task state, and worker dispatch | `backend/main-backend/internal/store/store_test.go`, `backend/main-backend/internal/workerpool/pool_test.go`, `backend/main-backend/internal/api/handlers_test.go` |
 | GeoIP downloader interaction | `backend/geoip-service/internal/downloader/downloader_test.go` |
-| Frontend API request/error/risk-score logic | `frontend/src/api.test.js` |
+| Frontend API request/error/risk-score logic | `frontend/lib/api.test.ts`, `frontend/lib/result-adapter.test.ts` |
 | Crawler URL parsing, HTTPS/SSL checks, and invalid-run orchestration | `backend/crawler-worker/tests/` |
 
 Critical modules meet the 30% line coverage threshold documented in [docs/testing.md](../../docs/testing.md).

@@ -21,7 +21,7 @@
 ### API Interface
 
 - **OpenAPI specification:** [`api/openapi.yaml`](../../api/openapi.yaml)
-- **Swagger UI:** [`frontend/swagger.html`](../../frontend/swagger.html) — interactive API test console available at the frontend URL
+- **OpenAPI contract:** [`api/openapi.yaml`](../../api/openapi.yaml) — import into Swagger UI or another OpenAPI client for interactive API checks
 - **Postman collection:** [`api/postman_collection.json`](../../api/postman_collection.json)
 - **API video demonstration:** [Yandex Disk — API Preview](https://disk.yandex.ru/i/YQJS24cyq4vlFg)
 
