@@ -8,6 +8,7 @@ import { AnimatedButton } from "@/components/animated-button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getReports } from "@/lib/api";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { 
   User, 
   Mail, 
@@ -16,7 +17,8 @@ import {
   Download, 
   Calendar,
   FileText,
-  ArrowRight 
+  ArrowRight,
+  Trash2 
 } from "lucide-react";
 
 function formatRegistrationDate(value?: string) {
@@ -28,7 +30,8 @@ function formatRegistrationDate(value?: string) {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isLoggedIn } = useAuth();
+  const { user, isLoggedIn, deleteAccount, logout } = useAuth();
+  const [isDeleting, setIsDeleting] = useState(false);
   const [checksCount, setChecksCount] = useState<number | null>(null);
   const registrationDate = useMemo(
     () => formatRegistrationDate(user?.createdAt),
@@ -281,6 +284,60 @@ export default function ProfilePage() {
                 </CardContent>
               </Card>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Delete Account */}
+      <section className="w-full border-b bg-card">
+        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
+          <div className="lg:col-span-10 lg:col-start-2">
+            <Card className="border-destructive/20 rounded-none">
+              <CardContent className="p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium">Удаление аккаунта</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Все ваши данные, история проверок и отчёты будут безвозвратно удалены
+                    </p>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <AnimatedButton variant="ghost" size="sm" disabled={isDeleting} className="text-destructive hover:bg-destructive/10 border border-destructive/30">
+                        {isDeleting ? "Удаление..." : "Удалить аккаунт"}
+                      </AnimatedButton>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Это действие нельзя отменить. Ваш аккаунт, история проверок и все
+                          сохранённые отчёты будут безвозвратно удалены.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Отмена</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={async () => {
+                            setIsDeleting(true);
+                            try {
+                              await deleteAccount();
+                              await logout();
+                              router.push("/");
+                            } catch {
+                              setIsDeleting(false);
+                            }
+                          }}
+                        >
+                          {isDeleting ? "Удаление..." : "Удалить"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </section>

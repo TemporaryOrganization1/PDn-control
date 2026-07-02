@@ -202,6 +202,14 @@ export async function getReports(): Promise<CheckHistoryItem[]> {
   return parseJsonResponse<CheckHistoryItem[]>(response);
 }
 
+export async function deleteAccount(): Promise<void> {
+  const response = await fetch("/api/auth/delete-account", {
+    method: "POST",
+    credentials: "include",
+  });
+  await parseJsonResponse(response);
+}
+
 export async function downloadReport(reportId: string): Promise<void> {
   const response = await fetch(`/api/reports/${encodeURIComponent(reportId)}`, {
     credentials: "include",
