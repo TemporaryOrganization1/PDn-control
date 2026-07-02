@@ -11,17 +11,52 @@ import { saveLastResult } from "@/lib/result-storage";
 type StageStatus = "pending" | "active" | "done";
 
 const STAGES = [
-  { at: 10, label: "Задача поставлена в очередь" },
-  { at: 25, label: "Обработчик получил сайт" },
-  { at: 60, label: "Выполняется анализ" },
-  { at: 95, label: "Формируется отчет" },
+  { label: "Задача поставлена в очередь" },
+  { label: "Обработчик запускает проверку" },
+  { label: "Выполняется анализ сайта" },
+  { label: "Формируется отчет" },
 ];
 
-function stageStatus(progress: number, index: number): StageStatus {
-  if (progress >= STAGES[index].at) return "done";
-  const previous = index === 0 ? 0 : STAGES[index - 1].at;
-  if (progress >= previous) return "active";
+function activeStageIndex(progress: number, status: string): number {
+  if (progress >= 95) return 3;
+
+  switch (status) {
+    case "queued":
+      return 0;
+    case "dispatched":
+    case "starting":
+      return 1;
+    case "browser_ready":
+      return 2;
+    default:
+      if (progress >= 20) return 2;
+      if (progress >= 10) return 1;
+      return 0;
+  }
+}
+
+function stageStatus(activeIndex: number, index: number): StageStatus {
+  if (index < activeIndex) return "done";
+  if (index === activeIndex) return "active";
   return "pending";
+}
+
+function statusLabel(status: string, progress: number): string {
+  if (progress >= 95) return "Формируется отчет";
+
+  switch (status) {
+    case "queued":
+      return "Задача поставлена в очередь";
+    case "dispatched":
+    case "starting":
+      return "Обработчик запускает проверку";
+    case "browser_ready":
+      return "Выполняется анализ сайта";
+    case "failed":
+      return "Проверка завершилась с ошибкой";
+    default:
+      return "Проверка выполняется";
+  }
 }
 
 export default function CheckProgressView() {
@@ -71,6 +106,11 @@ export default function CheckProgressView() {
   const progress = Math.max(0, Math.min(100, task?.progress || 0));
   const checkedUrl = task?.url || "ожидаем данные backend";
   const currentStatus = useMemo(() => task?.status || "queued", [task?.status]);
+  const activeStage = useMemo(() => activeStageIndex(progress, currentStatus), [currentStatus, progress]);
+  const currentStatusLabel = useMemo(
+    () => statusLabel(currentStatus, progress),
+    [currentStatus, progress]
+  );
 
   if (!reqId) {
     return (
@@ -134,7 +174,7 @@ export default function CheckProgressView() {
                 {Math.round(progress)}%
               </span>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">Статус: {currentStatus}</p>
+            <p className="mt-2 text-xs text-muted-foreground">Статус: {currentStatusLabel}</p>
           </div>
         </div>
       </section>
@@ -158,7 +198,7 @@ export default function CheckProgressView() {
           <div className="grid grid-cols-1 px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-12">
             <div className="space-y-0 lg:col-span-6 lg:col-start-2">
               {STAGES.map((stage, i) => {
-                const status = stageStatus(progress, i);
+                const status = stageStatus(activeStage, i);
                 return (
                   <div
                     key={stage.label}

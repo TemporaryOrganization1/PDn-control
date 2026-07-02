@@ -42,15 +42,104 @@ function descriptionFor(check: BackendCheckResult, status: UiStatus): string {
   return `${label}: обнаружено нарушение или существенный риск.`;
 }
 
+const DOMAIN_DETAIL_KEYS = new Set([
+  "domains",
+  "domain",
+  "ips",
+  "ip",
+  "endpoints",
+  "services",
+]);
+
+function isDomainOnlyDetail(key: string, value: unknown): boolean {
+  if (!DOMAIN_DETAIL_KEYS.has(key)) return false;
+  if (typeof value === "string") return true;
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function formatDetailValue(value: unknown): string {
+  if (Array.isArray(value)) return value.map(formatDetailValue).join(", ");
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => `${key}: ${formatDetailValue(item)}`)
+      .join("; ");
+  }
+  return String(value);
+}
+
+function formatObjectDetail(value: Record<string, unknown>): string {
+  const title = typeof value.domain === "string" ? value.domain : undefined;
+  const fields = Object.entries(value)
+    .filter(([key]) => key !== "domain")
+    .map(([key, item]) => `${key}: ${formatDetailValue(item)}`);
+
+  if (title && fields.length > 0) return `${title}: ${fields.join("; ")}`;
+  if (title) return title;
+  return formatDetailValue(value);
+}
+
+function formatDomainMapDetail(value: Record<string, unknown>): string[] {
+  return Object.entries(value)
+    .filter(([, item]) => item !== undefined && item !== null)
+    .map(([key, item]) => `${key}: ${formatDetailValue(item)}`);
+}
+
 function flattenData(value: unknown): string[] {
   if (!value || typeof value !== "object") return [];
-  return Object.entries(value as Record<string, unknown>)
-    .filter(([key]) => key !== "pages" && key !== "about")
-    .map(([key, item]) => {
-      if (Array.isArray(item)) return `${key}: ${item.join(", ")}`;
-      if (item && typeof item === "object") return `${key}: ${JSON.stringify(item)}`;
-      return `${key}: ${String(item)}`;
-    });
+  return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+    if (key === "pages" || key === "about" || isDomainOnlyDetail(key, item)) return [];
+    if (Array.isArray(item)) {
+      return item.map((entry) => {
+        if (entry && typeof entry === "object") return formatObjectDetail(entry as Record<string, unknown>);
+        return `${key}: ${formatDetailValue(entry)}`;
+      });
+    }
+    if (item && typeof item === "object") {
+      if (DOMAIN_DETAIL_KEYS.has(key)) return formatDomainMapDetail(item as Record<string, unknown>);
+      return `${key}: ${formatDetailValue(item)}`;
+    }
+    return `${key}: ${formatDetailValue(item)}`;
+  });
+}
+
+function addDomainObjectValues(result: Set<string>, object: Record<string, unknown>): void {
+  if (typeof object.domain === "string") result.add(object.domain);
+  for (const key of ["ip", "ips"]) {
+    const value = object[key];
+    if (typeof value === "string") {
+      result.add(value);
+    } else if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") result.add(item);
+      }
+    }
+  }
+}
+
+function addDomainMapValues(result: Set<string>, object: Record<string, unknown>): void {
+  for (const [key, value] of Object.entries(object)) {
+    result.add(key);
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (typeof item === "string") result.add(item);
+      }
+    } else if (value && typeof value === "object") {
+      addDomainObjectValues(result, value as Record<string, unknown>);
+    }
+  }
+}
+
+function addDomainCandidate(result: Set<string>, candidate: unknown): void {
+  if (Array.isArray(candidate)) {
+    for (const item of candidate) {
+      if (typeof item === "string") result.add(item);
+      if (item && typeof item === "object") addDomainObjectValues(result, item as Record<string, unknown>);
+    }
+  } else if (candidate && typeof candidate === "object") {
+    addDomainMapValues(result, candidate as Record<string, unknown>);
+  } else if (typeof candidate === "string") {
+    result.add(candidate);
+  }
 }
 
 function domainsFor(check: BackendCheckResult): string[] {
@@ -60,27 +149,7 @@ function domainsFor(check: BackendCheckResult): string[] {
   const result = new Set<string>();
 
   for (const candidate of candidates) {
-    if (Array.isArray(candidate)) {
-      for (const item of candidate) {
-        if (typeof item === "string") result.add(item);
-        if (item && typeof item === "object") {
-          const object = item as Record<string, unknown>;
-          if (typeof object.domain === "string") result.add(object.domain);
-          if (Array.isArray(object.ip)) {
-            for (const ip of object.ip) {
-              if (typeof ip === "string") result.add(ip);
-            }
-          }
-        }
-      }
-    } else if (candidate && typeof candidate === "object") {
-      for (const [key, value] of Object.entries(candidate as Record<string, unknown>)) {
-        result.add(key);
-        if (typeof value === "string") result.add(value);
-      }
-    } else if (typeof candidate === "string") {
-      result.add(candidate);
-    }
+    addDomainCandidate(result, candidate);
   }
 
   return Array.from(result);
@@ -96,13 +165,25 @@ function toCheckItem(check: BackendCheckResult): CheckItem {
     status,
     label,
     description: descriptionFor(check, status),
-    details: dataDetails.length > 0 ? dataDetails : pages.map((page) => `Страница: ${page}`),
+    details: dataDetails,
     lawExcerpts: status === "pass" ? [] : ["Проверьте соответствие требованиям 152-ФЗ и связанным нормативным актам."],
     foundUrls: pages,
-    aiResponse: check.about && check.about !== "<nil>" ? check.about : descriptionFor(check, status),
     domainsIps: domainsFor(check),
     title: titleFor(status),
   };
+}
+
+function sortChecksBySeverity(checks: CheckItem[]): CheckItem[] {
+  const priority: Record<UiStatus, number> = {
+    fail: 0,
+    warning: 1,
+    pass: 2,
+  };
+
+  return checks
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => priority[a.item.status] - priority[b.item.status] || a.index - b.index)
+    .map(({ item }) => item);
 }
 
 function fallbackItem(label: string): CheckItem {
@@ -113,7 +194,6 @@ function fallbackItem(label: string): CheckItem {
     details: [],
     lawExcerpts: [],
     foundUrls: [],
-    aiResponse: "Нарушений не обнаружено.",
     domainsIps: [],
     title: "отлично",
   };
@@ -167,7 +247,7 @@ export function taskToCheckResult(task: TaskState): CheckResult {
   const totalCount = results.length;
   const overallStatus = statusFromCounts(failedCount, warningCount);
   const score = Math.max(0, 100 - riskScore(failedCount, warningCount, totalCount));
-  const checks = results.map(toCheckItem);
+  const checks = sortChecksBySeverity(results.map(toCheckItem));
 
   return {
     url: task.url,

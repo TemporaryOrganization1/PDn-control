@@ -35,6 +35,143 @@ describe("result adapter", () => {
     expect(result.checks).toHaveLength(3);
   });
 
+  it("orders detailed checks by severity before rendering", () => {
+    const task: TaskState = {
+      "req-id": "req-1",
+      url: "https://example.com",
+      type: "detail",
+      status: "completed",
+      progress: 100,
+      results: [
+        { id: "passed-first", result: "ok" },
+        { id: "failed-first", result: "fail" },
+        { id: "warning-first", result: "warn" },
+        { id: "failed-second", result: "fail" },
+        { id: "passed-second", result: "ok" },
+      ],
+    };
+
+    const result = taskToCheckResult(task);
+
+    expect(result.checks.map((check) => check.label)).toEqual([
+      "failed-first",
+      "failed-second",
+      "warning-first",
+      "passed-first",
+      "passed-second",
+    ]);
+  });
+
+  it("does not duplicate endpoint-only details already shown as domains", () => {
+    const task: TaskState = {
+      "req-id": "req-1",
+      url: "https://example.com",
+      type: "detail",
+      status: "completed",
+      progress: 100,
+      results: [
+        {
+          id: "cookie-ads",
+          result: "fail",
+          data: {
+            endpoints: ["fonts.gstatic.com", "www.googletagmanager.com"],
+          },
+        },
+      ],
+    };
+
+    const [check] = taskToCheckResult(task).checks;
+
+    expect(check.domainsIps).toEqual([
+      "fonts.gstatic.com",
+      "www.googletagmanager.com",
+    ]);
+    expect(check.details).toEqual([]);
+  });
+
+  it("keeps SSL endpoint reasons in details without treating them as domains", () => {
+    const task: TaskState = {
+      "req-id": "req-1",
+      url: "https://example.com",
+      type: "detail",
+      status: "completed",
+      progress: 100,
+      results: [
+        {
+          id: "ssl/tls",
+          result: "fail",
+          data: {
+            endpoints: {
+              "api.example.com": "self-signed",
+              "cdn.example.com": "insecure",
+            },
+          },
+        },
+      ],
+    };
+
+    const [check] = taskToCheckResult(task).checks;
+
+    expect(check.domainsIps).toEqual(["api.example.com", "cdn.example.com"]);
+    expect(check.details).toEqual([
+      "api.example.com: self-signed",
+      "cdn.example.com: insecure",
+    ]);
+  });
+
+  it("formats service objects without leaking object string representations", () => {
+    const task: TaskState = {
+      "req-id": "req-1",
+      url: "https://example.com",
+      type: "detail",
+      status: "completed",
+      progress: 100,
+      results: [
+        {
+          id: "ips",
+          result: "fail",
+          data: {
+            services: [
+              {
+                domain: "cdn.example.com",
+                ip: ["203.0.113.10"],
+                country: ["US"],
+              },
+            ],
+          },
+        },
+      ],
+    };
+
+    const [check] = taskToCheckResult(task).checks;
+
+    expect(check.domainsIps).toEqual(["cdn.example.com", "203.0.113.10"]);
+    expect(check.details).toEqual(["cdn.example.com: ip: 203.0.113.10; country: US"]);
+  });
+
+  it("shows page URLs only in found URLs, not duplicated in details", () => {
+    const task: TaskState = {
+      "req-id": "req-1",
+      url: "https://mail.ru/",
+      type: "detail",
+      status: "completed",
+      progress: 100,
+      results: [
+        {
+          id: "sep-consent",
+          result: "fail",
+          pages: ["https://mail.ru/"],
+          about: "Consent document is merged with the privacy policy.",
+        },
+      ],
+    };
+
+    const [check] = taskToCheckResult(task).checks;
+
+    expect(check.foundUrls).toEqual(["https://mail.ru/"]);
+    expect(check.details).toEqual([]);
+  });
+
   it("turns history items back into task state for result rendering", () => {
     const task = historyItemToTask({
       id: "history-1",

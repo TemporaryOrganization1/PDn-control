@@ -18,7 +18,6 @@ export interface CheckItem {
   details: string[];
   lawExcerpts: string[];
   foundUrls: string[];
-  aiResponse: string;
   domainsIps: string[];
   title: string;
 }
