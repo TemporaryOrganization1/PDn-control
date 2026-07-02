@@ -6,7 +6,7 @@ import { Shield, Sparkles, RefreshCw } from "lucide-react";
 const HINTS = [
   {
     icon: Shield,
-    text: "Добавьте IP-адреса нашего сервиса в белый список (whitelist), чтобы проверка проходила корректно",
+    text: "Результат будет всегда доступен в виде PDF в личном кабинете",
   },
   {
     icon: Sparkles,
@@ -14,7 +14,7 @@ const HINTS = [
   },
   {
     icon: RefreshCw,
-    text: "Количество бесплатных проверок сбрасывается каждый день",
+    text: "Сменить пароль можно в личном кабинете",
   },
 ];
 

@@ -104,18 +104,6 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
             </div>
           )}
 
-          {/* AI Response */}
-          <div className="mt-4">
-            <p className="mb-1.5 text-xs font-medium text-foreground/70">
-              Ответ ИИ:
-            </p>
-            <div className="rounded-sm border border-border/50 bg-background/50 px-3 py-2">
-              <p className="text-xs leading-relaxed text-foreground/70">
-                {item.aiResponse}
-              </p>
-            </div>
-          </div>
-
           {/* Domains / IPs */}
           {item.domainsIps.length > 0 && (
             <div className="mt-4">
