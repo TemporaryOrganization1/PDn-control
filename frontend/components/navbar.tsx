@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { LogOut, User } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
@@ -13,12 +14,14 @@ const linkBase =
 
 export function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, isLoggedIn, isLoading, logout } = useAuth();
 
   const handleLogout = async () => {
     try {
       await logout();
       toast.success("Вы вышли из аккаунта");
+      router.push("/");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Не удалось выйти");
     }

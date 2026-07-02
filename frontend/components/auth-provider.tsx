@@ -19,7 +19,7 @@ interface AuthContextType {
   signup: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
-  updateEmail: () => Promise<void>;
+  updateEmail: (email: string) => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   upgradeToPaid: () => Promise<void>;
   deleteAccount: () => Promise<void>;
@@ -79,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(toUser(response.user));
   }, []);
 
+  const updateEmail = useCallback(async (email: string) => {
+    const response = await api.changeEmail(email);
+    setUser(toUser(response.user));
+  }, []);
+
   const deleteAccount = useCallback(async () => {
     await api.deleteAccount();
     setUser(null);
@@ -97,12 +102,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signup,
       logout,
       refresh,
-      updateEmail: unavailable,
+      updateEmail,
       updatePassword,
       upgradeToPaid: unavailable,
       deleteAccount,
     }),
-    [isLoading, login, logout, refresh, signup, unavailable, updatePassword, user, deleteAccount]
+    [isLoading, login, logout, refresh, signup, updateEmail, updatePassword, unavailable, user, deleteAccount]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

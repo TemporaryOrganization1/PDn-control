@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
+import { AuthGuard } from "@/components/auth-guard";
 import { AnimatedButton } from "@/components/animated-button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -62,26 +63,19 @@ export default function ProfilePage() {
     };
   }, [isLoggedIn]);
 
-  if (!isLoggedIn || !user) {
+  if (!user) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-4 py-12">
-        <div className="w-full max-w-md border border-border bg-card p-8 text-center">
-          <h1 className="text-2xl font-bold">Доступ запрещён</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Войдите в аккаунт, чтобы просмотреть личный кабинет
-          </p>
-          <AnimatedButton className="mt-4" onClick={() => router.push("/login")}>
-            Войти
-          </AnimatedButton>
-        </div>
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Загрузка...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <section className="w-full border-b bg-card">
+    <AuthGuard>
+      <div className="flex flex-col">
+        {/* Header */}
+        <section className="w-full border-b bg-card">
         <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
           <div className="lg:col-span-10 lg:col-start-2">
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
@@ -114,8 +108,8 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent className="flex flex-col h-[calc(100%-4rem)]">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium truncate flex-1">{user.email}</p>
-                    {user.isVerified ? (
+                    <p className="text-sm font-medium truncate flex-1">{user?.email || ""}</p>
+                    {user?.isVerified ? (
                       <Badge variant="outline" className="border-emerald-500/20 text-emerald-500 text-[8px] ml-2">
                         Подтверждён
                       </Badge>
@@ -174,7 +168,7 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent className="flex flex-col h-[calc(100%-4rem)]">
                   <div className="mb-2">
-                    {user.plan === "paid" ? (
+                    {user?.plan === "paid" ? (
                       <Badge variant="outline" className="border-blue-500/20 text-blue-500">
                         Платный
                       </Badge>
@@ -348,5 +342,6 @@ export default function ProfilePage() {
         </div>
       </section>
     </div>
+    </AuthGuard>
   );
 }

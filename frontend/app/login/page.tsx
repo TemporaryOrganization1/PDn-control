@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock } from "lucide-react";
@@ -13,8 +13,14 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, isLoggedIn, isLoading: authLoading } = useAuth();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!authLoading && isLoggedIn) {
+      router.push("/profile");
+    }
+  }, [isLoggedIn, authLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,13 +34,27 @@ export default function LoginPage() {
 
       await login(email, password);
       toast.success("Вход выполнен");
-      router.push("/");
+      
+      const redirectTo = new URLSearchParams(window.location.search).get("redirectTo");
+      router.push(redirectTo || "/profile");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Не удалось войти");
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
+        <div className="text-sm text-muted-foreground">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (isLoggedIn) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-4 py-12">
