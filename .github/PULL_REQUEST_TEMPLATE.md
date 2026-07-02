@@ -16,6 +16,7 @@ Please include a summary of the changes and the related issue.
 - [ ] Unit tests added/updated
 - [ ] Integration tests added/updated
 - [ ] Manual testing performed
+- [ ] Automated testing configured and passing
 
 ## Related Issue
 
@@ -35,3 +36,4 @@ Closes #<!-- issue number -->
 - [ ] Acceptance criteria are satisfied
 - [ ] Code changes are reviewed
 - [ ] Testing is adequate
+- [ ] Automated checks pass
