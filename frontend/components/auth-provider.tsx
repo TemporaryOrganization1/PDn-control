@@ -22,6 +22,7 @@ interface AuthContextType {
   updateEmail: () => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   upgradeToPaid: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -78,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(toUser(response.user));
   }, []);
 
+  const deleteAccount = useCallback(async () => {
+    await api.deleteAccount();
+    setUser(null);
+  }, []);
+
   const unavailable = useCallback(async () => {
     throw new Error("Эта возможность пока не поддерживается backend");
   }, []);
@@ -94,8 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       updateEmail: unavailable,
       updatePassword,
       upgradeToPaid: unavailable,
+      deleteAccount,
     }),
-    [isLoading, login, logout, refresh, signup, unavailable, updatePassword, user]
+    [isLoading, login, logout, refresh, signup, unavailable, updatePassword, user, deleteAccount]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

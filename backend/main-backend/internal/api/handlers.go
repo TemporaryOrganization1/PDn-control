@@ -116,6 +116,7 @@ func (s *Server) registerRoutes() {
 	s.echo.POST("/api/auth/login", s.handleLogin)
 	s.echo.POST("/api/auth/logout", s.handleLogout)
 	s.echo.POST("/api/auth/change-password", s.handleChangePassword)
+	s.echo.POST("/api/auth/delete-account", s.handleDeleteAccount)
 	s.echo.GET("/api/auth/me", s.handleMe)
 	s.echo.POST("/api/check", s.handleCheck)
 	s.echo.GET("/api/progress/:reqId", s.handleProgress)
@@ -245,6 +246,22 @@ func (s *Server) handleChangePassword(c echo.Context) error {
 	return c.JSON(http.StatusOK, models.MeResponse{
 		User: toAuthUser(user),
 	})
+}
+
+func (s *Server) handleDeleteAccount(c echo.Context) error {
+	user := s.currentUser(c)
+	if user == nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
+	}
+
+	if err := s.authStore.DeleteUser(c.Request().Context(), user.ID, user.Email); err != nil {
+		log.Printf("[API] Failed to delete account %s (%s): %v", user.ID, user.Email, err)
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to delete account")
+	}
+
+	s.clearCookie(c, sessionCookieName)
+	log.Printf("[API] Account deleted: %s (%s)", user.ID, user.Email)
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (s *Server) handleCheck(c echo.Context) error {

@@ -390,6 +390,67 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, userID, passwordHash str
 	return nil
 }
 
+// DeleteUser removes a user and all associated data (sessions, check history, PDF reports/files).
+func (s *Store) DeleteUser(ctx context.Context, userID, email string) error {
+	email = NormalizeEmail(email)
+
+	// Collect file paths of PDF reports to delete from disk
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT file_path FROM pdf_reports WHERE email = $1
+	`, email)
+	if err != nil {
+		return fmt.Errorf("query user reports: %w", err)
+	}
+	var filePaths []string
+	for rows.Next() {
+		var fp string
+		if err := rows.Scan(&fp); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan report file path: %w", err)
+		}
+		filePaths = append(filePaths, fp)
+	}
+	rows.Close()
+
+	// Delete check_history records (by email)
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM check_history WHERE email = $1`, email); err != nil {
+		return fmt.Errorf("delete check history: %w", err)
+	}
+
+	// Delete pdf_reports records (by email) — CASCADE not set, do it explicitly
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM pdf_reports WHERE email = $1`, email); err != nil {
+		return fmt.Errorf("delete pdf reports: %w", err)
+	}
+
+	// Delete sessions — ON DELETE CASCADE should handle this, but delete explicitly for safety
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = $1`, userID); err != nil {
+		return fmt.Errorf("delete user sessions: %w", err)
+	}
+
+	// Delete the user
+	result, err := s.db.ExecContext(ctx, `DELETE FROM auth_users WHERE id = $1`, userID)
+	if err != nil {
+		return fmt.Errorf("delete user: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check rows affected: %w", err)
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("user not found")
+	}
+
+	// Clean up PDF files from disk
+	for _, fp := range filePaths {
+		if err := os.Remove(fp); err != nil && !os.IsNotExist(err) {
+			log.Printf("[Auth] Warning: failed to remove report file %s: %v", fp, err)
+		}
+	}
+
+	log.Printf("[Auth] User %s (%s) deleted successfully", userID, email)
+	return nil
+}
+
 // Report represents a PDF report record.
 type Report struct {
 	ID        string    `json:"id"`
