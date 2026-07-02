@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "component-factory": {
+      "command": "npx",
+      "args": ["-y", "mcp-react-toolkit", "component-factory"]
+    },
+    "json-viewer": {
+      "command": "npx",
+      "args": ["-y", "mcp-react-toolkit", "json-viewer"]
+    }
+  }
+}
