@@ -1,17 +1,41 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Mail } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { BackButton } from "@/components/back-button";
+import { AnimatedButton } from "@/components/animated-button";
+import { AuthGuard } from "@/components/auth-guard";
 import { useAuth } from "@/components/auth-provider";
+import { toast } from "sonner";
 
 export default function EmailSettingsPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, updateEmail } = useAuth();
+  const [email, setEmail] = useState(user?.email || "");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      await updateEmail(email);
+      toast.success("Email обновлён");
+      router.push("/profile");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Не удалось обновить email");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col">
-      <section className="w-full border-b bg-card">
+    <AuthGuard>
+      <div className="flex flex-col">
+        <section className="w-full border-b bg-card">
         <div className="grid grid-cols-1 lg:grid-cols-12">
           <div className="px-6 pb-3 pt-10 sm:px-10 sm:pt-14 lg:col-span-10 lg:col-start-2">
             <BackButton />
@@ -25,7 +49,7 @@ export default function EmailSettingsPage() {
               Настройки email
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Смена email пока не поддерживается backend
+              Измените адрес электронной почты
             </p>
           </div>
         </div>
@@ -38,20 +62,41 @@ export default function EmailSettingsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />
-                  Текущий email
+                  Изменить email
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <Input value={user?.email || ""} readOnly />
-                <p className="text-sm text-muted-foreground">
-                  Мы не показываем успешное сохранение без backend endpoint. Когда API смены email появится, эту форму можно будет включить.
-                </p>
+              <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-medium">
+                      Новый email
+                    </label>
+                    <div className="relative flex items-center gap-2 border bg-card p-1 transition-all duration-200 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
+                      <div className="flex flex-1 items-center gap-2 px-3">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-full flex justify-end">
+                    <AnimatedButton type="submit" disabled={isLoading} loadingText="Сохранение...">
+                      Сохранить
+                    </AnimatedButton>
+                  </div>
+                </form>
               </CardContent>
             </Card>
           </div>
         </div>
       </section>
     </div>
+    </AuthGuard>
   );
 }
-

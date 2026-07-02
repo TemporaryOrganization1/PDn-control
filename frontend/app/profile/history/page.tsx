@@ -5,7 +5,7 @@ import { AlertTriangle, CheckCircle2, Download, FileText, XCircle } from "lucide
 import { toast } from "sonner";
 import { BackButton } from "@/components/back-button";
 import { getReports, downloadReport, type CheckHistoryItem } from "@/lib/api";
-import { useAuth } from "@/components/auth-provider";
+import { AuthGuard } from "@/components/auth-guard";
 
 function statusIcon(status: string) {
   if (status === "completed") return <CheckCircle2 className="h-5 w-5 text-emerald-500" />;
@@ -20,13 +20,10 @@ function formatDate(value: string) {
 }
 
 export default function HistoryPage() {
-  const { isLoggedIn, isLoading } = useAuth();
   const [history, setHistory] = useState<CheckHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || !isLoggedIn) return;
-
     let cancelled = false;
     getReports()
       .then((items) => {
@@ -47,7 +44,7 @@ export default function HistoryPage() {
     return () => {
       cancelled = true;
     };
-  }, [isLoading, isLoggedIn]);
+  }, []);
 
   const handleDownloadPDF = async (e: React.MouseEvent, reportId?: string) => {
     e.stopPropagation();
@@ -65,8 +62,9 @@ export default function HistoryPage() {
   };
 
   return (
-    <div className="flex flex-col">
-      <section className="w-full border-b bg-card">
+    <AuthGuard>
+      <div className="flex flex-col">
+        <section className="w-full border-b bg-card">
         <div className="grid grid-cols-1 lg:grid-cols-12">
           <div className="px-6 pb-3 pt-10 sm:px-10 sm:pt-14 lg:col-span-10 lg:col-start-2">
             <BackButton />
@@ -89,15 +87,11 @@ export default function HistoryPage() {
       <section className="w-full border-b bg-card">
         <div className="grid grid-cols-1 px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-12">
           <div className="lg:col-span-10 lg:col-start-2">
-            {isLoading || (isLoggedIn && history === null) ? (
+            {history === null && !error ? (
               <p className="text-sm text-muted-foreground">Загрузка истории...</p>
             ) : error ? (
               <div className="border border-red-500/20 bg-red-500/5 p-6 text-sm text-muted-foreground">
                 {error}
-              </div>
-            ) : !isLoggedIn ? (
-              <div className="border border-border/50 bg-background/50 p-6 text-sm text-muted-foreground">
-                Войдите в аккаунт, чтобы просмотреть историю проверок.
               </div>
             ) : history === null || history.length === 0 ? (
               <div className="flex flex-col items-center border border-border/50 bg-background/50 p-10 text-center">
@@ -143,5 +137,6 @@ export default function HistoryPage() {
         </div>
       </section>
     </div>
+    </AuthGuard>
   );
 }

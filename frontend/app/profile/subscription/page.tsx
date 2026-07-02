@@ -6,6 +6,7 @@ import { AnimatedButton } from "@/components/animated-button";
 import { BackButton } from "@/components/back-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthGuard } from "@/components/auth-guard";
 import { useAuth } from "@/components/auth-provider";
 
 export default function SubscriptionPage() {
@@ -13,8 +14,9 @@ export default function SubscriptionPage() {
   const { user } = useAuth();
 
   return (
-    <div className="flex flex-col">
-      <section className="w-full border-b bg-card">
+    <AuthGuard>
+      <div className="flex flex-col">
+        <section className="w-full border-b bg-card">
         <div className="grid grid-cols-1 lg:grid-cols-12">
           <div className="px-6 pb-3 pt-10 sm:px-10 sm:pt-14 lg:col-span-10 lg:col-start-2">
             <BackButton />
@@ -98,6 +100,7 @@ export default function SubscriptionPage() {
         </div>
       </section>
     </div>
+    </AuthGuard>
   );
 }
 

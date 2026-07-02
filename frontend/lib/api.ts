@@ -149,13 +149,23 @@ export async function logout(): Promise<void> {
 }
 
 export async function changePassword(currentPassword: string, newPassword: string): Promise<MeResponse> {
-  const response = await fetch("/api/auth/change-password", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-  return parseJsonResponse<MeResponse>(response);
+	const response = await fetch("/api/auth/change-password", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		credentials: "include",
+		body: JSON.stringify({ currentPassword, newPassword }),
+	});
+	return parseJsonResponse<MeResponse>(response);
+}
+
+export async function changeEmail(email: string): Promise<MeResponse> {
+	const response = await fetch("/api/auth/change-email", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		credentials: "include",
+		body: JSON.stringify({ email }),
+	});
+	return parseJsonResponse<MeResponse>(response);
 }
 
 export async function getGuestRemaining(): Promise<GuestInfo> {

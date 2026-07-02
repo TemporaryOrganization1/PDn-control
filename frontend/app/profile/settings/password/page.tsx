@@ -9,6 +9,7 @@ import { AnimatedButton } from "@/components/animated-button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BackButton } from "@/components/back-button";
+import { AuthGuard } from "@/components/auth-guard";
 
 export default function PasswordSettingsPage() {
   const router = useRouter();
@@ -49,8 +50,9 @@ export default function PasswordSettingsPage() {
   };
 
   return (
-    <div className="flex flex-col">
-      <section className="w-full border-b bg-card">
+    <AuthGuard>
+      <div className="flex flex-col">
+        <section className="w-full border-b bg-card">
         <div className="grid grid-cols-1 lg:grid-cols-12">
           <div className="px-6 pb-3 pt-10 sm:px-10 sm:pt-14 lg:col-span-10 lg:col-start-2">
             <BackButton />
@@ -118,6 +120,7 @@ export default function PasswordSettingsPage() {
         </div>
       </section>
     </div>
+    </AuthGuard>
   );
 }
 
