@@ -112,31 +112,21 @@ services:
       - 1.1.1.1
     restart: unless-stopped
 
-  frontend-app:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend-app
-    environment:
-      NODE_ENV: production
-      PORT: 8080
-    expose:
-      - "8080"
-    depends_on:
-      - main-backend
-    restart: unless-stopped
-
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.nginx
+      dockerfile: Dockerfile
+      args:
+        NGINX_CONFIG: ${NGINX_CONFIG}
     container_name: frontend
     ports:
-      - "80:80"
+      - "80:80"      
+      - "443:443"
     depends_on:
-      - frontend-app
       - main-backend
-    restart: unless-stopped
+    restart: unless-stopped    
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
 volumes:
   pgdata:

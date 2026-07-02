@@ -9,3 +9,7 @@ dist/
 backend/reports
 coverage/
 coverage.out
+frontend/out
+frontend/node_modules
+frontend/dist
+frontend/.next
