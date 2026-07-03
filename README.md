@@ -38,8 +38,16 @@ cat > .env << 'EOF'
 OPENROUTER_API_KEY=sk-or-v1-your-key-here
 WORKER_SECRET=replace-with-a-long-random-secret
 COOKIE_SECURE=false
+
+# Email verification settings (optional but recommended)
+SMTP_HOST=smtp.yandex.ru
+SMTP_PORT=465
+SMTP_USER=pdn-neuro@yandex.ru
+SMTP_PASSWORD=your-email-password
 EOF
 ```
+
+**Note:** The SMTP settings are optional. If not configured, the application will work without email verification. To enable email verification during user registration, configure the SMTP settings with your Yandex email credentials.
 
 ### 2. Start all services with Docker
 

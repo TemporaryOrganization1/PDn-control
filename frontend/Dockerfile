@@ -3,15 +3,25 @@
 
 FROM node:20-alpine AS builder
 WORKDIR /app
+
+# Install dependencies
 COPY package*.json ./
 RUN npm ci
+
+# Copy source code
 COPY . .
-ENV OUTPUT_MODE="export"
+
+# Build the application with static export
+ENV OUTPUT_MODE=export
 RUN npm run build
 
+# Production stage - serve static files with nginx
 FROM nginx:alpine
+
+# Copy build output
 COPY --from=builder /app/out /usr/share/nginx/html
 
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

@@ -4,6 +4,7 @@ export interface AuthUser {
   id: string;
   email: string;
   created_at?: string;
+  email_verified?: boolean;
 }
 
 export interface GuestInfo {
@@ -15,6 +16,17 @@ export interface GuestInfo {
 export interface MeResponse {
   user: AuthUser | null;
   guest?: GuestInfo;
+}
+
+export interface RegisterResponse {
+  status: string;
+  message: string;
+  user: {
+    id: string;
+    email: string;
+    email_verified: boolean;
+    created_at: string;
+  };
 }
 
 export interface CheckResponse {
@@ -85,6 +97,7 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   ERR_UNAUTHORIZED: "Нужно войти в аккаунт",
   ERR_FORBIDDEN: "Недостаточно прав для этого действия",
   ERR_NOT_FOUND: "Запрошенные данные не найдены",
+  ERR_EMAIL_NOT_VERIFIED: "Подтвердите ваш email перед входом",
 };
 
 function normalizeUrl(url: string): string {
@@ -130,14 +143,14 @@ export async function login(email: string, password: string): Promise<MeResponse
   return parseJsonResponse<MeResponse>(response);
 }
 
-export async function register(email: string, password: string): Promise<MeResponse> {
-  const response = await fetch("/api/auth/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ email, password }),
-  });
-  return parseJsonResponse<MeResponse>(response);
+export async function register(email: string, password: string): Promise<RegisterResponse> {
+	const response = await fetch("/api/auth/register", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		credentials: "include",
+		body: JSON.stringify({ email, password }),
+	});
+	return parseJsonResponse<RegisterResponse>(response);
 }
 
 export async function logout(): Promise<void> {
