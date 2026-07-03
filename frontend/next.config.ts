@@ -4,7 +4,7 @@ const basePath =
   process.env.BASE_PATH !== undefined ? process.env.BASE_PATH : "";
 
 const nextConfig: NextConfig = {
-  output: process.env.OUTPUT_MODE === "export" ? "export" : undefined,
+  output: "export",
 
   ...(basePath && {
     basePath,

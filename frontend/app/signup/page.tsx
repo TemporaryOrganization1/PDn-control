@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, CheckCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { AnimatedButton } from "@/components/animated-button";
@@ -14,6 +14,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const { signup, isLoggedIn, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -43,9 +44,16 @@ export default function SignupPage() {
         return;
       }
 
-      await signup(email, password);
-      toast.success("Аккаунт создан");
-      router.push("/profile");
+      const result = await signup(email, password);
+      if (result.status === "pending_verification") {
+        toast.success("Аккаунт создан! Проверьте email для подтверждения.", {
+          duration: 5000,
+        });
+        setShowVerificationMessage(true);
+      } else {
+        toast.success("Аккаунт создан!");
+        router.push("/profile");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Не удалось создать аккаунт");
     } finally {
@@ -63,6 +71,28 @@ export default function SignupPage() {
 
   if (isLoggedIn) {
     return null;
+  }
+
+  if (showVerificationMessage) {
+    return (
+      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="border border-border bg-card p-8 text-center">
+            <Mail className="mx-auto mb-4 h-16 w-16 text-primary" />
+            <h1 className="mb-2 text-2xl font-bold">Почта отправлена</h1>
+            <p className="mb-6 text-sm text-muted-foreground">
+              Отправили письмо с подтверждением на {email}.<br />
+              Перейдите по ссылке в письме, чтобы активировать аккаунт.
+            </p>
+            <Link href="/login">
+              <AnimatedButton className="w-full">
+                Перейти к входу
+              </AnimatedButton>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -153,4 +183,3 @@ export default function SignupPage() {
     </div>
   );
 }
-

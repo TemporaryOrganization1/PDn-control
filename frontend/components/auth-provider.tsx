@@ -16,7 +16,7 @@ interface AuthContextType {
   isLoggedIn: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string) => Promise<api.RegisterResponse>;
   logout: () => Promise<void>;
   refresh: () => Promise<void>;
   updateEmail: (email: string) => Promise<void>;
@@ -33,7 +33,7 @@ function toUser(authUser: api.AuthUser | null | undefined): User | null {
     id: authUser.id,
     email: authUser.email,
     createdAt: authUser.created_at,
-    isVerified: true,
+    isVerified: authUser.email_verified ?? true,
     plan: "free",
   };
 }
@@ -66,7 +66,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = useCallback(async (email: string, password: string) => {
     const response = await api.register(email, password);
-    setUser(toUser(response.user));
+    // Don't set user if email verification is pending - user must verify first
+    if (response.status !== "pending_verification" && response.user) {
+      setUser(toUser(response.user));
+    }
+    return response;
   }, []);
 
   const logout = useCallback(async () => {
