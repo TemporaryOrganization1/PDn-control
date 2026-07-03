@@ -64,6 +64,16 @@ func main() {
 		mainCfg.Server.AllowedOrigins = splitCSV(origins)
 	}
 
+	// Log SMTP configuration status
+	smtpHost := os.Getenv("SMTP_HOST")
+	smtpPort := os.Getenv("SMTP_PORT")
+	smtpUser := os.Getenv("SMTP_USER")
+	if smtpHost != "" && smtpPort != "" && smtpUser != "" {
+		log.Printf("[Main Backend] SMTP configured: host=%s, port=%s, user=%s", smtpHost, smtpPort, smtpUser)
+	} else {
+		log.Println("[Main Backend] SMTP not configured - email verification disabled")
+	}
+
 	srv, err := api.NewServer(mainCfg.Server)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)

@@ -33,6 +33,7 @@ type User struct {
 	Email        string    `json:"email"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
+	EmailVerified bool     `json:"email_verified"`
 }
 
 type GuestStats struct {
@@ -96,8 +97,19 @@ func (s *Store) migrate(ctx context.Context) error {
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
+			email_verified BOOLEAN NOT NULL DEFAULT FALSE,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
+		`ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`,
+		`CREATE TABLE IF NOT EXISTS email_verifications (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+			token_hash TEXT NOT NULL,
+			expires_at TIMESTAMPTZ NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_email_verifications_user_id ON email_verifications(user_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_email_verifications_expires_at ON email_verifications(expires_at)`,
 		`CREATE TABLE IF NOT EXISTS auth_sessions (
 			token_hash TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
@@ -349,13 +361,14 @@ func (s *Store) CreateUser(ctx context.Context, email, passwordHash string) (*Us
 		ID:           newID(),
 		Email:        NormalizeEmail(email),
 		PasswordHash: passwordHash,
+		EmailVerified: false,
 		CreatedAt:    time.Now().UTC(),
 	}
 	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO auth_users (id, email, password_hash, created_at)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO auth_users (id, email, password_hash, email_verified, created_at)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING created_at
-	`, user.ID, user.Email, user.PasswordHash, user.CreatedAt).Scan(&user.CreatedAt)
+	`, user.ID, user.Email, user.PasswordHash, user.EmailVerified, user.CreatedAt).Scan(&user.CreatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, ErrUserExists
@@ -368,10 +381,10 @@ func (s *Store) CreateUser(ctx context.Context, email, passwordHash string) (*Us
 func (s *Store) UserByEmail(ctx context.Context, email string) (*User, error) {
 	user := &User{}
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, email, password_hash, created_at
+		SELECT id, email, password_hash, email_verified, created_at
 		FROM auth_users
 		WHERE email = $1
-	`, NormalizeEmail(email)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	`, NormalizeEmail(email)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.EmailVerified, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -388,6 +401,89 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, userID, passwordHash str
 		return fmt.Errorf("update password hash: %w", err)
 	}
 	return nil
+}
+
+// DeleteUnverifiedUser removes a user and their verification tokens if email is not yet verified.
+// This allows re-registration with the same email after token expiry.
+func (s *Store) DeleteUnverifiedUser(ctx context.Context, email string) error {
+	email = NormalizeEmail(email)
+	
+	// Find the user
+	var userID string
+	var emailVerified bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, email_verified FROM auth_users WHERE email = $1
+	`, email).Scan(&userID, &emailVerified)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil // User doesn't exist, nothing to delete
+		}
+		return fmt.Errorf("find user: %w", err)
+	}
+
+	// Only delete if not verified
+	if emailVerified {
+		return ErrUserExists // User is already verified, cannot re-register
+	}
+
+	// Delete verification tokens
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM email_verifications WHERE user_id = $1`, userID)
+	
+	// Delete sessions
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = $1`, userID)
+	
+	// Delete user
+	_, err = s.db.ExecContext(ctx, `DELETE FROM auth_users WHERE id = $1`, userID)
+	if err != nil {
+		return fmt.Errorf("delete unverified user: %w", err)
+	}
+	
+	log.Printf("[Auth] Deleted unverified user %s (%s) for re-registration", userID, email)
+	return nil
+}
+
+func (s *Store) CreateEmailVerification(ctx context.Context, userID string) (string, error) {
+	token := newToken()
+	tokenHash := HashToken(token)
+	verificationID := newID()
+	expiresAt := time.Now().UTC().Add(15 * time.Minute)
+
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO email_verifications (id, user_id, token_hash, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`, verificationID, userID, tokenHash, expiresAt)
+	if err != nil {
+		return "", fmt.Errorf("create email verification: %w", err)
+	}
+
+	return token, nil
+}
+
+func (s *Store) VerifyEmailByToken(ctx context.Context, token string) (string, error) {
+	tokenHash := HashToken(token)
+
+	var userID string
+	err := s.db.QueryRowContext(ctx, `
+		UPDATE auth_users
+		SET email_verified = TRUE
+		WHERE id IN (
+			SELECT user_id
+			FROM email_verifications
+			WHERE token_hash = $1 AND expires_at > NOW()
+		)
+		RETURNING id
+	`, tokenHash).Scan(&userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", errors.New("invalid or expired verification token")
+		}
+		return "", fmt.Errorf("verify email: %w", err)
+	}
+
+	// Delete used verification tokens
+	_, _ = s.db.ExecContext(ctx, `DELETE FROM email_verifications WHERE token_hash = $1`, tokenHash)
+
+	return userID, nil
 }
 
 // DeleteUser removes a user and all associated data (sessions, check history, PDF reports/files).
@@ -534,11 +630,11 @@ func (s *Store) UserBySessionToken(ctx context.Context, token string) (*User, er
 
 	user := &User{}
 	err := s.db.QueryRowContext(ctx, `
-		SELECT u.id, u.email, u.password_hash, u.created_at
+		SELECT u.id, u.email, u.password_hash, u.email_verified, u.created_at
 		FROM auth_sessions s
 		JOIN auth_users u ON u.id = s.user_id
 		WHERE s.token_hash = $1 AND s.expires_at > NOW()
-	`, HashToken(token)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	`, HashToken(token)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.EmailVerified, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidSession

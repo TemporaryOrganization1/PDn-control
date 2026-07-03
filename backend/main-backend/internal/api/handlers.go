@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/auth"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/email"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/models"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/workerpool"
@@ -45,6 +46,7 @@ type Server struct {
 	echo      *echo.Echo
 	store     *store.MemoryStore
 	authStore *auth.Store
+	emailSvc  *email.Service
 	pool      *workerpool.Pool
 	config    Config
 	mu        sync.RWMutex
@@ -91,10 +93,16 @@ func NewServer(cfg Config) (*Server, error) {
 		}{URL: w.URL, MaxLoad: w.MaxLoad}
 	}
 
+	emailSvc, err := email.NewService()
+	if err != nil {
+		log.Printf("[API] Warning: email service not configured: %v", err)
+	}
+
 	s := &Server{
 		echo:      echo.New(),
 		store:     store.NewWithGuestConfig(cfg.GuestCacheMaxItems, cfg.GuestCacheTTLMinutes),
 		authStore: authStore,
+		emailSvc:  emailSvc,
 		pool:      workerpool.NewPool(workerDefs),
 		config:    cfg,
 	}
@@ -111,6 +119,10 @@ func NewServer(cfg Config) (*Server, error) {
 	return s, nil
 }
 
+func (s *Server) IsEmailServiceConfigured() bool {
+	return s.emailSvc != nil
+}
+
 func (s *Server) registerRoutes() {
 	s.echo.POST("/api/auth/register", s.handleRegister)
 	s.echo.POST("/api/auth/login", s.handleLogin)
@@ -118,6 +130,7 @@ func (s *Server) registerRoutes() {
 	s.echo.POST("/api/auth/change-password", s.handleChangePassword)
 	s.echo.POST("/api/auth/delete-account", s.handleDeleteAccount)
 	s.echo.GET("/api/auth/me", s.handleMe)
+	s.echo.GET("/api/auth/verify", s.handleVerifyEmail)
 	s.echo.POST("/api/check", s.handleCheck)
 	s.echo.GET("/api/progress/:reqId", s.handleProgress)
 	s.echo.GET("/api/reports", s.handleListReports)
@@ -159,20 +172,66 @@ func (s *Server) handleRegister(c echo.Context) error {
 		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
 	}
 
+	// If user exists but is not verified, delete and re-create
 	user, err := s.authStore.CreateUser(c.Request().Context(), email, string(hash))
 	if err != nil {
 		if errors.Is(err, auth.ErrUserExists) {
-			return s.errResponse(c, http.StatusConflict, "ERR_EMAIL_EXISTS", "", "email already exists")
+			// Try to delete the unverified user and re-create
+			log.Printf("[API] User %s already exists, checking if unverified for re-registration", email)
+			if delErr := s.authStore.DeleteUnverifiedUser(c.Request().Context(), email); delErr != nil {
+				log.Printf("[API] Cannot re-register %s: %v", email, delErr)
+				return s.errResponse(c, http.StatusConflict, "ERR_EMAIL_EXISTS", "", "email already exists and is verified")
+			}
+			// Retry creating the user
+			user, err = s.authStore.CreateUser(c.Request().Context(), email, string(hash))
+			if err != nil {
+				return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+			}
+			log.Printf("[API] Re-registered user %s after deleting unverified account", email)
+		} else {
+			return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
 		}
-		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
 	}
 
-	if err := s.issueSession(c, user.ID); err != nil {
-		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	// Always create verification token (mandatory email verification)
+	log.Printf("[API] Creating email verification for user %s (ID: %s)", user.Email, user.ID)
+	token, err := s.authStore.CreateEmailVerification(c.Request().Context(), user.ID)
+	if err != nil {
+		log.Printf("[API] Failed to create email verification for %s: %v", user.Email, err)
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to create verification token")
 	}
 
-	return c.JSON(http.StatusOK, models.MeResponse{
-		User: toAuthUser(user),
+	// Try to send verification email if email service is configured
+	if s.emailSvc != nil {
+		log.Printf("[API] Email service configured, sending verification email to %s...", user.Email)
+		go func(email, token string) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[API] PANIC in email goroutine for %s: %v", email, r)
+				}
+			}()
+			if err := s.emailSvc.SendVerificationEmail(email, token); err != nil {
+				log.Printf("[API] Failed to send verification email to %s: %v", email, err)
+			} else {
+				log.Printf("[API] Verification email sent successfully to %s", email)
+			}
+		}(user.Email, token)
+	} else {
+		log.Println("[API] Email service not configured - user must verify through other means")
+	}
+
+	// DO NOT issue session - user must verify email first
+	log.Printf("[API] Account created for %s - email verification required before login", user.Email)
+
+	return c.JSON(http.StatusOK, map[string]any{
+		"status": "pending_verification",
+		"message": "Account created. Please check your email to verify your account before logging in.",
+		"user": map[string]any{
+			"id":             user.ID,
+			"email":          user.Email,
+			"email_verified": user.EmailVerified,
+			"created_at":     user.CreatedAt.Format(time.RFC3339),
+		},
 	})
 }
 
@@ -191,6 +250,12 @@ func (s *Server) handleLogin(c echo.Context) error {
 	}
 	if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)) != nil {
 		return s.errResponse(c, http.StatusUnauthorized, "ERR_INVALID_CREDENTIALS", "", "invalid email or password")
+	}
+
+	// Check if email is verified
+	if !user.EmailVerified {
+		log.Printf("[API] Login attempt for unverified email: %s", user.Email)
+		return s.errResponse(c, http.StatusForbidden, "ERR_EMAIL_NOT_VERIFIED", "", "please verify your email before logging in")
 	}
 
 	if err := s.issueSession(c, user.ID); err != nil {
@@ -521,6 +586,35 @@ func (s *Server) handleWorkerStatus(c echo.Context) error {
 
 func (s *Server) handleHealth(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleVerifyEmail(c echo.Context) error {
+	token := c.QueryParam("token")
+	if token == "" {
+		return c.JSON(http.StatusBadRequest, models.CheckResponse{
+			Code:  "ERR_INVALID_CREDENTIALS",
+			Msg:   "verification token is required",
+		})
+	}
+
+	userID, err := s.authStore.VerifyEmailByToken(c.Request().Context(), token)
+	if err != nil {
+		log.Printf("[API] Email verification failed: %v", err)
+		return c.JSON(http.StatusBadRequest, models.CheckResponse{
+			Code:  "ERR_INVALID_CREDENTIALS",
+			Msg:   "invalid or expired verification token",
+		})
+	}
+
+	// Issue session so user is automatically logged in
+	if err := s.issueSession(c, userID); err != nil {
+		log.Printf("[API] Failed to issue session after verification: %v", err)
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{
+		"status": "verified",
+		"message": "Email verified successfully",
+	})
 }
 
 func (s *Server) errResponse(c echo.Context, code int, errCode, reqID, msg string) error {
