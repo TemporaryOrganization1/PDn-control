@@ -29,11 +29,11 @@ var (
 )
 
 type User struct {
-	ID            string    `json:"id"`
-	Email         string    `json:"email"`
-	PasswordHash  string    `json:"-"`
-	CreatedAt     time.Time `json:"created_at"`
-	EmailVerified bool      `json:"email_verified"`
+	ID           string    `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
+	EmailVerified bool     `json:"email_verified"`
 }
 
 type GuestStats struct {
@@ -358,11 +358,11 @@ func NormalizeEmail(email string) string {
 
 func (s *Store) CreateUser(ctx context.Context, email, passwordHash string) (*User, error) {
 	user := &User{
-		ID:            newID(),
-		Email:         NormalizeEmail(email),
-		PasswordHash:  passwordHash,
+		ID:           newID(),
+		Email:        NormalizeEmail(email),
+		PasswordHash: passwordHash,
 		EmailVerified: false,
-		CreatedAt:     time.Now().UTC(),
+		CreatedAt:    time.Now().UTC(),
 	}
 	err := s.db.QueryRowContext(ctx, `
 		INSERT INTO auth_users (id, email, password_hash, email_verified, created_at)
@@ -407,7 +407,7 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, userID, passwordHash str
 // This allows re-registration with the same email after token expiry.
 func (s *Store) DeleteUnverifiedUser(ctx context.Context, email string) error {
 	email = NormalizeEmail(email)
-
+	
 	// Find the user
 	var userID string
 	var emailVerified bool
@@ -428,16 +428,16 @@ func (s *Store) DeleteUnverifiedUser(ctx context.Context, email string) error {
 
 	// Delete verification tokens
 	_, _ = s.db.ExecContext(ctx, `DELETE FROM email_verifications WHERE user_id = $1`, userID)
-
+	
 	// Delete sessions
 	_, _ = s.db.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = $1`, userID)
-
+	
 	// Delete user
 	_, err = s.db.ExecContext(ctx, `DELETE FROM auth_users WHERE id = $1`, userID)
 	if err != nil {
 		return fmt.Errorf("delete unverified user: %w", err)
 	}
-
+	
 	log.Printf("[Auth] Deleted unverified user %s (%s) for re-registration", userID, email)
 	return nil
 }

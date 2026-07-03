@@ -5,10 +5,10 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install dependencies
+
+# Install dependencies
 COPY package*.json ./
 RUN npm ci
-
-# Copy source code
 COPY . .
 
 # Build the application with static export
@@ -21,8 +21,8 @@ FROM nginx:alpine
 # Copy build output
 COPY --from=builder /app/out /usr/share/nginx/html
 
-# Copy nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+ARG NGINX_CONFIG=nginx.conf
+COPY ${NGINX_CONFIG} /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 EXPOSE 443

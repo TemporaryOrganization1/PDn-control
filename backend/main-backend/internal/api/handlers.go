@@ -224,7 +224,7 @@ func (s *Server) handleRegister(c echo.Context) error {
 	log.Printf("[API] Account created for %s - email verification required before login", user.Email)
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"status":  "pending_verification",
+		"status": "pending_verification",
 		"message": "Account created. Please check your email to verify your account before logging in.",
 		"user": map[string]any{
 			"id":             user.ID,
@@ -592,8 +592,8 @@ func (s *Server) handleVerifyEmail(c echo.Context) error {
 	token := c.QueryParam("token")
 	if token == "" {
 		return c.JSON(http.StatusBadRequest, models.CheckResponse{
-			Code: "ERR_INVALID_CREDENTIALS",
-			Msg:  "verification token is required",
+			Code:  "ERR_INVALID_CREDENTIALS",
+			Msg:   "verification token is required",
 		})
 	}
 
@@ -601,8 +601,8 @@ func (s *Server) handleVerifyEmail(c echo.Context) error {
 	if err != nil {
 		log.Printf("[API] Email verification failed: %v", err)
 		return c.JSON(http.StatusBadRequest, models.CheckResponse{
-			Code: "ERR_INVALID_CREDENTIALS",
-			Msg:  "invalid or expired verification token",
+			Code:  "ERR_INVALID_CREDENTIALS",
+			Msg:   "invalid or expired verification token",
 		})
 	}
 
@@ -612,7 +612,7 @@ func (s *Server) handleVerifyEmail(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{
-		"status":  "verified",
+		"status": "verified",
 		"message": "Email verified successfully",
 	})
 }
