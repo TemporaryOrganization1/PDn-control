@@ -1,0 +1,34 @@
+sequenceDiagram
+  actor User
+  participant Browser
+  participant Frontend as Next.js UI / Nginx
+  participant API as Main Backend
+  participant Store as Task/Auth Store
+  participant Pool as Worker Pool
+  participant Worker as Crawler Worker
+  participant Target as Checked Website
+  participant GeoIP as GeoIP Service
+  participant AI as OpenRouter AI
+
+  User->>Browser: Submit URL and check type
+  Browser->>Frontend: POST /api/check
+  Frontend->>API: Proxy request
+  API->>Store: Validate user or guest quota
+  API->>Pool: Reserve available worker
+  API->>Store: Create queued task
+  API-->>Frontend: Accepted with req-id
+  Frontend-->>Browser: Navigate to progress page
+  API->>Worker: POST /check with URL, req-id, callback, secret
+  Worker-->>API: Accepted
+  Worker->>Target: Load page and collect evidence
+  Worker->>GeoIP: Resolve hosting / resource country
+  Worker->>AI: Analyze privacy-policy evidence when needed
+  Worker->>API: POST /api/progress intermediate updates
+  Browser->>Frontend: Poll /api/progress/{req-id}
+  Frontend->>API: Proxy progress poll
+  API-->>Frontend: Current progress and status
+  Worker->>API: POST /api/progress completed results
+  API->>Store: Save results, history, and PDF report metadata
+  Browser->>Frontend: Open result page
+  Frontend->>API: GET /api/progress/{req-id}
+  API-->>Frontend: Completed task with results and report id
