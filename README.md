@@ -3,10 +3,12 @@
 A website compliance checker for Federal Law No. 152 (FL-152) and related Russian regulations.
 Crawls a target site, runs security and legal checks, and displays violations with evidence from real crawler data.
 
+Deployed product: [https://pdn2.neurolife.tech/](https://pdn2.neurolife.tech/)
+
 ## Architecture
 
 ```text
-Frontend (Next.js + nginx proxy)
+Frontend (exported Next.js + nginx proxy)
       |
       v
 Main Backend (Go/Echo)
@@ -18,6 +20,21 @@ GeoIP Service (Go) -> PostgreSQL + GeoIP data
 ```
 
 The application includes built-in email/password accounts in the main backend. Anonymous guests can run 3 accepted checks per browser device; authenticated users are not limited by that guest quota.
+
+For the maintained architecture views and ADRs, see [docs/architecture/README.md](docs/architecture/README.md).
+
+## Documentation
+
+- [Development process and configuration management](docs/development-process.md)
+- [Architecture and ADRs](docs/architecture/README.md)
+- [Deployment notes](docs/deployment.md)
+- [Testing and QA status](docs/testing.md)
+- [Quality requirements](docs/quality-requirements.md)
+- [Quality requirement tests](docs/quality-requirement-tests.md)
+- [Definition of Done](docs/definition-of-done.md)
+- [User acceptance tests](docs/user-acceptance-tests.md)
+- [Roadmap](docs/roadmap.md)
+- [OpenAPI contract](api/openapi.yaml)
 
 ## Local Setup
 
@@ -33,18 +50,8 @@ The application includes built-in email/password accounts in the main backend. A
 git clone https://github.com/TemporaryOrganization1/PDn-control
 cd PDn-control
 
-# Create .env with your keys
-cat > .env << 'EOF'
-OPENROUTER_API_KEY=sk-or-v1-your-key-here
-WORKER_SECRET=replace-with-a-long-random-secret
-COOKIE_SECURE=false
-
-# Email verification settings (optional but recommended)
-SMTP_HOST=smtp.yandex.ru
-SMTP_PORT=465
-SMTP_USER=pdn-neuro@yandex.ru
-SMTP_PASSWORD=your-email-password
-EOF
+# Create .env from the sanitized example and replace placeholders
+cp .env.example .env
 ```
 
 **Note:** The SMTP settings are optional. If not configured, the application will work without email verification. To enable email verification during user registration, configure the SMTP settings with your Yandex email credentials.
@@ -60,7 +67,6 @@ This starts:
 | Service          | Container name     | Port |
 |------------------|--------------------|------|
 | Public frontend proxy | frontend       | 80 |
-| Next.js frontend | frontend-app       | internal 8080 |
 | Main backend API | main-backend       | internal |
 | Crawler workers  | crawler-worker-*   | internal |
 | GeoIP service    | geoip-service      | internal |

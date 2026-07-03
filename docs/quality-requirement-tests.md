@@ -2,6 +2,12 @@
 
 This document defines the automated quality requirement tests (QRTs) for Assignment 4 and later product work. Each QRT directly verifies a measurable scenario from `docs/quality-requirements.md` and runs in the `Quality Gates` CI workflow.
 
+Assignment 5 adds architecture traceability through ADR links in [docs/quality-requirements.md](quality-requirements.md). These QRTs remain the automated evidence that the documented quality scenarios are still enforced in CI.
+
+- [QRT-001: Scan dispatch responsiveness](#qrt-001-scan-dispatch-responsiveness)
+- [QRT-002: Crawler type-check feedback](#qrt-002-crawler-type-check-feedback)
+- [QRT-003: Invalid input protection](#qrt-003-invalid-input-protection)
+
 ## QRT-001: Scan dispatch responsiveness
 
 **Linked quality requirement:** [QR-001](quality-requirements.md#qr-001-scan-dispatch-responsiveness)
@@ -15,6 +21,8 @@ This document defines the automated quality requirement tests (QRTs) for Assignm
 **Expected measurable result:** `GetFreeWorker` returns an available worker and completes within 50 ms.
 
 **Evidence link:** [Worker pool QRT test](../backend/main-backend/internal/workerpool/pool_test.go); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml).
+
+**Architecture traceability:** [ADR-001](architecture/adr/ADR-001-docker-compose-service-boundaries.md), [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md).
 
 ## QRT-002: Crawler type-check feedback
 
@@ -30,6 +38,8 @@ This document defines the automated quality requirement tests (QRTs) for Assignm
 
 **Evidence link:** [Crawler worker TypeScript config](../backend/crawler-worker/tsconfig.json); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml).
 
+**Architecture traceability:** [ADR-003](architecture/adr/ADR-003-mermaid-maintained-architecture-diagrams.md).
+
 ## QRT-003: Invalid input protection
 
 **Linked quality requirement:** [QR-003](quality-requirements.md#qr-003-invalid-input-protection)
@@ -43,3 +53,5 @@ This document defines the automated quality requirement tests (QRTs) for Assignm
 **Expected measurable result:** Invalid email values are rejected by backend validation; invalid target URLs cause `runCheck` to return `Invalid URL` before a browser page is opened.
 
 **Evidence link:** [Backend validation test](../backend/main-backend/internal/api/handlers_test.go); [Crawler invalid URL test](../backend/crawler-worker/tests/runner.test.ts); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml).
+
+**Architecture traceability:** [ADR-001](architecture/adr/ADR-001-docker-compose-service-boundaries.md), [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md).

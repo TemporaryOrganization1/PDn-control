@@ -2,6 +2,12 @@
 
 The project uses ISO/IEC 25010 quality sub-characteristics to define measurable quality requirements. These requirements and their linked automated quality requirement tests are maintained product assets starting in Assignment 4.
 
+Starting in Assignment 5, each relevant quality requirement also links to architecture decisions that address or constrain it.
+
+- [QR-001: Scan dispatch responsiveness](#qr-001-scan-dispatch-responsiveness)
+- [QR-002: Type-check feedback for crawler changes](#qr-002-type-check-feedback-for-crawler-changes)
+- [QR-003: Invalid input protection](#qr-003-invalid-input-protection)
+
 ## QR-001: Scan dispatch responsiveness
 
 **ISO/IEC 25010 sub-characteristic:** Time behaviour
@@ -11,6 +17,8 @@ The project uses ISO/IEC 25010 quality sub-characteristics to define measurable 
 **Why this matters:** Users need quick feedback after submitting a compliance check. Slow internal dispatch delays scan acceptance and makes the product feel unavailable even when workers exist.
 
 **Linked quality requirement tests:** [QRT-001](quality-requirement-tests.md#qrt-001-scan-dispatch-responsiveness)
+
+**Related architecture decisions:** [ADR-001](architecture/adr/ADR-001-docker-compose-service-boundaries.md), [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md)
 
 ## QR-002: Type-check feedback for crawler changes
 
@@ -22,6 +30,8 @@ The project uses ISO/IEC 25010 quality sub-characteristics to define measurable 
 
 **Linked quality requirement tests:** [QRT-002](quality-requirement-tests.md#qrt-002-crawler-type-check-feedback)
 
+**Related architecture decisions:** [ADR-003](architecture/adr/ADR-003-mermaid-maintained-architecture-diagrams.md)
+
 ## QR-003: Invalid input protection
 
 **ISO/IEC 25010 sub-characteristic:** User error protection
@@ -31,3 +41,5 @@ The project uses ISO/IEC 25010 quality sub-characteristics to define measurable 
 **Why this matters:** Clear rejection of invalid input prevents wasted crawler capacity, misleading scan status, and account data quality problems.
 
 **Linked quality requirement tests:** [QRT-003](quality-requirement-tests.md#qrt-003-invalid-input-protection)
+
+**Related architecture decisions:** [ADR-001](architecture/adr/ADR-001-docker-compose-service-boundaries.md), [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md)

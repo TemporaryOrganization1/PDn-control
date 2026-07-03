@@ -1,0 +1,45 @@
+flowchart LR
+  user["End user / customer"]
+  browser["Browser"]
+  nginx["Frontend container\nNginx static hosting + /api proxy"]
+  next["Next.js frontend\nStatic export"]
+  api["Main backend\nGo + Echo API"]
+  memory["In-memory task state\nscan progress"]
+  authdb["PostgreSQL\nusers, sessions, history, GeoIP metadata"]
+  reports["PDF report volume"]
+  pool["Worker pool\ncapacity selection"]
+  worker1["Crawler worker 1\nNode + Puppeteer"]
+  worker2["Crawler worker 2\nNode + Puppeteer"]
+  worker3["Crawler worker 3\nNode + Puppeteer"]
+  target["Checked website"]
+  openrouter["OpenRouter AI API"]
+  geoip["GeoIP service\nGo API + updater"]
+  mirror["GeoIP MMDB mirror"]
+  smtp["SMTP provider"]
+
+  user --> browser
+  browser -->|"HTTPS/HTTP"| nginx
+  nginx --> next
+  nginx -->|"/api/*"| api
+  api --> memory
+  api --> authdb
+  api --> reports
+  api --> pool
+  api -->|"verification email"| smtp
+  pool -->|"POST /check"| worker1
+  pool -->|"POST /check"| worker2
+  pool -->|"POST /check"| worker3
+  worker1 --> target
+  worker2 --> target
+  worker3 --> target
+  worker1 --> openrouter
+  worker2 --> openrouter
+  worker3 --> openrouter
+  worker1 --> geoip
+  worker2 --> geoip
+  worker3 --> geoip
+  geoip --> authdb
+  geoip --> mirror
+  worker1 -->|"POST /api/progress\nX-Worker-Secret"| api
+  worker2 -->|"POST /api/progress\nX-Worker-Secret"| api
+  worker3 -->|"POST /api/progress\nX-Worker-Secret"| api

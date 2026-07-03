@@ -1,0 +1,47 @@
+flowchart TB
+  subgraph customer["Customer-facing network"]
+    user["User browser"]
+    dns["pdn2.neurolife.tech"]
+  end
+
+  subgraph host["Docker Compose host"]
+    frontend["frontend\nNginx + exported Next.js\nports 80/443"]
+    backend["main-backend\nGo API :4000 internal"]
+    worker1["crawler-worker-1\nNode/Puppeteer :3000 internal"]
+    worker2["crawler-worker-2\nNode/Puppeteer :3000 internal"]
+    worker3["crawler-worker-3\nNode/Puppeteer :3000 internal"]
+    geoip["geoip-service\nGo API :8080 internal"]
+    postgres["postgres\nPostgreSQL volume pgdata"]
+    reports["backend-reports volume\nPDF files"]
+    mmdb["geoip-mmdb volume\nGeoLite2-Country.mmdb"]
+    env["server-side .env\nsecrets and runtime overrides"]
+  end
+
+  subgraph external["External services"]
+    openrouter["OpenRouter API"]
+    smtp["SMTP provider"]
+    mirror["GeoIP MMDB release mirror"]
+    target["Websites submitted for checks"]
+  end
+
+  user --> dns --> frontend
+  frontend -->|"/api/* internal proxy"| backend
+  backend --> postgres
+  backend --> reports
+  backend --> env
+  backend -->|"POST /check"| worker1
+  backend -->|"POST /check"| worker2
+  backend -->|"POST /check"| worker3
+  backend --> smtp
+  worker1 --> target
+  worker2 --> target
+  worker3 --> target
+  worker1 --> geoip
+  worker2 --> geoip
+  worker3 --> geoip
+  worker1 --> openrouter
+  worker2 --> openrouter
+  worker3 --> openrouter
+  geoip --> postgres
+  geoip --> mmdb
+  geoip --> mirror
