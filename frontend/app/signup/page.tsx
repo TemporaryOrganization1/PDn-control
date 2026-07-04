@@ -64,7 +64,7 @@ export default function SignupPage() {
   if (authLoading) {
     return (
       <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
-        <div className="text-sm text-muted-foreground">Аккаунт успешно создан! Теперь вы можете войти.</div>
+        <div className="text-sm text-muted-foreground">Загрузка...</div>
       </div>
     );
   }
