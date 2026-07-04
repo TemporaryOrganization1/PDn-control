@@ -9,6 +9,7 @@ interface User {
   createdAt?: string;
   isVerified: boolean;
   plan: "free" | "paid";
+  planExpiresAt?: string;
 }
 
 interface AuthContextType {
@@ -34,7 +35,8 @@ function toUser(authUser: api.AuthUser | null | undefined): User | null {
     email: authUser.email,
     createdAt: authUser.created_at,
     isVerified: authUser.email_verified ?? true,
-    plan: "free",
+    plan: authUser.plan || "free",
+    planExpiresAt: authUser.plan_expires_at,
   };
 }
 
@@ -93,9 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const unavailable = useCallback(async () => {
-    throw new Error("Эта возможность пока не поддерживается backend");
-  }, []);
+  const upgradeToPaid = useCallback(async () => {
+    await api.upgradeToPaid();
+    await refresh();
+  }, [refresh]);
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -108,10 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refresh,
       updateEmail,
       updatePassword,
-      upgradeToPaid: unavailable,
+      upgradeToPaid,
       deleteAccount,
     }),
-    [isLoading, login, logout, refresh, signup, updateEmail, updatePassword, unavailable, user, deleteAccount]
+    [isLoading, login, logout, refresh, signup, updateEmail, updatePassword, upgradeToPaid, user, deleteAccount]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

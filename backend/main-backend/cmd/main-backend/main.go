@@ -44,6 +44,9 @@ func main() {
 	if workerSecret := os.Getenv("WORKER_SECRET"); workerSecret != "" {
 		mainCfg.Server.WorkerSecret = workerSecret
 	}
+	if imageSecret := os.Getenv("IMAGES_SECRET"); imageSecret != "" {
+		mainCfg.Server.ImageSecret = imageSecret
+	}
 	if cookieSecure := os.Getenv("COOKIE_SECURE"); cookieSecure != "" {
 		mainCfg.Server.CookieSecure = cookieSecure == "true" || cookieSecure == "1"
 	}
@@ -59,6 +62,9 @@ func main() {
 	}
 	if reportsDir := os.Getenv("REPORTS_DIR"); reportsDir != "" {
 		mainCfg.Server.ReportsDir = reportsDir
+	}
+	if imagesDir := os.Getenv("IMAGES_DIR"); imagesDir != "" {
+		mainCfg.Server.ImagesDir = imagesDir
 	}
 	if origins := os.Getenv("CORS_ALLOWED_ORIGINS"); origins != "" {
 		mainCfg.Server.AllowedOrigins = splitCSV(origins)

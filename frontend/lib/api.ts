@@ -5,6 +5,8 @@ export interface AuthUser {
   email: string;
   created_at?: string;
   email_verified?: boolean;
+  plan?: "free" | "paid";
+  plan_expires_at?: string;
 }
 
 export interface GuestInfo {
@@ -221,6 +223,16 @@ export async function deleteAccount(): Promise<void> {
     credentials: "include",
   });
   await parseJsonResponse(response);
+}
+
+export async function upgradeToPaid(): Promise<MeResponse> {
+  const response = await fetch("/api/subscription/change", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ plan: "paid" }),
+  });
+  return parseJsonResponse<MeResponse>(response);
 }
 
 export async function downloadReport(reportId: string): Promise<void> {

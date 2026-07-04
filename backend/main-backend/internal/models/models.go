@@ -25,9 +25,11 @@ type ChangePasswordRequest struct {
 }
 
 type AuthUser struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	CreatedAt     string `json:"created_at"`
+	Plan          string `json:"plan"`
+	PlanExpiresAt string `json:"plan_expires_at,omitempty"`
 }
 
 type GuestInfo struct {

@@ -6,6 +6,10 @@ const basePath =
 const nextConfig: NextConfig = {
   output: "export",
 
+  turbopack: {
+    root: __dirname,
+  },
+
   ...(basePath && {
     basePath,
     assetPrefix: basePath,
@@ -49,6 +53,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/workers",
         destination: `${backendOrigin}/api/workers`,
+      },
+      {
+        source: "/api/subscription/:path*",
+        destination: `${backendOrigin}/api/subscription/:path*`,
       },
     ];
   },

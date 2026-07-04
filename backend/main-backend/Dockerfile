@@ -23,7 +23,7 @@ COPY config.json .
 COPY internal/pdfGen/DejaVuSans.ttf .
 COPY internal/pdfGen/DejaVuSans-Bold.ttf .
 
-RUN mkdir -p /app/backend/reports
+RUN mkdir -p /app/backend/reports /tmp/pdn-disk
 
 EXPOSE 4000
 
