@@ -22,8 +22,10 @@ RUN rm -rf /etc/nginx/conf.d/default.conf
 # Copy build output
 COPY --from=builder /app/out /usr/share/nginx/html
 
+ARG NGINX_CONFIG=nginx.conf
+
 # Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY ${NGINX_CONFIG} /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
 EXPOSE 443

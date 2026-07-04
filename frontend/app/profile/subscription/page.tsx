@@ -200,6 +200,7 @@ export default function SubscriptionPage() {
                            } else {
                              setSuccess(data.message || "Plan upgraded successfully");
                            }
+                           router.refresh();
                          } catch (e) {
                            setError("Network error");
                          } finally {
