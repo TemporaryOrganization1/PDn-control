@@ -1,14 +1,20 @@
 package api
 
 import (
+	"context"
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -24,17 +30,21 @@ import (
 )
 
 type Config struct {
-	ServerPort           string   `json:"serverPort"`
-	DatabaseURL          string   `json:"databaseUrl"`
-	ReportsDir           string   `json:"reportsDir"`
-	CookieSecure         bool     `json:"cookieSecure"`
-	SessionTTLHours      int      `json:"sessionTtlHours"`
-	GuestLimit           int      `json:"guestLimit"`
-	GuestCacheMaxItems   int      `json:"guestCacheMaxItems"`
-	GuestCacheTTLMinutes int      `json:"guestCacheTTLMinutes"`
-	WorkerSecret         string   `json:"workerSecret"`
-	AllowedOrigins       []string `json:"allowedOrigins"`
-	Workers              []Worker `json:"workers"`
+	ServerPort               string   `json:"serverPort"`
+	DatabaseURL              string   `json:"databaseUrl"`
+	ReportsDir               string   `json:"reportsDir"`
+	ImagesDir                string   `json:"imagesDir"`
+	CookieSecure             bool     `json:"cookieSecure"`
+	SessionTTLHours          int      `json:"sessionTtlHours"`
+	GuestLimit               int      `json:"guestLimit"`
+	GuestCacheMaxItems       int      `json:"guestCacheMaxItems"`
+	GuestCacheTTLMinutes     int      `json:"guestCacheTTLMinutes"`
+	WorkerSecret             string   `json:"workerSecret"`
+	ImageSecret              string   `json:"imageSecret"`
+	CleanupIntervalMinutes   int      `json:"cleanupIntervalMinutes"`
+	PlanCheckIntervalMinutes int      `json:"planCheckIntervalMinutes"`
+	AllowedOrigins           []string `json:"allowedOrigins"`
+	Workers                  []Worker `json:"workers"`
 }
 
 type Worker struct {
@@ -76,6 +86,9 @@ func NewServer(cfg Config) (*Server, error) {
 	if cfg.ReportsDir == "" {
 		cfg.ReportsDir = "/app/reports"
 	}
+	if cfg.ImagesDir == "" {
+		cfg.ImagesDir = "/tmp/pdn-disk"
+	}
 
 	authStore, err := auth.NewStore(cfg.DatabaseURL, cfg.ReportsDir)
 	if err != nil {
@@ -116,6 +129,11 @@ func NewServer(cfg Config) (*Server, error) {
 		AllowCredentials: true,
 	}))
 	s.registerRoutes()
+
+	// Start cleanup goroutine
+	ctx := context.Background()
+	go s.startCleanup(ctx)
+
 	return s, nil
 }
 
@@ -139,6 +157,9 @@ func (s *Server) registerRoutes() {
 	s.echo.GET("/api/workers", s.handleWorkerStatus)
 	s.echo.GET("/api/health", s.handleHealth)
 	s.echo.GET("/api/guest/remaining", s.handleGuestRemaining)
+	s.echo.POST("/api/img/upload", s.handleImageUpload)
+	s.echo.GET("/api/img/:id", s.handleImageGet)
+	s.echo.POST("/api/subscription/change", s.handleSubscriptionChange)
 }
 
 func (s *Server) Start() error {
@@ -491,6 +512,7 @@ func (s *Server) dispatchTask(user *auth.User, req models.CheckRequest, worker *
 		"fallback":        req.Fallback,
 		"progress-secret": s.config.WorkerSecret,
 		"user-email":      userEmail,
+		"image-secret":    s.config.ImageSecret,
 	}
 
 	result, err := s.pool.SendTask(worker.URL, task)
@@ -617,6 +639,192 @@ func (s *Server) handleVerifyEmail(c echo.Context) error {
 	})
 }
 
+func (s *Server) handleSubscriptionChange(c echo.Context) error {
+	user := s.currentUser(c)
+	if user == nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
+	}
+
+	var req struct {
+		Plan string `json:"plan"`
+	}
+	if err := c.Bind(&req); err != nil {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", err.Error())
+	}
+
+	if req.Plan != "free" && req.Plan != "paid" {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_PLAN", "", "plan must be 'free' or 'paid'")
+	}
+
+	// Prevent downgrade from paid to free if plan_expires_at is in the future
+	if req.Plan == "free" && user.Plan == "paid" && !user.PlanExpiresAt.IsZero() && user.PlanExpiresAt.After(time.Now()) {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_PLAN", "", "cannot downgrade while paid plan is active")
+	}
+
+	if err := s.authStore.ChangeUserPlan(c.Request().Context(), user.ID, req.Plan); err != nil {
+		log.Printf("[API] Failed to change plan for user %s: %v", user.ID, err)
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to change plan")
+	}
+
+	log.Printf("[API] Plan changed for user %s (%s) to %s", user.ID, user.Email, req.Plan)
+	return c.JSON(http.StatusOK, map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Plan changed to %s", req.Plan),
+	})
+}
+
+func (s *Server) handleImageUpload(c echo.Context) error {
+	// Check image secret
+	secret := c.Request().Header.Get("X-Image-Secret")
+	if secret == "" {
+		secret = c.QueryParam("secret")
+	}
+	if s.config.ImageSecret != "" && secret != s.config.ImageSecret {
+		return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", "", "invalid image secret")
+	}
+
+	const maxUploadSize = 15 << 20 // 15 MB
+
+	// Limit request body size
+	c.Request().Body = http.MaxBytesReader(c.Response(), c.Request().Body, maxUploadSize)
+
+	// Parse multipart form
+	if err := c.Request().ParseMultipartForm(maxUploadSize); err != nil {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "file too large or invalid multipart form")
+	}
+
+	file, header, err := c.Request().FormFile("file")
+	if err != nil {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "file is required")
+	}
+	defer file.Close()
+
+	reqID := c.FormValue("req-id")
+	if reqID == "" {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "req-id is required")
+	}
+
+	// Validate MIME type
+	contentType := header.Header.Get("Content-Type")
+	if contentType != "image/jpeg" && contentType != "image/png" {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "only PNG and JPEG images are allowed")
+	}
+
+	// Read file data
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to read file")
+	}
+
+	if len(data) > maxUploadSize {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "file exceeds 15MB limit")
+	}
+
+	// Generate unique ID
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to generate ID")
+	}
+	imageID := hex.EncodeToString(buf)
+
+	// Determine extension
+	ext := ".jpg"
+	if contentType == "image/png" {
+		ext = ".png"
+	}
+
+	// Create subdirectory: /tmp/pdn-disk/{first_char}/
+	firstChar := string(imageID[0])
+	subDir := filepath.Join(s.config.ImagesDir, firstChar)
+	if err := os.MkdirAll(subDir, 0755); err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to create storage directory")
+	}
+
+	// Save file: /tmp/pdn-disk/{first_char}/{id}.{ext}
+	filePath := filepath.Join(subDir, imageID+ext)
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to save file")
+	}
+
+	// Save record in DB
+	if err := s.authStore.SaveImage(c.Request().Context(), imageID, reqID, filePath); err != nil {
+		os.Remove(filePath)
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to save image record")
+	}
+
+	log.Printf("[API] Image uploaded: id=%s req_id=%s size=%d type=%s", imageID, reqID, len(data), contentType)
+	return c.JSON(http.StatusOK, map[string]string{
+		"image_id": imageID,
+	})
+}
+
+func (s *Server) handleImageGet(c echo.Context) error {
+	imageID := c.Param("id")
+	if imageID == "" {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "image id is required")
+	}
+
+	record, err := s.authStore.GetImage(c.Request().Context(), imageID)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	if record == nil {
+		return s.errResponse(c, http.StatusNotFound, "ERR_NOT_FOUND", "", "image not found or expired")
+	}
+
+	// Check file exists
+	if _, err := os.Stat(record.FilePath); os.IsNotExist(err) {
+		return s.errResponse(c, http.StatusNotFound, "ERR_NOT_FOUND", "", "image file not found")
+	}
+
+	// Determine content type from extension
+	contentType := "image/jpeg"
+	if strings.HasSuffix(record.FilePath, ".png") {
+		contentType = "image/png"
+	}
+
+	c.Response().Header().Set(echo.HeaderContentType, contentType)
+	c.Response().Header().Set("Cache-Control", "private, max-age=3600")
+	return c.File(record.FilePath)
+}
+
+func (s *Server) startCleanup(ctx context.Context) {
+	cleanupInterval := time.Duration(s.config.CleanupIntervalMinutes) * time.Minute
+	if cleanupInterval <= 0 {
+		cleanupInterval = 10 * time.Minute
+	}
+	planCheckInterval := time.Duration(s.config.PlanCheckIntervalMinutes) * time.Minute
+	if planCheckInterval <= 0 {
+		planCheckInterval = 1 * time.Minute
+	}
+
+	cleanupTicker := time.NewTicker(cleanupInterval)
+	planCheckTicker := time.NewTicker(planCheckInterval)
+	defer cleanupTicker.Stop()
+	defer planCheckTicker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-cleanupTicker.C:
+			checksDeleted, imagesDeleted, err := s.authStore.CleanupExpiredData(ctx)
+			if err != nil {
+				log.Printf("[API] Failed to cleanup expired data: %v", err)
+				continue
+			}
+			if checksDeleted > 0 || imagesDeleted > 0 {
+				log.Printf("[API] Cleanup completed: %d checks and %d images deleted", checksDeleted, imagesDeleted)
+			}
+		case <-planCheckTicker.C:
+			_, _, err := s.authStore.CleanupExpiredData(ctx)
+			if err != nil {
+				log.Printf("[API] Failed to check expired plans: %v", err)
+			}
+		}
+	}
+}
+
 func (s *Server) errResponse(c echo.Context, code int, errCode, reqID, msg string) error {
 	return c.JSON(code, models.CheckResponse{
 		Code:  errCode,
@@ -683,10 +891,16 @@ func toAuthUser(user *auth.User) *models.AuthUser {
 	if user == nil {
 		return nil
 	}
+	planExpiresAt := ""
+	if user.PlanExpiresAt != nil {
+		planExpiresAt = user.PlanExpiresAt.Format(time.RFC3339)
+	}
 	return &models.AuthUser{
-		ID:        user.ID,
-		Email:     user.Email,
-		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+		ID:            user.ID,
+		Email:         user.Email,
+		CreatedAt:     user.CreatedAt.Format(time.RFC3339),
+		Plan:          user.Plan,
+		PlanExpiresAt: planExpiresAt,
 	}
 }
 

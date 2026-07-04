@@ -29,11 +29,13 @@ var (
 )
 
 type User struct {
-	ID            string    `json:"id"`
-	Email         string    `json:"email"`
-	PasswordHash  string    `json:"-"`
-	CreatedAt     time.Time `json:"created_at"`
-	EmailVerified bool      `json:"email_verified"`
+	ID            string     `json:"id"`
+	Email         string     `json:"email"`
+	PasswordHash  string     `json:"-"`
+	CreatedAt     time.Time  `json:"created_at"`
+	EmailVerified bool       `json:"email_verified"`
+	Plan          string     `json:"plan"`
+	PlanExpiresAt *time.Time `json:"plan_expires_at"`
 }
 
 type GuestStats struct {
@@ -98,9 +100,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			email TEXT NOT NULL UNIQUE,
 			password_hash TEXT NOT NULL,
 			email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+			plan TEXT NOT NULL DEFAULT 'free',
+			plan_expires_at TIMESTAMPTZ NULL,
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
 		`ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT FALSE`,
+		`ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'`,
+		`ALTER TABLE auth_users ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMPTZ NULL`,
 		`CREATE TABLE IF NOT EXISTS email_verifications (
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
@@ -136,6 +142,19 @@ func (s *Store) migrate(ctx context.Context) error {
 			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_check_history_email_created_at ON check_history(email, created_at DESC)`,
+		`ALTER TABLE check_history ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_check_history_expires_at ON check_history(expires_at)`,
+		`CREATE TABLE IF NOT EXISTS check_images (
+			id TEXT PRIMARY KEY,
+			req_id TEXT NOT NULL,
+			file_path TEXT NOT NULL,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '7 days'
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_check_images_req_id ON check_images(req_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_check_images_expires_at ON check_images(expires_at)`,
+		`ALTER TABLE check_images ADD COLUMN IF NOT EXISTS check_id TEXT NULL REFERENCES check_history(id) ON DELETE SET NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_check_images_check_id ON check_images(check_id)`,
 		`INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, report_id, created_at)
 			SELECT 'legacy-' || id, email, COALESCE(NULLIF(req_id, ''), 'legacy-' || id), url, 'unknown', 'completed', '[]'::jsonb, id, created_at
 			FROM pdf_reports
@@ -254,6 +273,7 @@ type CheckHistory struct {
 }
 
 // SaveCheckHistory upserts a completed check independently from PDF generation.
+// For free users, sets expires_at = NOW() + 7 days. For paid users, expires_at remains NULL.
 func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, checkType, status string, results []store.Result) (*CheckHistory, error) {
 	email = NormalizeEmail(email)
 	if email == "" {
@@ -271,19 +291,46 @@ func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, c
 		return nil, fmt.Errorf("marshal check results: %w", err)
 	}
 
+	// Get user plan
+	var plan string
+	err = s.db.QueryRowContext(ctx, `SELECT plan FROM auth_users WHERE email = $1`, email).Scan(&plan)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("query user plan: %w", err)
+	}
+
+	// Set expires_at based on plan: free = 7 days, paid = NULL (no expiry)
+	isPaid := plan == "paid"
+
 	h := &CheckHistory{}
-	err = s.db.QueryRowContext(ctx, `
-		INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW())
-		ON CONFLICT (req_id) DO UPDATE
-		SET email = EXCLUDED.email,
-			url = EXCLUDED.url,
-			check_type = EXCLUDED.check_type,
-			status = EXCLUDED.status,
-			results_json = EXCLUDED.results_json
-		RETURNING id, email, req_id, url, check_type, status, COALESCE(report_id, ''), created_at
-	`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON)).
-		Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt)
+	if isPaid {
+		err = s.db.QueryRowContext(ctx, `
+			INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, expires_at, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NULL, NOW())
+			ON CONFLICT (req_id) DO UPDATE
+			SET email = EXCLUDED.email,
+				url = EXCLUDED.url,
+				check_type = EXCLUDED.check_type,
+				status = EXCLUDED.status,
+				results_json = EXCLUDED.results_json,
+				expires_at = NULL
+			RETURNING id, email, req_id, url, check_type, status, COALESCE(report_id, ''), created_at
+		`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON)).
+			Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt)
+	} else {
+		err = s.db.QueryRowContext(ctx, `
+			INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, expires_at, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW() + INTERVAL '7 days', NOW())
+			ON CONFLICT (req_id) DO UPDATE
+			SET email = EXCLUDED.email,
+				url = EXCLUDED.url,
+				check_type = EXCLUDED.check_type,
+				status = EXCLUDED.status,
+				results_json = EXCLUDED.results_json,
+				expires_at = NOW() + INTERVAL '7 days'
+			RETURNING id, email, req_id, url, check_type, status, COALESCE(report_id, ''), created_at
+		`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON)).
+			Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("save check history: %w", err)
 	}
@@ -362,13 +409,14 @@ func (s *Store) CreateUser(ctx context.Context, email, passwordHash string) (*Us
 		Email:         NormalizeEmail(email),
 		PasswordHash:  passwordHash,
 		EmailVerified: false,
+		Plan:          "free",
 		CreatedAt:     time.Now().UTC(),
 	}
 	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO auth_users (id, email, password_hash, email_verified, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		INSERT INTO auth_users (id, email, password_hash, email_verified, plan, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		RETURNING created_at
-	`, user.ID, user.Email, user.PasswordHash, user.EmailVerified, user.CreatedAt).Scan(&user.CreatedAt)
+	`, user.ID, user.Email, user.PasswordHash, user.EmailVerified, user.Plan, user.CreatedAt).Scan(&user.CreatedAt)
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
 			return nil, ErrUserExists
@@ -381,10 +429,10 @@ func (s *Store) CreateUser(ctx context.Context, email, passwordHash string) (*Us
 func (s *Store) UserByEmail(ctx context.Context, email string) (*User, error) {
 	user := &User{}
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, email, password_hash, email_verified, created_at
+		SELECT id, email, password_hash, email_verified, plan, plan_expires_at, created_at
 		FROM auth_users
 		WHERE email = $1
-	`, NormalizeEmail(email)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.EmailVerified, &user.CreatedAt)
+	`, NormalizeEmail(email)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.EmailVerified, &user.Plan, &user.PlanExpiresAt, &user.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -401,6 +449,185 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, userID, passwordHash str
 		return fmt.Errorf("update password hash: %w", err)
 	}
 	return nil
+}
+
+// ChangeUserPlan changes the user's plan and updates expires_at for all active checks.
+// When switching to 'free', all active checks get expires_at = NOW() + 7 days.
+// When switching to 'paid', sets plan_expires_at = NOW() + 10 minutes and expires_at = NULL.
+func (s *Store) ChangeUserPlan(ctx context.Context, userID, newPlan string) error {
+	if newPlan != "free" && newPlan != "paid" {
+		return fmt.Errorf("invalid plan: %s", newPlan)
+	}
+
+	// Update user plan
+	if newPlan == "paid" {
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE auth_users
+			SET plan = $1, plan_expires_at = NOW() + INTERVAL '10 minutes'
+			WHERE id = $2
+		`, newPlan, userID)
+		if err != nil {
+			return fmt.Errorf("update user plan: %w", err)
+		}
+	} else {
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE auth_users
+			SET plan = $1, plan_expires_at = NULL
+			WHERE id = $2
+		`, newPlan, userID)
+		if err != nil {
+			return fmt.Errorf("update user plan: %w", err)
+		}
+	}
+
+	// Update expires_at for all active checks
+	if newPlan == "paid" {
+		// Paid users: no expiry
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE check_history
+			SET expires_at = NULL
+			WHERE email = (SELECT email FROM auth_users WHERE id = $1)
+				AND expires_at > NOW()
+		`, userID)
+		if err != nil {
+			return fmt.Errorf("update check history expires_at: %w", err)
+		}
+	} else {
+		// Free users: 7 days
+		_, err := s.db.ExecContext(ctx, `
+			UPDATE check_history
+			SET expires_at = NOW() + INTERVAL '7 days'
+			WHERE email = (SELECT email FROM auth_users WHERE id = $1)
+				AND (expires_at IS NULL OR expires_at > NOW())
+		`, userID)
+		if err != nil {
+			return fmt.Errorf("update check history expires_at: %w", err)
+		}
+	}
+
+	log.Printf("[Auth] Changed plan for user %s to %s", userID, newPlan)
+	return nil
+}
+
+// GetUserPlan returns the plan for a user by userID.
+func (s *Store) GetUserPlan(ctx context.Context, userID string) (string, error) {
+	var plan string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT plan FROM auth_users WHERE id = $1
+	`, userID).Scan(&plan)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		return "", fmt.Errorf("query user plan: %w", err)
+	}
+	return plan, nil
+}
+
+// CleanupExpiredData removes expired checks and their associated images for free users.
+// Also downgrades expired paid plans to free.
+// Returns the number of checks and images deleted.
+func (s *Store) CleanupExpiredData(ctx context.Context) (int, int, error) {
+	// Downgrade expired paid plans
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE auth_users
+		SET plan = 'free', plan_expires_at = NULL
+		WHERE plan = 'paid' AND plan_expires_at <= NOW()
+	`)
+	if err != nil {
+		log.Printf("[Auth] Warning: failed to downgrade expired plans: %v", err)
+	}
+
+	// Find expired checks for free users
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, email FROM check_history
+		WHERE expires_at <= NOW()
+			AND email IN (SELECT email FROM auth_users WHERE plan = 'free')
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("query expired checks: %w", err)
+	}
+	defer rows.Close()
+
+	var checkIDs []string
+	var emails []string
+	for rows.Next() {
+		var id, email string
+		if err := rows.Scan(&id, &email); err != nil {
+			return 0, 0, fmt.Errorf("scan expired check: %w", err)
+		}
+		checkIDs = append(checkIDs, id)
+		emails = append(emails, email)
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, fmt.Errorf("expired checks rows iteration: %w", err)
+	}
+
+	checksDeleted := 0
+	imagesDeleted := 0
+
+	if len(checkIDs) > 0 {
+		// Delete check_history records
+		result, err := s.db.ExecContext(ctx, `
+			DELETE FROM check_history
+			WHERE expires_at <= NOW()
+				AND email IN (SELECT email FROM auth_users WHERE plan = 'free')
+		`)
+		if err != nil {
+			return 0, 0, fmt.Errorf("delete expired checks: %w", err)
+		}
+		deleted, _ := result.RowsAffected()
+		checksDeleted = int(deleted)
+
+		// Mark images for deletion (check_id will be SET NULL due to ON DELETE SET NULL)
+		// But we also need to set expires_at = NOW() for images without check_id
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE check_images
+			SET expires_at = NOW()
+			WHERE check_id IS NULL
+				AND expires_at > NOW()
+		`)
+		if err != nil {
+			log.Printf("[Auth] Warning: failed to mark orphaned images: %v", err)
+		}
+	}
+
+	// Delete expired images (expires_at <= NOW() AND check_id IS NULL)
+	imageRows, err := s.db.QueryContext(ctx, `
+		SELECT file_path FROM check_images
+		WHERE expires_at <= NOW()
+			AND check_id IS NULL
+	`)
+	if err != nil {
+		return checksDeleted, 0, fmt.Errorf("query expired images: %w", err)
+	}
+	defer imageRows.Close()
+
+	var imagePaths []string
+	for imageRows.Next() {
+		var fp string
+		if err := imageRows.Scan(&fp); err != nil {
+			return checksDeleted, 0, fmt.Errorf("scan expired image: %w", err)
+		}
+		imagePaths = append(imagePaths, fp)
+	}
+	if err := imageRows.Err(); err != nil {
+		return checksDeleted, 0, fmt.Errorf("expired images rows iteration: %w", err)
+	}
+
+	if len(imagePaths) > 0 {
+		_, err = s.db.ExecContext(ctx, `DELETE FROM check_images WHERE expires_at <= NOW() AND check_id IS NULL`)
+		if err != nil {
+			return checksDeleted, 0, fmt.Errorf("delete expired images: %w", err)
+		}
+		imagesDeleted = len(imagePaths)
+	}
+
+	if checksDeleted > 0 || imagesDeleted > 0 {
+		log.Printf("[Auth] Cleanup: deleted %d checks and %d images", checksDeleted, imagesDeleted)
+	}
+
+	return checksDeleted, imagesDeleted, nil
 }
 
 // DeleteUnverifiedUser removes a user and their verification tokens if email is not yet verified.
@@ -507,6 +734,16 @@ func (s *Store) DeleteUser(ctx context.Context, userID, email string) error {
 		filePaths = append(filePaths, fp)
 	}
 	rows.Close()
+
+	// Mark all images for this user's checks as expired
+	if _, err := s.db.ExecContext(ctx, `
+		UPDATE check_images
+		SET expires_at = NOW()
+		WHERE req_id IN (SELECT req_id FROM check_history WHERE email = $1)
+			AND expires_at > NOW()
+	`, email); err != nil {
+		log.Printf("[Auth] Warning: failed to mark images for deletion: %v", err)
+	}
 
 	// Delete check_history records (by email)
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM check_history WHERE email = $1`, email); err != nil {
@@ -630,11 +867,11 @@ func (s *Store) UserBySessionToken(ctx context.Context, token string) (*User, er
 
 	user := &User{}
 	err := s.db.QueryRowContext(ctx, `
-		SELECT u.id, u.email, u.password_hash, u.email_verified, u.created_at
+		SELECT u.id, u.email, u.password_hash, u.email_verified, u.plan, u.plan_expires_at, u.created_at
 		FROM auth_sessions s
 		JOIN auth_users u ON u.id = s.user_id
 		WHERE s.token_hash = $1 AND s.expires_at > NOW()
-	`, HashToken(token)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.EmailVerified, &user.CreatedAt)
+	`, HashToken(token)).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.EmailVerified, &user.Plan, &user.PlanExpiresAt, &user.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidSession
@@ -694,6 +931,101 @@ func (s *Store) ConsumeGuestAttempt(ctx context.Context, guestID string, limit i
 		stats.Remaining = 0
 	}
 	return stats, nil
+}
+
+// ImageRecord represents a stored check image.
+type ImageRecord struct {
+	ID        string    `json:"id"`
+	ReqID     string    `json:"req_id"`
+	FilePath  string    `json:"file_path"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
+// SaveImage inserts a new image record into check_images table with the given imageID.
+// Sets check_id from check_history if available.
+func (s *Store) SaveImage(ctx context.Context, imageID, reqID, filePath string) error {
+	var checkID *string
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id FROM check_history WHERE req_id = $1 LIMIT 1
+	`, reqID).Scan(&checkID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return fmt.Errorf("query check_id: %w", err)
+	}
+
+	_, err = s.db.ExecContext(ctx, `
+		INSERT INTO check_images (id, req_id, check_id, file_path, created_at, expires_at)
+		VALUES ($1, $2, $3, $4, NOW(), NOW() + INTERVAL '7 days')
+	`, imageID, reqID, checkID, filePath)
+	if err != nil {
+		return fmt.Errorf("save image record: %w", err)
+	}
+	log.Printf("[Auth] Image saved: id=%s req_id=%s check_id=%v path=%s", imageID, reqID, checkID, filePath)
+	return nil
+}
+
+// GetImage returns the image record by ID. Returns nil if not found or expired.
+func (s *Store) GetImage(ctx context.Context, imageID string) (*ImageRecord, error) {
+	var r ImageRecord
+	err := s.db.QueryRowContext(ctx, `
+		SELECT id, req_id, file_path, created_at, expires_at
+		FROM check_images
+		WHERE id = $1 AND expires_at > NOW()
+	`, imageID).Scan(&r.ID, &r.ReqID, &r.FilePath, &r.CreatedAt, &r.ExpiresAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("query image: %w", err)
+	}
+	return &r, nil
+}
+
+// MarkImagesForDeletion sets expires_at = NOW() for all images associated with the given reqID.
+func (s *Store) MarkImagesForDeletion(ctx context.Context, reqID string) error {
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE check_images
+		SET expires_at = NOW()
+		WHERE req_id = $1 AND expires_at > NOW()
+	`, reqID)
+	if err != nil {
+		return fmt.Errorf("mark images for deletion: %w", err)
+	}
+	return nil
+}
+
+// DeleteExpiredImages deletes all expired image records with check_id IS NULL and returns their file paths for disk cleanup.
+func (s *Store) DeleteExpiredImages(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT file_path FROM check_images WHERE expires_at <= NOW() AND check_id IS NULL
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("query expired images: %w", err)
+	}
+	defer rows.Close()
+
+	var paths []string
+	for rows.Next() {
+		var fp string
+		if err := rows.Scan(&fp); err != nil {
+			return nil, fmt.Errorf("scan expired image path: %w", err)
+		}
+		paths = append(paths, fp)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows iteration: %w", err)
+	}
+
+	if len(paths) > 0 {
+		result, err := s.db.ExecContext(ctx, `DELETE FROM check_images WHERE expires_at <= NOW() AND check_id IS NULL`)
+		if err != nil {
+			return nil, fmt.Errorf("delete expired images: %w", err)
+		}
+		deleted, _ := result.RowsAffected()
+		log.Printf("[Auth] Deleted %d expired image records from DB", deleted)
+	}
+
+	return paths, nil
 }
 
 func HashToken(token string) string {

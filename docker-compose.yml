@@ -66,6 +66,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
     volumes:
       - backend-reports:/app/backend/reports
+      - backend-images:/tmp/pdn-disk
     depends_on:
       postgres:
         condition: service_healthy
@@ -136,3 +137,4 @@ volumes:
   pgdata:
   geoip-mmdb:
   backend-reports:
+  backend-images:
