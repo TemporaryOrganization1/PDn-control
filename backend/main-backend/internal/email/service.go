@@ -31,22 +31,28 @@ func encodeRFC2047(s string) string {
 }
 
 func NewService() (*Service, error) {
-	host := os.Getenv("SMTP_HOST")
-	port := os.Getenv("SMTP_PORT")
-	username := os.Getenv("SMTP_USER")
+	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
+	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+	username := strings.TrimSpace(os.Getenv("SMTP_USER"))
 	password := os.Getenv("SMTP_PASSWORD")
+	from := strings.TrimSpace(os.Getenv("SMTP_FROM"))
 
 	log.Printf("[Email] Initializing email service with SMTP_HOST=%s, SMTP_PORT=%s, SMTP_USER=%s", host, port, username)
 
-	if host == "" || port == "" || username == "" || password == "" {
-		return nil, fmt.Errorf("SMTP configuration is incomplete. Please set SMTP_HOST, SMTP_PORT, SMTP_USER, and SMTP_PASSWORD")
+	if host == "" || port == "" {
+		return nil, fmt.Errorf("SMTP configuration is incomplete. Please set SMTP_HOST and SMTP_PORT")
+	}
+	if (username == "") != (password == "") {
+		return nil, fmt.Errorf("SMTP authentication configuration is incomplete. Set both SMTP_USER and SMTP_PASSWORD, or leave both blank for an unauthenticated relay")
 	}
 
-	// Use username as from address if it contains @, otherwise use as-is
-	from := username
-	if !strings.Contains(from, "@") {
-		// If username doesn't have @, append domain from host
-		from = username + "@" + host
+	if from == "" && username != "" {
+		from = username
+	}
+	if from == "" {
+		from = "no-reply@pdn-control.local"
+	} else if !strings.Contains(from, "@") {
+		from = from + "@" + host
 	}
 
 	log.Printf("[Email] Service initialized successfully. From address: %s", from)
@@ -91,7 +97,10 @@ func (s *Service) sendEmail(to, subject, body string) error {
 	log.Printf("[Email] Attempting to send email to %s via %s", to, addr)
 	log.Printf("[Email] From: %s, Subject: %s", s.from, subject)
 
-	auth := smtp.PlainAuth("", s.username, s.password, s.host)
+	var auth smtp.Auth
+	if s.username != "" {
+		auth = smtp.PlainAuth("", s.username, s.password, s.host)
+	}
 
 	// Encode subject with RFC 2047 for non-ASCII characters (Russian)
 	encodedSubject := encodeRFC2047(subject)

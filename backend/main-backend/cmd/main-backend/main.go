@@ -74,8 +74,12 @@ func main() {
 	smtpHost := os.Getenv("SMTP_HOST")
 	smtpPort := os.Getenv("SMTP_PORT")
 	smtpUser := os.Getenv("SMTP_USER")
-	if smtpHost != "" && smtpPort != "" && smtpUser != "" {
-		log.Printf("[Main Backend] SMTP configured: host=%s, port=%s, user=%s", smtpHost, smtpPort, smtpUser)
+	if smtpHost != "" && smtpPort != "" {
+		if smtpUser != "" {
+			log.Printf("[Main Backend] SMTP configured: host=%s, port=%s, user=%s", smtpHost, smtpPort, smtpUser)
+		} else {
+			log.Printf("[Main Backend] SMTP relay configured without auth: host=%s, port=%s", smtpHost, smtpPort)
+		}
 	} else {
 		log.Println("[Main Backend] SMTP not configured - email verification disabled")
 	}
