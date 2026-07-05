@@ -18,6 +18,7 @@ Create a server-side `.env` file from the sanitized root [`.env.example`](../.en
 - `COOKIE_SECURE`: set to `true` when the public site is served through HTTPS. Set to `false` for plain HTTP/local deployments.
 - `CORS_ALLOWED_ORIGINS`: comma-separated list of allowed frontend origins for direct backend access during development or custom deployments.
 - `DATABASE_URL`: optional override for the main backend PostgreSQL connection. The default Compose value points to the bundled `postgres` service.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: optional SMTP settings used by email verification. For Yandex STARTTLS use `SMTP_HOST=smtp.yandex.ru`, `SMTP_PORT=587`, `SMTP_USER`/`SMTP_FROM` as the mailbox address, and an app password in `SMTP_PASSWORD`.
 
 ## Local HTTP Run
 
@@ -38,6 +39,32 @@ docker compose up -d --build
 ```
 
 The frontend nginx container serves the exported Next.js app on `http://localhost` and proxies `/api/` to `main-backend` over the internal Docker network.
+
+## SMTP Verification Diagnostics
+
+Email verification is sent by `main-backend`, so SMTP connectivity must be tested from inside that container. A successful host-level command such as `openssl s_client -starttls smtp -connect smtp.yandex.ru:587 -crlf` only proves that the server host can reach SMTP; it does not prove that Docker NAT, container DNS, forwarding, UFW/firewalld rules, or IPv6 routing are correct for the container.
+
+After rebuilding the stack, run:
+
+```bash
+sh scripts/diagnose-main-backend-network.sh
+```
+
+Or run the checks manually:
+
+```bash
+docker compose exec main-backend sh -lc '
+ip route
+cat /etc/resolv.conf
+getent hosts smtp.yandex.ru
+nc -4 -vz -w 10 smtp.yandex.ru 587
+nc -4 -vz -w 10 1.1.1.1 443
+'
+```
+
+Expected result: DNS resolves `smtp.yandex.ru`, TCP to `smtp.yandex.ru:587` succeeds, and TCP to `1.1.1.1:443` succeeds. If these checks fail inside `main-backend` but the same target works from the host, investigate Docker bridge/NAT rules, `net.ipv4.ip_forward`, UFW/firewalld forwarding policy, provider egress filtering, and broken IPv6 preference/routing. Keep testing inside `main-backend` after each network change.
+
+The `main-backend` image includes diagnostic tools (`ip`, `nc`, `nslookup`, `openssl`) so these checks do not depend on packages installed on the host.
 
 ## Production Domain Run
 

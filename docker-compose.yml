@@ -66,6 +66,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-}
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     volumes:
       - backend-reports:/app/backend/reports
       - backend-images:/tmp/pdn-disk
