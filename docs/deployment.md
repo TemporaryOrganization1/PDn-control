@@ -19,6 +19,8 @@ Create a server-side `.env` file from the sanitized root [`.env.example`](../.en
 - `CORS_ALLOWED_ORIGINS`: comma-separated list of allowed frontend origins for direct backend access during development or custom deployments.
 - `DATABASE_URL`: optional override for the main backend PostgreSQL connection. The default Compose value points to the bundled `postgres` service.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: optional SMTP settings used by email verification. For Yandex STARTTLS use `SMTP_HOST=smtp.yandex.ru`, `SMTP_PORT=587`, `SMTP_USER`/`SMTP_FROM` as the mailbox address, and an app password in `SMTP_PASSWORD`.
+- `SMTP_SERVER_NAME`: optional TLS/AUTH server name. Leave blank for direct SMTP. Set to `smtp.yandex.ru` when `SMTP_HOST` points to a local proxy.
+- `SMTP_NETWORK`: optional dial network: `tcp`, `tcp4`, or `tcp6`. Leave blank for `tcp`.
 
 ## Local HTTP Run
 
@@ -55,16 +57,50 @@ Or run the checks manually:
 ```bash
 docker compose exec main-backend sh -lc '
 ip route
+ip -4 route get 1.1.1.1
+ip -4 route get smtp.yandex.ru
 cat /etc/resolv.conf
 getent hosts smtp.yandex.ru
-nc -4 -vz -w 10 smtp.yandex.ru 587
 nc -4 -vz -w 10 1.1.1.1 443
+nc -4 -vz -w 10 smtp.yandex.ru 587
+nc -4 -vz -w 10 smtp.yandex.ru 465
 '
 ```
 
 Expected result: DNS resolves `smtp.yandex.ru`, TCP to `smtp.yandex.ru:587` succeeds, and TCP to `1.1.1.1:443` succeeds. If these checks fail inside `main-backend` but the same target works from the host, investigate Docker bridge/NAT rules, `net.ipv4.ip_forward`, UFW/firewalld forwarding policy, provider egress filtering, and broken IPv6 preference/routing. Keep testing inside `main-backend` after each network change.
 
+Interpretation:
+
+- If `1.1.1.1:443` also fails, debug general container outbound networking: Docker bridge, NAT masquerade, `FORWARD` chain, UFW/firewalld forwarding policy, or provider-level routing.
+- If `1.1.1.1:443` works but `smtp.yandex.ru:587` fails, the container has outbound internet but SMTP submission is blocked or filtered. Check host firewall rules such as `DOCKER-USER`, UFW `route` rules, nftables/iptables output policy, and provider egress filtering for ports `587` and `465`.
+- If `getent hosts smtp.yandex.ru` returns only IPv6 while IPv6 is not routed from containers, keep using IPv4 checks (`nc -4`). The backend SMTP dial failure on IPv4 still means Docker/NAT/firewall/provider egress must be fixed; changing the SMTP password will not help.
+
 The `main-backend` image includes diagnostic tools (`ip`, `nc`, `nslookup`, `openssl`) so these checks do not depend on packages installed on the host.
+
+### Emergency IPv6 SMTP Proxy
+
+Some VPS providers block outbound SMTP over IPv4 while IPv6 SMTP still works. If the host succeeds with `nc -6 -vz -w 10 smtp.yandex.ru 587` but IPv4 `465/587` time out, start a host-network proxy that listens only on the Docker bridge gateway and forwards to Yandex SMTP over IPv6:
+
+```bash
+sh scripts/start-smtp-ipv6-proxy.sh
+```
+
+The script prints the values to put into `.env`, for example:
+
+```env
+SMTP_HOST=172.18.0.1
+SMTP_PORT=1587
+SMTP_SERVER_NAME=smtp.yandex.ru
+SMTP_NETWORK=tcp4
+```
+
+Keep the existing Yandex mailbox values in `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM`, then recreate `main-backend`:
+
+```bash
+docker compose up -d --build main-backend
+```
+
+This proxy does not terminate TLS or read SMTP credentials. It only forwards bytes from the Docker bridge to `smtp.yandex.ru:587` over IPv6, so STARTTLS, certificate validation, and SMTP authentication still happen between `main-backend` and Yandex.
 
 ## Production Domain Run
 

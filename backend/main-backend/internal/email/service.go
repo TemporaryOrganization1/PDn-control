@@ -17,11 +17,13 @@ import (
 const smtpSendTimeout = 15 * time.Second
 
 type Service struct {
-	host     string
-	port     string
-	username string
-	password string
-	from     string
+	host       string
+	port       string
+	serverName string
+	network    string
+	username   string
+	password   string
+	from       string
 }
 
 // encodeRFC2047 encodes a string for use in an email header field
@@ -38,14 +40,26 @@ func encodeRFC2047(s string) string {
 func NewService() (*Service, error) {
 	host := strings.TrimSpace(os.Getenv("SMTP_HOST"))
 	port := strings.TrimSpace(os.Getenv("SMTP_PORT"))
+	serverName := strings.TrimSpace(os.Getenv("SMTP_SERVER_NAME"))
+	network := strings.TrimSpace(os.Getenv("SMTP_NETWORK"))
 	username := strings.TrimSpace(os.Getenv("SMTP_USER"))
 	password := os.Getenv("SMTP_PASSWORD")
 	from := strings.TrimSpace(os.Getenv("SMTP_FROM"))
 
-	log.Printf("[Email] Initializing email service with SMTP_HOST=%s, SMTP_PORT=%s, SMTP_USER=%s, SMTP_PASSWORD_SET=%t", host, port, username, password != "")
+	if serverName == "" {
+		serverName = host
+	}
+	if network == "" {
+		network = "tcp"
+	}
+
+	log.Printf("[Email] Initializing email service with SMTP_HOST=%s, SMTP_PORT=%s, SMTP_SERVER_NAME=%s, SMTP_NETWORK=%s, SMTP_USER=%s, SMTP_PASSWORD_SET=%t", host, port, serverName, network, username, password != "")
 
 	if host == "" || port == "" {
 		return nil, fmt.Errorf("SMTP configuration is incomplete. Please set SMTP_HOST and SMTP_PORT")
+	}
+	if network != "tcp" && network != "tcp4" && network != "tcp6" {
+		return nil, fmt.Errorf("SMTP_NETWORK must be tcp, tcp4, or tcp6")
 	}
 	if (username == "") != (password == "") {
 		return nil, fmt.Errorf("SMTP authentication configuration is incomplete. Set both SMTP_USER and SMTP_PASSWORD, or leave both blank for an unauthenticated relay")
@@ -64,11 +78,13 @@ func NewService() (*Service, error) {
 	log.Printf("[Email] NOTE: SMTP send uses an explicit %s timeout and stage-by-stage diagnostics", smtpSendTimeout)
 
 	return &Service{
-		host:     host,
-		port:     port,
-		username: username,
-		password: password,
-		from:     from,
+		host:       host,
+		port:       port,
+		serverName: serverName,
+		network:    network,
+		username:   username,
+		password:   password,
+		from:       from,
 	}, nil
 }
 
@@ -141,7 +157,7 @@ func (s *Service) sendSMTP(ctx context.Context, addr, to, message string) error 
 	}
 
 	log.Printf("[Email][SMTP] client: creating SMTP client")
-	client, err := smtp.NewClient(conn, s.host)
+	client, err := smtp.NewClient(conn, s.serverName)
 	if err != nil {
 		return fmt.Errorf("smtp client: %w", err)
 	}
@@ -168,7 +184,7 @@ func (s *Service) sendSMTP(ctx context.Context, addr, to, message string) error 
 
 	if s.username != "" {
 		log.Printf("[Email][SMTP] AUTH: start for SMTP_USER=%s", s.username)
-		if err := client.Auth(smtp.PlainAuth("", s.username, s.password, s.host)); err != nil {
+		if err := client.Auth(smtp.PlainAuth("", s.username, s.password, s.serverName)); err != nil {
 			return fmt.Errorf("smtp auth: %w", err)
 		}
 		log.Printf("[Email][SMTP] AUTH: ok")
@@ -216,11 +232,11 @@ func (s *Service) dialSMTP(ctx context.Context, addr string) (net.Conn, error) {
 	}
 
 	if s.port == "465" {
-		log.Printf("[Email][SMTP] dial: opening implicit TLS connection to %s", addr)
+		log.Printf("[Email][SMTP] dial: opening implicit TLS connection to %s over %s", addr, s.network)
 		conn, err := (&tls.Dialer{
 			NetDialer: dialer,
-			Config:    smtpTLSConfig(s.host),
-		}).DialContext(ctx, "tcp", addr)
+			Config:    smtpTLSConfig(s.serverName),
+		}).DialContext(ctx, s.network, addr)
 		if err != nil {
 			return nil, fmt.Errorf("smtp dial: %w", err)
 		}
@@ -228,8 +244,8 @@ func (s *Service) dialSMTP(ctx context.Context, addr string) (net.Conn, error) {
 		return conn, nil
 	}
 
-	log.Printf("[Email][SMTP] dial: opening TCP connection to %s", addr)
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	log.Printf("[Email][SMTP] dial: opening TCP connection to %s over %s", addr, s.network)
+	conn, err := dialer.DialContext(ctx, s.network, addr)
 	if err != nil {
 		return nil, fmt.Errorf("smtp dial: %w", err)
 	}
@@ -253,7 +269,7 @@ func (s *Service) startTLSIfNeeded(client *smtp.Client) error {
 	}
 
 	log.Printf("[Email][SMTP] STARTTLS: start")
-	if err := client.StartTLS(smtpTLSConfig(s.host)); err != nil {
+	if err := client.StartTLS(smtpTLSConfig(s.serverName)); err != nil {
 		return fmt.Errorf("smtp starttls: %w", err)
 	}
 	log.Printf("[Email][SMTP] STARTTLS: ok; EHLO repeated over TLS")
