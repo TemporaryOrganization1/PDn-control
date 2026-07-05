@@ -42,3 +42,20 @@
 
 **Next sprint**
 * The next sprint will most likely focus on paid subscription handling, account deletion, total fine calculation and connecting of new frontend to backend.
+
+## Sprint 3
+
+**Milestone:** Sprint 3
+
+**Dates:** 2026-06-29 - 2026-07-05
+
+**Sprint Goal:** Remake design and add email verification
+
+**Focus / Expected Outcome:** The team will create better design and add email verification
+
+**Linked Planned Items:**
+https://github.com/TemporaryOrganization1/PDn-control/issues/104
+https://github.com/TemporaryOrganization1/PDn-control/issues/137
+
+**Next sprint**
+* The next sprint will most likely focus on improving the quality of the project and fixing the issues
