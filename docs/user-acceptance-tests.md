@@ -23,11 +23,11 @@ The report is generated successfully and displays detected compliance issues tog
 
 **Actual Result**
 
-(To be completed during the customer meeting.)
+Passed for the customer-reviewed flow. The team demonstrated the scan/result area and PDF report access during the Sprint Review. At the end of the meeting the customer accepted the PDF report UAT point verbally.
 
 **Customer Feedback**
 
-(To be completed during the customer meeting.)
+The customer asked the team to improve product presentation and consider adding visual evidence to scan results and reports so users can understand detected issues faster.
 
 ## UAT-002: Register a New Account
 
@@ -51,6 +51,10 @@ Verify that a new user can create an account.
 
 The account is created and the user is logged in.
 
+**Actual Result**
+
+Partially superseded by UAT-004. During Sprint Review, registration required email verification before the account became usable.
+
 ## UAT-003: Guest Scan Limit
 
 **Preconditions**
@@ -73,6 +77,10 @@ Verify guest usage restrictions.
 
 The application prohibits the users from initiating the scan.
 
+**Actual Result**
+
+Not re-executed during the Week 5 customer meeting. This scenario remains active for later regression testing.
+
 ## UAT-004: Email Verification
 
 **Preconditions**
@@ -93,6 +101,14 @@ Safer account creation
 
 The account is created only after email verification
 
+**Actual Result**
+
+Passed during the Week 5 customer meeting. The team demonstrated registration, receipt of the verification email, opening the verification link, and successful account access after verification.
+
+**Customer Feedback**
+
+The customer accepted the email verification flow as part of the demonstrated `MVP v2` increment.
+
 ## UAT-005: User profile
 
 **Preconditions**
@@ -111,3 +127,7 @@ Verify the user can access their account
 **Expected Result**
 
 The user's account with all the information is opened
+
+**Actual Result**
+
+Passed for the demonstrated flow. After verification, the user could access the account/profile area, including profile-related pages and history/report access.
