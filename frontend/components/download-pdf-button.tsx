@@ -30,7 +30,7 @@ export function PdfDownloadButton({ result }: PdfDownloadButtonProps) {
 
   return (
     <button
-      className="inline-flex items-center gap-2 border border-primary/30 bg-primary/10 px-5 py-2.5 text-sm font-medium text-primary transition-all hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
+      className="premium-cta inline-flex h-10 items-center justify-center gap-2 px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
       onClick={handleDownload}
       disabled={disabled}
       title={result.reportId ? "Скачать PDF отчет" : "PDF появится после сохранения отчета backend"}

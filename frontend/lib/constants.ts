@@ -1,1 +1,1 @@
-export const appName = "Compliance Checker";
+export const appName = "PDn Control";

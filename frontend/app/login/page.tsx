@@ -7,6 +7,7 @@ import { Mail, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { AnimatedButton } from "@/components/animated-button";
+import { BrandMark } from "@/components/brand-mark";
 import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
@@ -46,7 +47,7 @@ export default function LoginPage() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
+      <div className="auth-page-bg flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-16">
         <div className="text-sm text-muted-foreground">Загрузка...</div>
       </div>
     );
@@ -57,69 +58,73 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="border border-border bg-card p-8">
-          <div className="mb-8 text-center">
-            <h1 className="text-2xl font-bold">Войти в аккаунт</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Введите email и пароль для входа в систему
-            </p>
+    <div className="auth-page-bg flex min-h-[calc(100vh-4rem)] items-center justify-center px-6 py-16">
+      <div className="mx-auto flex w-full max-w-[560px] flex-col justify-center">
+        <div className="text-center">
+          <div className="mb-6 flex justify-center">
+            <BrandMark className="h-12 w-12 rounded-2xl" markClassName="h-7 w-7" />
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email
-              </label>
-              <div className="relative flex items-center gap-2 border bg-card p-1 transition-all duration-200 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
-                <div className="flex flex-1 items-center gap-2 px-3">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="example@mail.ru"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Пароль
-              </label>
-              <div className="relative flex items-center gap-2 border bg-card p-1 transition-all duration-200 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
-                <div className="flex flex-1 items-center gap-2 px-3">
-                  <Lock className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
-                    required
-                  />
-                </div>
-              </div>
-            </div>
-
-            <AnimatedButton type="submit" className="w-full" isLoading={isLoading} loadingText="Входим...">
-              Войти
-            </AnimatedButton>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-muted-foreground">
+          <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            PDn Control
+          </p>
+          <h1 className="text-3xl font-semibold tracking-tight">Войти в аккаунт</h1>
+          <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
             Нет аккаунта?{" "}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
+            <Link href="/signup" className="font-medium text-foreground underline-offset-4 hover:underline">
               Зарегистрироваться
             </Link>
-          </div>
+          </p>
         </div>
+
+        <form onSubmit={handleSubmit} className="mt-10 space-y-5">
+          <div className="space-y-2">
+            <label htmlFor="email" className="text-sm font-medium text-foreground/90">
+              Email
+            </label>
+            <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
+              <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
+                <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="example@mail.ru"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="h-12 border-0 bg-transparent p-0 text-base shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="password" className="text-sm font-medium text-foreground/90">
+              Пароль
+            </label>
+            <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
+              <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
+                <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="h-12 border-0 bg-transparent p-0 text-base shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <AnimatedButton type="submit" className="w-full" size="lg" isLoading={isLoading} loadingText="Входим...">
+            Войти
+          </AnimatedButton>
+        </form>
+
+        <p className="mx-auto mt-8 max-w-md text-center text-xs leading-5 text-muted-foreground">
+          Продолжая, вы соглашаетесь с правилами сервиса и обработкой данных для работы аккаунта.
+        </p>
       </div>
     </div>
   );

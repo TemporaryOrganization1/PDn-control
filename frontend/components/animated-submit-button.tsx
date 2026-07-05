@@ -24,7 +24,7 @@ export function AnimatedSubmitButton({
       onClick={onClick}
       disabled={isChecking}
       className={
-        "group relative inline-flex shrink-0 items-center justify-center rounded-sm border border-transparent bg-primary text-primary-foreground bg-clip-padding h-10 cursor-pointer overflow-hidden px-5 text-sm font-bold whitespace-nowrap transition-all duration-300 ease-out outline-none select-none hover:scale-95 disabled:pointer-events-none disabled:opacity-50" +
+        "premium-cta group relative inline-flex h-10 shrink-0 items-center justify-center overflow-hidden px-5 text-sm font-semibold whitespace-nowrap outline-none select-none disabled:pointer-events-none disabled:opacity-55" +
         (className ? ` ${className}` : "")
       }
     >

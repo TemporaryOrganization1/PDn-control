@@ -1,179 +1,189 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Check, CreditCard, FileText, Infinity, ShieldCheck } from "lucide-react";
 import { AnimatedButton } from "@/components/animated-button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Check } from "lucide-react";
+import {
+  DashboardCard,
+  DashboardHeader,
+  DashboardIcon,
+  DashboardPage,
+  DashboardPanel,
+  DashboardSectionTitle,
+  DashboardStatusPill,
+} from "@/components/profile-dashboard";
+
+const plans = [
+  {
+    name: "Бесплатный",
+    price: "0 ₽",
+    period: "/ месяц",
+    description: "Для первичной проверки сайта и знакомства с форматом отчета.",
+    features: [
+      "3 бесплатные проверки",
+      "Базовый отчет",
+      "Поддержка по email",
+      "Можно начать без регистрации",
+    ],
+    cta: "Начать бесплатно",
+    href: "/",
+    variant: "outline" as const,
+    highlighted: false,
+    icon: FileText,
+  },
+  {
+    name: "Платный",
+    price: "990 ₽",
+    period: "/ месяц",
+    description: "Для регулярного контроля, PDF-отчетов и истории проверок.",
+    features: [
+      "Неограниченные проверки",
+      "Расширенный отчет с PDF",
+      "Приоритетная поддержка",
+      "API доступ",
+      "История проверок",
+      "Мультипользовательский доступ",
+    ],
+    cta: "Купить подписку",
+    href: "/pricing/checkout",
+    variant: "primary" as const,
+    highlighted: true,
+    icon: CreditCard,
+  },
+];
+
+const comparisonRows = [
+  { feature: "Количество проверок", free: "3 в месяц", paid: "Неограниченно" },
+  { feature: "PDF отчет", free: false, paid: true },
+  { feature: "Приоритетная поддержка", free: false, paid: true },
+  { feature: "API доступ", free: false, paid: true },
+  { feature: "История проверок", free: "7 дней", paid: "Без ограничений" },
+  { feature: "Мультипользовательский доступ", free: false, paid: true },
+  { feature: "Кастомные правила", free: false, paid: true },
+];
+
+function FeatureValue({ value }: { value: string | boolean }) {
+  if (typeof value === "string") {
+    return <span className="text-sm text-foreground">{value}</span>;
+  }
+
+  if (value) {
+    return (
+      <span className="inline-flex items-center justify-center">
+        <Check className="h-4 w-4 text-foreground/80" />
+      </span>
+    );
+  }
+
+  return <span className="text-muted-foreground">—</span>;
+}
 
 export default function PricingPage() {
   const router = useRouter();
 
-  const plans = [
-    {
-      name: "Бесплатный",
-      price: "0 ₽",
-      period: "/месяц",
-      description: "Для небольших проектов",
-      features: [
-        "3 бесплатные проверки",
-        "Базовый отчёт",
-        "Поддержка по email",
-        "Без регистрации",
-      ],
-      cta: "Начать бесплатно",
-      href: "/",
-      variant: "outline" as const,
-      highlighted: false,
-    },
-    {
-      name: "Платный",
-      price: "990 ₽",
-      period: "/месяц",
-      description: "Для бизнеса и агентств",
-      features: [
-        "Неограниченные проверки",
-        "Расширенный отчёт с PDF",
-        "Приоритетная поддержка",
-        "API доступ",
-        "История проверок",
-        "Мультипользовательский доступ",
-      ],
-      cta: "Купить подписку",
-      href: "/pricing/checkout",
-      variant: "primary" as const,
-      highlighted: true,
-    },
-  ];
-
-  const comparisonRows = [
-    { feature: "Количество проверок", free: "3 в месяц", paid: "Неограниченно" },
-    { feature: "PDF отчёт", free: false, paid: true },
-    { feature: "Приоритетная поддержка", free: false, paid: true },
-    { feature: "API доступ", free: false, paid: true },
-    { feature: "История проверок", free: "7 дней", paid: "Без ограничений" },
-    { feature: "Мультипользовательский доступ", free: false, paid: true },
-    { feature: "Кастомные правила", free: false, paid: true },
-  ];
-
   return (
-    <div className="flex flex-col">
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2 text-center">
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Тарифы и цены
-            </h1>
-            <p className="mt-4 text-lg text-muted-foreground">
-              Выберите подходящий план для ваших задач
-            </p>
-          </div>
-        </div>
-      </section>
+    <DashboardPage>
+      <DashboardHeader
+        eyebrow="Pricing"
+        title="Тарифы и цены"
+        description="Выберите режим проверки под текущую задачу: первичная оценка рисков или регулярный контроль с расширенными отчетами."
+      />
 
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {plans.map((plan) => (
-                <Card 
-                  key={plan.name} 
-                  className={`flex flex-col ${plan.highlighted ? "border-primary/50 shadow-lg" : ""} rounded-none`}
+      <div className="space-y-6">
+        <DashboardPanel>
+          <DashboardSectionTitle
+            icon={ShieldCheck}
+            title="Планы"
+            description="Платный план выделен не цветом, а светлой рамкой, верхней подсветкой и основным premium CTA."
+          />
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            {plans.map((plan) => (
+              <DashboardCard
+                key={plan.name}
+                className={plan.highlighted ? "report-glow report-glow-success" : ""}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <DashboardIcon icon={plan.icon} tone={plan.highlighted ? "success" : "neutral"} />
+                  {plan.highlighted ? (
+                    <DashboardStatusPill tone="success">Рекомендуемый</DashboardStatusPill>
+                  ) : (
+                    <DashboardStatusPill>Стартовый</DashboardStatusPill>
+                  )}
+                </div>
+
+                <div className="mt-7">
+                  <h2 className="text-2xl font-semibold tracking-tight text-foreground">{plan.name}</h2>
+                  <div className="mt-4 flex items-end gap-2">
+                    <span className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{plan.price}</span>
+                    <span className="pb-2 text-sm text-muted-foreground">{plan.period}</span>
+                  </div>
+                  <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">{plan.description}</p>
+                </div>
+
+                <ul className="mt-7 space-y-3">
+                  {plan.features.map((feature) => (
+                    <li key={feature} className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                      <span className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.035]">
+                        <Check className="h-3 w-3 text-foreground/80" />
+                      </span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <AnimatedButton
+                  variant={plan.variant}
+                  className="mt-8 w-full"
+                  onClick={() => router.push(plan.href)}
                 >
-                  <CardHeader>
-                    {plan.highlighted && (
-                      <Badge className="w-fit mb-2 bg-primary/10 text-primary border-primary/20">
-                        Рекомендуемый
-                      </Badge>
-                    )}
-                    <CardTitle className="text-xl">{plan.name}</CardTitle>
-                    <div className="mt-2">
-                      <span className="text-4xl font-bold">{plan.price}</span>
-                      <span className="text-muted-foreground">{plan.period}</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      {plan.description}
-                    </p>
-                  </CardHeader>
-                  <CardContent className="flex flex-col flex-1 space-y-4">
-                    <ul className="space-y-3 flex-1">
-                      {plan.features.map((feature, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <Check className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    <AnimatedButton
-                      variant={plan.variant}
-                      className="w-full mt-auto"
-                      onClick={() => router.push(plan.href)}
-                    >
-                      {plan.cta}
-                    </AnimatedButton>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                  {plan.cta}
+                </AnimatedButton>
+              </DashboardCard>
+            ))}
           </div>
-        </div>
-      </section>
+        </DashboardPanel>
 
-      <section className="w-full bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <h2 className="text-2xl font-bold mb-6 text-center">
-              Сравнение тарифов
-            </h2>
+        <DashboardPanel>
+          <DashboardSectionTitle
+            icon={Infinity}
+            title="Сравнение тарифов"
+            description="Таблица компактная на desktop и остается читаемой на узких экранах через горизонтальный скролл."
+          />
+          <DashboardCard className="overflow-hidden p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[680px]">
                 <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">
+                  <tr className="border-b border-white/10 bg-white/[0.025]">
+                    <th className="px-5 py-4 text-left text-xs font-medium uppercase text-muted-foreground">
                       Возможность
                     </th>
-                    <th className="text-center py-3 px-4 text-sm font-medium">
+                    <th className="px-5 py-4 text-center text-xs font-medium uppercase text-muted-foreground">
                       Бесплатный
                     </th>
-                    <th className="text-center py-3 px-4 text-sm font-medium">
+                    <th className="px-5 py-4 text-center text-xs font-medium uppercase text-muted-foreground">
                       Платный
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {comparisonRows.map((row, i) => (
-                    <tr key={i} className="border-b border-border/50">
-                      <td className="py-3 px-4 text-sm">{row.feature}</td>
-                      <td className="py-3 px-4 text-center">
-                        {typeof row.free === "boolean" ? (
-                          row.free ? (
-                            <Check className="h-4 w-4 text-green-500 mx-auto" />
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )
-                        ) : (
-                          <span className="text-sm">{row.free}</span>
-                        )}
+                  {comparisonRows.map((row) => (
+                    <tr key={row.feature} className="border-b border-white/10 last:border-b-0 hover:bg-white/[0.025]">
+                      <td className="px-5 py-4 text-sm text-foreground">{row.feature}</td>
+                      <td className="px-5 py-4 text-center">
+                        <FeatureValue value={row.free} />
                       </td>
-                      <td className="py-3 px-4 text-center">
-                        {typeof row.paid === "boolean" ? (
-                          row.paid ? (
-                            <Check className="h-4 w-4 text-green-500 mx-auto" />
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )
-                        ) : (
-                          <span className="text-sm">{row.paid}</span>
-                        )}
+                      <td className="px-5 py-4 text-center">
+                        <FeatureValue value={row.paid} />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </section>
-    </div>
+          </DashboardCard>
+        </DashboardPanel>
+      </div>
+    </DashboardPage>
   );
 }

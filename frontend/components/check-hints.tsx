@@ -29,9 +29,9 @@ export function CheckHints() {
   }, []);
 
   return (
-    <section className="w-full border-b bg-card/50">
-      <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-6 sm:px-10">
-        <div className="lg:col-span-8 lg:col-start-2">
+    <section className="w-full border-b border-white/10 px-5 py-6 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-5xl">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
           <div className="relative h-12">
             {HINTS.map((hint, i) => {
               const Icon = hint.icon;
@@ -44,7 +44,7 @@ export function CheckHints() {
                       : "translate-y-2 opacity-0"
                   }`}
                 >
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center bg-primary/10">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                     <Icon className="h-3 w-3 text-primary" />
                   </div>
                   <p className="text-xs leading-relaxed text-muted-foreground pt-0.5">

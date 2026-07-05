@@ -1,14 +1,21 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { Check, CreditCard, Timer } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { Check, CreditCard } from "lucide-react";
-import { AnimatedButton } from "@/components/animated-button";
-import { BackButton } from "@/components/back-button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AuthGuard } from "@/components/auth-guard";
 import { useAuth } from "@/components/auth-provider";
-import { useState, useEffect } from "react";
+import { AnimatedButton } from "@/components/animated-button";
+import { BackButton } from "@/components/back-button";
+import {
+  DashboardCard,
+  DashboardHeader,
+  DashboardIcon,
+  DashboardPage,
+  DashboardPanel,
+  DashboardSectionTitle,
+  DashboardStatusPill,
+} from "@/components/profile-dashboard";
 
 export default function SubscriptionPage() {
   const router = useRouter();
@@ -19,7 +26,6 @@ export default function SubscriptionPage() {
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
 
-  // Timer for paid plan expiration
   useEffect(() => {
     if (!user?.planExpiresAt) {
       setTimeLeft("");
@@ -32,7 +38,7 @@ export default function SubscriptionPage() {
       const diff = expires - now;
 
       if (diff <= 0) {
-        setTimeLeft("Expired");
+        setTimeLeft("Истек");
         return;
       }
 
@@ -46,185 +52,174 @@ export default function SubscriptionPage() {
     return () => clearInterval(interval);
   }, [user?.planExpiresAt]);
 
+  const switchPlan = async (plan: "free" | "paid") => {
+    setError("");
+    setSuccess("");
+    if (plan === "paid") {
+      setIsUpgrading(true);
+    } else {
+      setIsDowngrading(true);
+    }
+
+    try {
+      const res = await fetch("/api/subscription/change", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message || "Не удалось изменить тариф");
+      } else {
+        setSuccess(data.message || "Тариф обновлен");
+        router.refresh();
+      }
+    } catch {
+      setError("Сетевая ошибка");
+    } finally {
+      setIsUpgrading(false);
+      setIsDowngrading(false);
+    }
+  };
+
   return (
     <AuthGuard>
-      <div className="flex flex-col">
-        <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12">
-          <div className="px-6 pb-3 pt-10 sm:px-10 sm:pt-14 lg:col-span-10 lg:col-start-2">
-            <BackButton />
-          </div>
+      <DashboardPage>
+        <div className="mb-6">
+          <BackButton />
         </div>
-      </section>
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-12">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Управление подпиской
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Backend тарифов и платежей пока не реализован, поэтому тариф не меняется локально.
-            </p>
+        <DashboardHeader
+          eyebrow="Plan and limits"
+          title="Управление подпиской"
+          description="Тарифы оформлены как рабочие опции кабинета: текущий план подсвечен нейтрально, основные действия остаются рядом с описанием."
+          action={
+            <AnimatedButton variant="outline" onClick={() => router.push("/pricing")}>
+              Смотреть тарифы
+            </AnimatedButton>
+          }
+        />
+
+        <DashboardPanel>
+          <DashboardSectionTitle
+            icon={CreditCard}
+            title="Планы аккаунта"
+            description="Backend тарифов и платежей пока не реализован полностью, поэтому интерфейс использует текущий тестовый endpoint."
+          />
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <DashboardCard className={user?.plan === "free" ? "report-glow report-glow-success" : ""}>
+              <div className="flex items-start justify-between gap-4">
+                <DashboardIcon icon={CreditCard} tone={user?.plan === "free" ? "success" : "neutral"} />
+                {user?.plan === "free" ? (
+                  <DashboardStatusPill tone="success">Текущий план</DashboardStatusPill>
+                ) : null}
+              </div>
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold text-foreground">Бесплатный</h2>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-4xl font-semibold tracking-tight text-foreground">0 ₽</span>
+                  <span className="pb-1 text-sm text-muted-foreground">/ месяц</span>
+                </div>
+              </div>
+              <ul className="mt-6 space-y-3">
+                <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                  <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
+                  Гостевой лимит контролируется backend.
+                </li>
+                <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                  <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
+                  PDF-отчет после завершения проверки.
+                </li>
+              </ul>
+              <div className="mt-7">
+                <AnimatedButton
+                  variant="outline"
+                  className="w-full"
+                  disabled={isDowngrading || user?.plan === "free"}
+                  onClick={() => switchPlan("free")}
+                >
+                  {user?.plan === "free"
+                    ? "Бесплатный активен"
+                    : isDowngrading
+                      ? "Переключаем..."
+                      : "Перейти на бесплатный"}
+                </AnimatedButton>
+              </div>
+            </DashboardCard>
+
+            <DashboardCard className={user?.plan === "paid" ? "report-glow report-glow-success" : ""}>
+              <div className="flex items-start justify-between gap-4">
+                <DashboardIcon icon={CreditCard} tone={user?.plan === "paid" ? "success" : "neutral"} />
+                {user?.plan === "paid" ? (
+                  <DashboardStatusPill tone="success">Текущий план</DashboardStatusPill>
+                ) : null}
+              </div>
+              <div className="mt-6">
+                <h2 className="text-xl font-semibold text-foreground">Платный</h2>
+                <div className="mt-4 flex items-end gap-2">
+                  <span className="text-4xl font-semibold tracking-tight text-foreground">990 ₽</span>
+                  <span className="pb-1 text-sm text-muted-foreground">/ месяц</span>
+                </div>
+              </div>
+              <ul className="mt-6 space-y-3">
+                <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                  <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
+                  Без гостевого лимита.
+                </li>
+                <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                  <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
+                  Без ограничения срока хранения.
+                </li>
+                <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                  <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
+                  PDF-отчет после завершения проверки.
+                </li>
+              </ul>
+
+              {user?.plan === "paid" && user?.planExpiresAt ? (
+                <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <div className="flex items-center gap-3">
+                    <DashboardIcon icon={Timer} size="sm" />
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Платный план активен</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {timeLeft ? `До окончания: ${timeLeft}` : "Загрузка времени..."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="mt-7">
+                <AnimatedButton
+                  className="w-full"
+                  disabled={isUpgrading || user?.plan === "paid"}
+                  onClick={() => switchPlan("paid")}
+                >
+                  {user?.plan === "paid"
+                    ? "План активен"
+                    : isUpgrading
+                      ? "Активируем..."
+                      : "Перейти на платный"}
+                </AnimatedButton>
+              </div>
+            </DashboardCard>
           </div>
-        </div>
-      </section>
 
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 px-6 py-10 sm:px-10 sm:py-14 lg:grid-cols-12">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              <Card className="rounded-none border-primary/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Бесплатный</CardTitle>
-                    {user?.plan === "free" && (
-                      <Badge variant="secondary" className="border-green-500/20 bg-green-500/10 text-green-600">
-                        Текущий план
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <span className="text-3xl font-bold">0 ₽</span>
-                    <span className="text-muted-foreground">/месяц</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4 flex flex-wrap h-full justify-between">
-                  <ul className="space-y-2 w-full">
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Гостевой лимит контролируется backend
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      PDF-отчет после завершения проверки
-                    </li>
-                  </ul>
-                   <div className="flex flex-col gap-3 w-full">
-                    <AnimatedButton
-                       variant="outline"
-                       className="w-full"
-                       disabled={isDowngrading || user?.plan === "free"}
-                       onClick={async () => {
-                         setError("");
-                         setSuccess("");
-                         setIsDowngrading(true);
-                         try {
-                           const res = await fetch("/api/subscription/change", {
-                             method: "POST",
-                             headers: { "Content-Type": "application/json" },
-                             body: JSON.stringify({ plan: "free" }),
-                           });
-                           const data = await res.json();
-                           if (!res.ok) {
-                             setError(data.message || "Failed to switch to free plan");
-                           } else {
-                             setSuccess(data.message || "Switched to free plan successfully");
-                           }
-                         } catch (e) {
-                           setError("Network error");
-                         } finally {
-                           setIsDowngrading(false);
-                         }
-                       }}
-                     >
-                       {user?.plan === "free" ? "Currently Free" : isDowngrading ? "Switching..." : "Switch to Free Plan"}
-                     </AnimatedButton>
-                     </div>
-                </CardContent>
-
-                
-              </Card>
-
-              <Card className="rounded-none">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle>Платный</CardTitle>
-                    {user?.plan === "paid" && (
-                      <Badge variant="secondary" className="border-green-500/20 bg-green-500/10 text-green-600">
-                        Текущий план
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <span className="text-3xl font-bold">990 ₽</span>
-                    <span className="text-muted-foreground">/месяц</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-2">
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Без гостевого лимита
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      Без ограничения срока хранения
-                    </li>
-                    <li className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-green-500" />
-                      PDF-отчет после завершения проверки
-                    </li>
-                  </ul>
-                  {error && (
-                    <p className="text-sm text-red-500">{error}</p>
-                  )}
-                  {success && (
-                    <p className="text-sm text-green-500">{success}</p>
-                  )}
-                   {user?.plan === "paid" && user?.planExpiresAt && (
-                     <div className="rounded-md bg-blue-500/10 p-3 text-sm">
-                       <p className="font-medium text-blue-700">You already have a paid plan</p>
-                       <p className="mt-1 text-blue-600">
-                         {timeLeft ? `Expires in: ${timeLeft}` : "Loading..."}
-                       </p>
-                     </div>
-                   )}
-                   <div className="flex flex-col gap-3">
-                     <AnimatedButton
-                       variant="outline"
-                       className="w-full"
-                       disabled={isUpgrading || user?.plan === "paid"}
-                       onClick={async () => {
-                         setError("");
-                         setSuccess("");
-                         setIsUpgrading(true);
-                         try {
-                           const res = await fetch("/api/subscription/change", {
-                             method: "POST",
-                             headers: { "Content-Type": "application/json" },
-                             body: JSON.stringify({ plan: "paid" }),
-                           });
-                           const data = await res.json();
-                           if (!res.ok) {
-                             setError(data.message || "Failed to upgrade plan");
-                           } else {
-                             setSuccess(data.message || "Plan upgraded successfully");
-                           }
-                           router.refresh();
-                         } catch (e) {
-                           setError("Network error");
-                         } finally {
-                           setIsUpgrading(false);
-                         }
-                       }}
-                     >
-                       {user?.plan === "paid" ? "Plan is Active" : isUpgrading ? "Activating..." : "Upgrade to Paid Plan"}
-                     </AnimatedButton>
-                   </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <div className="mt-8">
-              <AnimatedButton variant="outline" onClick={() => router.push("/pricing")}>
-                Смотреть тарифы
-              </AnimatedButton>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+          {error ? (
+            <DashboardCard className="mt-5 report-glow report-glow-danger">
+              <DashboardStatusPill tone="danger">Ошибка</DashboardStatusPill>
+              <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+            </DashboardCard>
+          ) : null}
+          {success ? (
+            <DashboardCard className="mt-5 report-glow report-glow-success">
+              <DashboardStatusPill tone="success">Готово</DashboardStatusPill>
+              <p className="mt-3 text-sm text-muted-foreground">{success}</p>
+            </DashboardCard>
+          ) : null}
+        </DashboardPanel>
+      </DashboardPage>
     </AuthGuard>
   );
 }
-
