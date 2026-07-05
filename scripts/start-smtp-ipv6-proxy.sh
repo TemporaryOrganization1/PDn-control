@@ -22,14 +22,22 @@ fi
 
 echo "Starting $container_name: $gateway:$listen_port -> [$target_host]:$target_port over IPv6"
 
-docker rm -f "$container_name" >/dev/null 2>&1 || true
-docker run -d \
-  --name "$container_name" \
-  --restart unless-stopped \
-  --network host \
-  --entrypoint sh \
-  "$image" \
-  -lc "exec socat -d -d TCP4-LISTEN:${listen_port},bind=${gateway},reuseaddr,fork TCP6:${target_host}:${target_port}"
+if docker compose --profile smtp-ipv6 config --services | grep -qx smtp-ipv6-proxy; then
+  SMTP_IPV6_PROXY_BIND=$gateway \
+  SMTP_IPV6_PROXY_PORT=$listen_port \
+  SMTP_IPV6_PROXY_TARGET_HOST=$target_host \
+  SMTP_IPV6_PROXY_TARGET_PORT=$target_port \
+  docker compose --profile smtp-ipv6 up -d --build smtp-ipv6-proxy
+else
+  docker rm -f "$container_name" >/dev/null 2>&1 || true
+  docker run -d \
+    --name "$container_name" \
+    --restart unless-stopped \
+    --network host \
+    --entrypoint sh \
+    "$image" \
+    -lc "exec socat -d -d TCP4-LISTEN:${listen_port},bind=${gateway},reuseaddr,fork TCP6:${target_host}:${target_port}"
+fi
 
 echo
 echo "Set these values for main-backend SMTP:"

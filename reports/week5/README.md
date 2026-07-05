@@ -90,13 +90,27 @@ https://github.com/TemporaryOrganization1/PDn-control/blob/main/docs/architectur
 
 ## 22. Summary of architecture
 
+PDn-control is deployed as a Docker Compose product with a customer-facing nginx/Next.js frontend, a Go/Echo main backend, PostgreSQL persistence, PDF report storage, crawler-worker containers, a GeoIP service, and external integrations with submitted websites, OpenRouter, SMTP, and the GeoIP MMDB mirror. The architecture keeps UI delivery, backend orchestration, long-running crawler execution, jurisdiction lookup, persistence, and report storage in separate components so the current product can accept scans quickly, isolate crawler work from the request/response path, and keep deployment responsibilities visible in `docker-compose.yml`.
+
+This structure supports the current product by making the main website-checking flow understandable from three maintained views: the [static component view](../../docs/architecture/static-view/component-diagram.mmd), the [dynamic scan sequence](../../docs/architecture/dynamic-view/scan-sequence.mmd), and the [deployment view](../../docs/architecture/deployment-view/deployment-diagram.mmd). The main maintainability constraint is the shared result/progress contract between the frontend, backend, and crawler workers, so that boundary is kept explicit in architecture documentation and automated tests.
+
 ## 23. Explanation of how quality requirements are linked to the architecture decisions
+
+The maintained quality requirements are linked directly to ADRs in [docs/quality-requirements.md](../../docs/quality-requirements.md). [QR-001 scan dispatch responsiveness](../../docs/quality-requirements.md#qr-001-scan-dispatch-responsiveness) is supported by [ADR-001](../../docs/architecture/adr/ADR-001-docker-compose-service-boundaries.md) and [ADR-002](../../docs/architecture/adr/ADR-002-asynchronous-crawler-workers.md), because service boundaries and asynchronous workers keep long crawler work outside the initial scan request. [QR-002 crawler type-check feedback](../../docs/quality-requirements.md#qr-002-type-check-feedback-for-crawler-changes) is linked to [ADR-003](../../docs/architecture/adr/ADR-003-mermaid-maintained-architecture-diagrams.md), which keeps architecture evidence maintainable and reviewable alongside typed crawler changes. [QR-003 invalid input protection](../../docs/quality-requirements.md#qr-003-invalid-input-protection) is linked to [ADR-001](../../docs/architecture/adr/ADR-001-docker-compose-service-boundaries.md) and [ADR-002](../../docs/architecture/adr/ADR-002-asynchronous-crawler-workers.md), because validation happens before downstream scan dispatch.
 
 ## 24. Testing and CI status summary
 
+The delivered increment keeps the Assignment 4 quality gates active and extends the maintained QA evidence for Assignment 5 architecture and ADR traceability. The latest protected-default-branch `Quality Gates` run on `main` passed for Go formatting, Go static analysis, backend and GeoIP Go tests with coverage artifacts, frontend lint/typecheck/build/Vitest coverage, crawler-worker typecheck/tests/coverage, automated quality requirement tests, and dependency vulnerability scans. The latest protected-default-branch `Link Checker` run on `main` also passed with the documented exclusions for local, course-material, generated, and temporarily unavailable deployment links.
+
 ## 25. CI pipeline
 
+- [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml)
+- [Link Checker workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/link-check.yml)
+
 ## 26. Link to the latest protected-default-branch CI run.
+
+- [Latest successful Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28752088562) for commit `bd04978c19c0fb75e75325642f9f2af77d67646f`.
+- [Latest successful Link Checker run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28752088564) for the same protected-default-branch commit.
 
 ## 27. SemVer release
 
