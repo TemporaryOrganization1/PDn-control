@@ -25,6 +25,7 @@ For the maintained architecture views and ADRs, see [docs/architecture/README.md
 
 ## Documentation
 
+- [Self-hosted documentation site](docs-site/README.md)
 - [Development process and configuration management](docs/development-process.md)
 - [Architecture and ADRs](docs/architecture/README.md)
 - [Deployment notes](docs/deployment.md)
@@ -35,6 +36,16 @@ For the maintained architecture views and ADRs, see [docs/architecture/README.md
 - [User acceptance tests](docs/user-acceptance-tests.md)
 - [Roadmap](docs/roadmap.md)
 - [OpenAPI contract](api/openapi.yaml)
+
+### Run Documentation Only
+
+On a separate lightweight server, clone the repository and start only the documentation viewer:
+
+```bash
+python3 docs-site/server.py --host 0.0.0.0 --port 8088
+```
+
+This serves the maintained files from `docs/` as a browsable site and does not start the product frontend, backend, workers, PostgreSQL, or Docker Compose stack. See [docs-site/README.md](docs-site/README.md) for details.
 
 ## Local Setup
 
