@@ -11,8 +11,6 @@ From the repository root:
 python docs-site/server.py --host 127.0.0.1 --port 8088
 ```
 
-Open [http://127.0.0.1:8088/](http://127.0.0.1:8088/).
-
 ## Run On A Server
 
 ```bash
