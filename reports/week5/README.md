@@ -1,8 +1,8 @@
 # Week 5 Partial Report: Assignment 5 Parts 3-6
 
-This is a partial public evidence index for Assignment 5. It covers Part 3, Part 4, Part 5, and Part 6 only: development process, configuration management, architecture documentation, ADRs, testing/QA, Definition of Done, and the requested link-checker exclusion for the deployed product URL.
+This is a partial public evidence index for Assignment 5. It covers Part 3, Part 4, Part 5, Part 6, and the repository-hosted implementation for Part 11: development process, configuration management, architecture documentation, ADRs, testing/QA, Definition of Done, and the requested link-checker exclusion for the deployed product URL.
 
-Full Assignment 5 release, deployment, hosted documentation site, UAT, Sprint Review, retrospective, reflection, demo video, and Moodle-private evidence are outside this partial update.
+Full Assignment 5 release, product deployment update, UAT, Sprint Review, retrospective, reflection, demo video, and Moodle-private evidence are outside this partial update.
 
 ## Project
 
@@ -50,4 +50,16 @@ The deployed product URL `https://pdn2.neurolife.tech/` is excluded narrowly fro
 
 ## Hosted Documentation Site Status
 
-Hosted documentation publication is prepared by maintaining navigable Markdown documentation, but a new GitHub Pages or hosted-docs workflow is not added in this partial Parts 3-6 update.
+Part 11 is implemented as a lightweight self-hosted documentation viewer:
+
+- Documentation site source and run instructions: [docs-site/README.md](../../docs-site/README.md)
+- Documentation site server: [docs-site/server.py](../../docs-site/server.py)
+- Maintained documentation served by the site: [docs/](../../docs/)
+
+The viewer can be deployed on a separate weak server by cloning the repository and running:
+
+```bash
+python3 docs-site/server.py --host 0.0.0.0 --port 8088
+```
+
+It serves only the maintained documentation and does not start the main product Docker Compose stack. After deployment, the public hosted URL should be added here and to the `MVP v2` SemVer release.

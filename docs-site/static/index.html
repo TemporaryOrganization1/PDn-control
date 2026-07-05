@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PDn-control Documentation</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">PDn</span>
+          <div>
+            <strong>PDn-control</strong>
+            <span>Maintained docs</span>
+          </div>
+        </div>
+        <label class="search-label" for="search">Search documents</label>
+        <input id="search" type="search" placeholder="Filter docs..." autocomplete="off" />
+        <nav id="nav" aria-label="Documentation files"></nav>
+      </aside>
+
+      <main class="content">
+        <header class="topbar">
+          <button id="menu" type="button" aria-label="Toggle documentation navigation">Menu</button>
+          <div>
+            <p id="path" class="path">docs/</p>
+            <h1 id="title">Documentation</h1>
+          </div>
+          <a id="raw-link" class="raw-link" href="/docs/README.md">Raw</a>
+        </header>
+        <article id="document" class="document">
+          <p>Loading documentation...</p>
+        </article>
+      </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
