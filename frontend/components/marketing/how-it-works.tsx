@@ -1,0 +1,64 @@
+import { ClipboardCheck, FileSearch, Globe2, ListChecks } from "lucide-react";
+import { SectionShell } from "@/components/marketing/section-shell";
+
+const steps = [
+  {
+    icon: Globe2,
+    title: "Введите URL",
+    text: "Сервис принимает домен или полный адрес и запускает проверку через существующий backend-flow.",
+  },
+  {
+    icon: FileSearch,
+    title: "Собираем evidence",
+    text: "Crawler проходит публичные страницы, фиксирует формы, policy, SSL и технические признаки сайта.",
+  },
+  {
+    icon: ListChecks,
+    title: "Классифицируем риски",
+    text: "Проверки группируются по нарушениям, предупреждениям и пройденным контролям.",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Формируем отчет",
+    text: "На выходе — summary, risk score, возможные штрафы, evidence и PDF для внутреннего контроля.",
+  },
+];
+
+export function HowItWorks() {
+  return (
+    <SectionShell id="how">
+        <div className="max-w-2xl">
+          <p className="text-sm font-medium text-primary">Как работает проверка</p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+            От URL до evidence-based отчета за один сценарий
+          </h2>
+          <p className="mt-4 text-base leading-7 text-muted-foreground">
+            UX остается простым: пользователь запускает проверку, а система показывает
+            понятный путь от crawler до финального отчета.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {steps.map((step, index) => {
+            const Icon = step.icon;
+            return (
+              <article key={step.title} className="base-surface rounded-2xl p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-primary/10 text-primary">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    0{index + 1}
+                  </span>
+                </div>
+                <h3 className="mt-5 text-lg font-semibold">{step.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                  {step.text}
+                </p>
+              </article>
+            );
+          })}
+        </div>
+    </SectionShell>
+  );
+}

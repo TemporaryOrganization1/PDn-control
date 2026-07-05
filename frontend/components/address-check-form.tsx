@@ -47,23 +47,29 @@ export function AddressCheckForm() {
   };
 
   return (
-    <div className="w-full max-w-lg space-y-3">
-      <div className="relative flex items-center gap-2 border bg-card p-1 transition-all duration-200 focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20">
-        <div className="flex flex-1 items-center gap-2 px-3">
-          <Search className="h-4 w-4 text-muted-foreground" />
+    <div className="w-full max-w-2xl space-y-3">
+      <div className="relative flex flex-col gap-2 rounded-[1.35rem] border border-white/10 bg-background/60 p-1.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_48px_rgba(0,0,0,0.32)] backdrop-blur-xl transition-all duration-200 focus-within:border-white/20 focus-within:ring-4 focus-within:ring-white/[0.055] sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
           <Input
             type="text"
             placeholder="https://example.com"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            className="border-0 bg-transparent p-0 text-sm shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0"
+            className="h-12 min-w-0 border-0 bg-transparent p-0 font-mono text-sm shadow-none placeholder:text-muted-foreground/40 focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
             onKeyDown={(e) => {
               if (e.key === "Enter") handleCheck();
             }}
           />
         </div>
-        <AnimatedButton onClick={handleCheck} isLoading={isChecking} loadingText="Проверка...">
-          Проверить
+        <AnimatedButton
+          onClick={handleCheck}
+          isLoading={isChecking}
+          loadingText="Проверка..."
+          size="lg"
+          className="w-full sm:w-auto"
+        >
+          Проверить сайт
         </AnimatedButton>
       </div>
     </div>

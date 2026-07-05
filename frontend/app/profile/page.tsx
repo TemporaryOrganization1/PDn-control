@@ -1,25 +1,46 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/auth-provider";
-import { AuthGuard } from "@/components/auth-guard";
-import { AnimatedButton } from "@/components/animated-button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { getReports } from "@/lib/api";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { 
-  User, 
-  Mail, 
-  Lock, 
-  CreditCard, 
-  Download, 
-  Calendar,
-  FileText,
+import {
   ArrowRight,
-  Trash2 
+  Calendar,
+  CreditCard,
+  Download,
+  FileText,
+  Lock,
+  Mail,
+  Receipt,
+  ShieldCheck,
+  Trash2,
+  User,
 } from "lucide-react";
+import { toast } from "sonner";
+import { AuthGuard } from "@/components/auth-guard";
+import { useAuth } from "@/components/auth-provider";
+import { AnimatedButton } from "@/components/animated-button";
+import {
+  DashboardCard,
+  DashboardHeader,
+  DashboardIcon,
+  DashboardPage,
+  DashboardPanel,
+  DashboardSectionTitle,
+  DashboardStatusPill,
+} from "@/components/profile-dashboard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { getReports } from "@/lib/api";
 
 function formatRegistrationDate(value?: string) {
   if (!value) return "Нет данных";
@@ -28,6 +49,36 @@ function formatRegistrationDate(value?: string) {
   return date.toLocaleDateString("ru-RU");
 }
 
+function ProfileActionCard({
+  icon: Icon,
+  title,
+  description,
+  onClick,
+  tone = "neutral",
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  onClick: () => void;
+  tone?: "neutral" | "success" | "warning" | "danger";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="dashboard-card dashboard-action-card flex w-full items-center justify-between gap-4 rounded-2xl p-5 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-white/30"
+    >
+      <span className="flex min-w-0 items-center gap-4">
+        <DashboardIcon icon={Icon} tone={tone} />
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-foreground">{title}</span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span>
+        </span>
+      </span>
+      <ArrowRight className="dashboard-action-arrow h-4 w-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
 export default function ProfilePage() {
   const router = useRouter();
   const { user, isLoggedIn, deleteAccount, logout } = useAuth();
@@ -65,283 +116,224 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background">
-        <div className="text-sm text-muted-foreground">Загрузка...</div>
-      </div>
+      <AuthGuard>
+        <DashboardPage>
+          <div className="flex min-h-[48vh] items-center justify-center text-sm text-muted-foreground">
+            Загрузка кабинета...
+          </div>
+        </DashboardPage>
+      </AuthGuard>
     );
   }
 
+  const isPaid = user.plan === "paid";
+  const checksLabel = checksCount === null ? "Загрузка..." : checksCount.toString();
+
   return (
     <AuthGuard>
-      <div className="flex flex-col">
-        {/* Header */}
-        <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
-              Личный кабинет
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Управляйте своим аккаунтом и просматривайте историю
-            </p>
-          </div>
-        </div>
-      </section>
+      <DashboardPage>
+        <DashboardHeader
+          eyebrow="Account control room"
+          title="Личный кабинет"
+          description=""
+          action={
+            <AnimatedButton onClick={() => router.push("/#product")}>
+              Новая проверка
+            </AnimatedButton>
+          }
+        />
 
-      {/* User Info Overview */}
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <div className="flex items-center gap-2 text-sm font-medium mb-6">
-              <User className="h-4 w-4 text-primary" />
-              Информация об аккаунте
+        <div className="space-y-6">
+          <DashboardPanel>
+            <DashboardSectionTitle
+              icon={User}
+              title="Сводка аккаунта"
+              description=""
+            />
+
+            <div className="grid gap-4 lg:grid-cols-4">
+              <DashboardCard className="lg:col-span-2">
+                <div className="flex items-start justify-between gap-4">
+                  <DashboardIcon icon={Mail} tone={user.isVerified ? "success" : "warning"} />
+                  <DashboardStatusPill tone={user.isVerified ? "success" : "warning"}>
+                    {user.isVerified ? "Email подтверждён" : "Email не подтверждён"}
+                  </DashboardStatusPill>
+                </div>
+                <div className="mt-5">
+                  <p className="text-xs uppercase text-muted-foreground">Email</p>
+                  <p className="mt-2 truncate font-mono text-sm text-foreground">{user.email}</p>
+                </div>
+                <div className="mt-5 flex justify-end">
+                  <AnimatedButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push("/profile/settings/email")}
+                  >
+                    Изменить
+                  </AnimatedButton>
+                </div>
+              </DashboardCard>
+
+              <DashboardCard>
+                <DashboardIcon icon={Calendar} />
+                <p className="mt-5 text-xs uppercase text-muted-foreground">Регистрация</p>
+                <p className="mt-2 text-sm font-medium text-foreground">{registrationDate}</p>
+              </DashboardCard>
+
+              <DashboardCard>
+                <DashboardIcon icon={FileText} />
+                <p className="mt-5 text-xs uppercase text-muted-foreground">Проверок с отчетом</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{checksLabel}</p>
+              </DashboardCard>
+
+              <DashboardCard className="lg:col-span-2">
+                <div className="flex items-start justify-between gap-4">
+                  <DashboardIcon icon={CreditCard} tone={isPaid ? "success" : "neutral"} />
+                  <DashboardStatusPill tone={isPaid ? "success" : "neutral"}>
+                    {isPaid ? "Платный тариф" : "Бесплатный тариф"}
+                  </DashboardStatusPill>
+                </div>
+                <p className="mt-5 text-sm font-semibold text-foreground">План и лимиты</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {isPaid
+                    ? "Расширенный режим хранения отчетов и работы с проверками."
+                    : "Базовый доступ. Расширение тарифа доступно в разделе подписки."}
+                </p>
+                <div className="mt-5 flex justify-end">
+                  <AnimatedButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push("/profile/subscription")}
+                  >
+                    Управлять тарифом
+                  </AnimatedButton>
+                </div>
+              </DashboardCard>
+
+              <DashboardCard className="lg:col-span-2">
+                <div className="flex items-start justify-between gap-4">
+                  <DashboardIcon icon={ShieldCheck} />
+                  <DashboardStatusPill>Evidence workspace</DashboardStatusPill>
+                </div>
+                <p className="mt-5 text-sm font-semibold text-foreground">Отчеты и evidence</p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  Сохраненные проверки доступны в истории. PDF скачивается только для завершенных отчетов.
+                </p>
+                <div className="mt-5 flex justify-end">
+                  <AnimatedButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push("/profile/history")}
+                  >
+                    Открыть историю
+                  </AnimatedButton>
+                </div>
+              </DashboardCard>
             </div>
+          </DashboardPanel>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Email */}
-              <Card className="h-full rounded-none">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Mail className="h-4 w-4" />
-                    Email
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col h-[calc(100%-4rem)]">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium truncate flex-1">{user?.email || ""}</p>
-                    {user?.isVerified ? (
-                      <Badge variant="outline" className="border-emerald-500/20 text-emerald-500 text-[8px] ml-2">
-                        Подтверждён
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-amber-500/20 text-amber-500 text-[8px] ml-2">
-                        Не подтверждён
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-auto flex justify-end">
-                    <AnimatedButton 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-xs"
-                      onClick={() => router.push("/profile/settings/email")}
-                    >
-                      Изменить
-                    </AnimatedButton>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Registration Date */}
-              <Card className="h-full rounded-none">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    Дата регистрации
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm font-medium">{registrationDate}</p>
-                </CardContent>
-              </Card>
-
-              {/* Checks Count */}
-              <Card className="h-full rounded-none">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <FileText className="h-4 w-4" />
-                    Проверок всего
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm font-medium">{checksCount === null ? "Загрузка..." : checksCount}</p>
-                </CardContent>
-              </Card>
-
-              {/* Plan */}
-              <Card className="h-full rounded-none">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <CreditCard className="h-4 w-4" />
-                    Тариф
-                  </div>
-                </CardHeader>
-                <CardContent className="flex flex-col h-[calc(100%-4rem)]">
-                  <div className="mb-2">
-                    {user?.plan === "paid" ? (
-                      <Badge variant="outline" className="border-blue-500/20 text-blue-500">
-                        Платный
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-emerald-500/20 text-emerald-500">
-                        Бесплатный
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="mt-auto flex justify-end">
-                    <AnimatedButton 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-xs"
-                      onClick={() => router.push("/profile/subscription")}
-                    >
-                      Управлять
-                    </AnimatedButton>
-                  </div>
-                </CardContent>
-              </Card>
+          <DashboardPanel>
+            <DashboardSectionTitle
+              title="Разделы кабинета"
+              description=""
+            />
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <ProfileActionCard
+                icon={Mail}
+                title="Настройки email"
+                description="Изменить адрес для входа и уведомлений."
+                tone="success"
+                onClick={() => router.push("/profile/settings/email")}
+              />
+              <ProfileActionCard
+                icon={Lock}
+                title="Настройки пароля"
+                description="Обновить пароль доступа к аккаунту."
+                onClick={() => router.push("/profile/settings/password")}
+              />
+              <ProfileActionCard
+                icon={CreditCard}
+                title="Подписка"
+                description="Текущий тариф, лимиты и управление планом."
+                onClick={() => router.push("/profile/subscription")}
+              />
+              <ProfileActionCard
+                icon={Download}
+                title="История проверок"
+                description="Список проверок и скачивание PDF-отчетов."
+                tone="warning"
+                onClick={() => router.push("/profile/history")}
+              />
+              <ProfileActionCard
+                icon={Receipt}
+                title="История покупок"
+                description="Транзакции и счета после подключения платежей."
+                onClick={() => router.push("/profile/purchases")}
+              />
             </div>
-          </div>
-        </div>
-      </section>
+          </DashboardPanel>
 
-      {/* Quick Links */}
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <div className="flex items-center gap-2 text-sm font-medium mb-6">
-              Настройки
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Email Settings */}
-              <Card className="cursor-pointer transition-all duration-200 hover:border-primary/50 rounded-none" onClick={() => router.push("/profile/settings/email")}>
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center bg-primary/10">
-                      <Mail className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Настройки email</p>
-                      <p className="text-xs text-muted-foreground">Изменить адрес почты</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-
-              {/* Password Settings */}
-              <Card className="cursor-pointer transition-all duration-200 hover:border-primary/50 rounded-none" onClick={() => router.push("/profile/settings/password")}>
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center bg-primary/10">
-                      <Lock className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Настройки пароля</p>
-                      <p className="text-xs text-muted-foreground">Изменить пароль</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-
-              {/* Subscription */}
-              <Card className="cursor-pointer transition-all duration-200 hover:border-primary/50 rounded-none" onClick={() => router.push("/profile/subscription")}>
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center bg-primary/10">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Подписка</p>
-                      <p className="text-xs text-muted-foreground">Управление тарифом</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-
-              {/* Check History */}
-              <Card className="cursor-pointer transition-all duration-200 hover:border-primary/50 rounded-none" onClick={() => router.push("/profile/history")}>
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center bg-primary/10">
-                      <Download className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">История проверок</p>
-                      <p className="text-xs text-muted-foreground">Все ваши проверки</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-
-              {/* Purchase History */}
-              <Card className="cursor-pointer transition-all duration-200 hover:border-primary/50 rounded-none" onClick={() => router.push("/profile/purchases")}>
-                <CardContent className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center bg-primary/10">
-                      <CreditCard className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">История покупок</p>
-                      <p className="text-xs text-muted-foreground">Транзакции и счета</p>
-                    </div>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Delete Account */}
-      <section className="w-full border-b bg-card">
-        <div className="grid grid-cols-1 lg:grid-cols-12 px-6 py-10 sm:px-10 sm:py-14">
-          <div className="lg:col-span-10 lg:col-start-2">
-            <Card className="border-destructive/20 rounded-none">
-              <CardContent className="p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <DashboardPanel>
+            <DashboardCard className="report-glow report-glow-danger">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-4">
+                  <DashboardIcon icon={Trash2} tone="danger" />
                   <div>
-                    <p className="text-sm font-medium">Удаление аккаунта</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Все ваши данные, история проверок и отчёты будут безвозвратно удалены
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className="text-sm font-semibold text-foreground">Удаление аккаунта</p>
+                      <DashboardStatusPill tone="danger">Danger zone</DashboardStatusPill>
+                    </div>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                      Все данные аккаунта, история проверок и сохраненные отчеты будут безвозвратно удалены.
                     </p>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <AnimatedButton variant="ghost" size="sm" disabled={isDeleting} className="text-destructive hover:bg-destructive/10 border border-destructive/30">
-                        {isDeleting ? "Удаление..." : "Удалить аккаунт"}
-                      </AnimatedButton>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Это действие нельзя отменить. Ваш аккаунт, история проверок и все
-                          сохранённые отчёты будут безвозвратно удалены.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Отмена</AlertDialogCancel>
-                        <AlertDialogAction
-                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          onClick={async () => {
-                            setIsDeleting(true);
-                            try {
-                              await deleteAccount();
-                              await logout();
-                              router.push("/");
-                            } catch {
-                              setIsDeleting(false);
-                            }
-                          }}
-                        >
-                          {isDeleting ? "Удаление..." : "Удалить"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <AnimatedButton
+                      variant="outline"
+                      size="sm"
+                      disabled={isDeleting}
+                      className="border-red-400/20 text-foreground hover:border-red-200/30 hover:bg-red-400/10"
+                    >
+                      {isDeleting ? "Удаление..." : "Удалить аккаунт"}
+                    </AnimatedButton>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Удалить аккаунт?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Это действие нельзя отменить. Аккаунт, история проверок и все
+                        сохраненные отчеты будут безвозвратно удалены.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Отмена</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="border border-red-400/30 bg-red-400/10 text-foreground hover:bg-red-400/15"
+                        onClick={async () => {
+                          setIsDeleting(true);
+                          try {
+                            await deleteAccount();
+                            await logout();
+                            toast.success("Аккаунт удален");
+                            router.push("/");
+                          } catch {
+                            setIsDeleting(false);
+                            toast.error("Не удалось удалить аккаунт");
+                          }
+                        }}
+                      >
+                        {isDeleting ? "Удаление..." : "Удалить"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            </DashboardCard>
+          </DashboardPanel>
         </div>
-      </section>
-    </div>
+      </DashboardPage>
     </AuthGuard>
   );
 }

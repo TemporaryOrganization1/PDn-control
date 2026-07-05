@@ -74,6 +74,18 @@ This starts:
 
 The frontend is served at [http://localhost](http://localhost).
 
+For a server deployment with a real domain, set these values in `.env` before starting Compose:
+
+```env
+APP_BASE_URL=https://your-domain.example
+SERVER_NAME=your-domain.example
+ENABLE_HTTPS=true
+COOKIE_SECURE=true
+LETSENCRYPT_DIR=/etc/letsencrypt
+```
+
+The frontend nginx container will serve the exported Next.js app, redirect HTTP to HTTPS, and proxy `/api/` to `main-backend`.
+
 ### 3. Run frontend in dev mode
 
 ```bash
