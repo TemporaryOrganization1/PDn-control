@@ -72,3 +72,42 @@ Verify guest usage restrictions.
 **Expected Result**
 
 The application prohibits the users from initiating the scan.
+
+## UAT-004: Email Verification
+
+**Preconditions**
+
+- The website is running.
+- User is not registered
+
+**Goal**
+
+Safer account creation
+
+**Steps**
+
+1. User tries to register and enters valid information
+2. User visits their email and verifies it.
+
+**Expected Result**
+
+The account is created only after email verification
+
+## UAT-005: User profile
+
+**Preconditions**
+
+- The website is running.
+- User is registered
+
+**Goal**
+
+Verify the user can access their account
+
+**Steps**
+
+1. User clicks on an account button
+
+**Expected Result**
+
+The user's account with all the information is opened
