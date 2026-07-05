@@ -42,3 +42,21 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
 ### Security
+
+## [2.0.0] - 2026-07-05
+
+### Added
+- Email Verification
+- New website design
+- More tests and documentation of separate site
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- Several bug fixs
+
+### Security
