@@ -85,9 +85,16 @@ Some VPS providers block outbound SMTP over IPv4 while IPv6 SMTP still works. If
 sh scripts/start-smtp-ipv6-proxy.sh
 ```
 
-The script prints the values to put into `.env`, for example:
+Or enable the compose profile directly:
+
+```bash
+COMPOSE_PROFILES=smtp-ipv6 docker compose up -d --build smtp-ipv6-proxy
+```
+
+The proxy listens on the Docker bridge gateway. Put the matching values into `.env`, for example:
 
 ```env
+COMPOSE_PROFILES=smtp-ipv6
 SMTP_HOST=172.18.0.1
 SMTP_PORT=1587
 SMTP_SERVER_NAME=smtp.yandex.ru
@@ -99,6 +106,16 @@ Keep the existing Yandex mailbox values in `SMTP_USER`, `SMTP_PASSWORD`, and `SM
 ```bash
 docker compose up -d --build main-backend
 ```
+
+Check that the proxy is actually listening before testing registration:
+
+```bash
+docker compose ps smtp-ipv6-proxy
+docker logs --tail=50 smtp-ipv6-proxy
+docker compose exec main-backend sh -lc 'nc -4 -vz -w 10 172.18.0.1 1587'
+```
+
+If `nc` returns `Connection refused` and `docker logs smtp-ipv6-proxy` says there is no such container, the backend is configured for the proxy but the proxy has not been started.
 
 This proxy does not terminate TLS or read SMTP credentials. It only forwards bytes from the Docker bridge to `smtp.yandex.ru:587` over IPv6, so STARTTLS, certificate validation, and SMTP authentication still happen between `main-backend` and Yandex.
 
