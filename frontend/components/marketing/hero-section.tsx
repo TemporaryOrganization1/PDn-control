@@ -52,7 +52,7 @@ export function HeroSection() {
             className="hero-reveal hero-reveal-subtle hero-report-preview-ambient hero-report-preview-fade w-full max-w-xl"
             style={{ "--hero-reveal-delay": "540ms" } as CSSProperties}
           >
-            <ReportPreviewCard className="relative z-10" />
+            <ReportPreviewCard className="hero-report-preview-card relative z-10" />
           </div>
         </div>
       </div>

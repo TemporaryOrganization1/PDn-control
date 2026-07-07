@@ -67,7 +67,7 @@ export function AddressCheckForm() {
           isLoading={isChecking}
           loadingText="Проверка..."
           size="lg"
-          className="w-full sm:w-auto"
+          className="hero-primary-cta w-full sm:w-auto"
         >
           Проверить сайт
         </AnimatedButton>

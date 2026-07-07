@@ -52,7 +52,7 @@ export function ReportPreviewCard({ className }: ReportPreviewCardProps) {
             Preview отчета
           </div>
           <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground">
-            Compliance report
+            Проверка сайта
           </h3>
           <p className="mt-1 font-mono text-xs text-muted-foreground">
             report-id: PDN-2026-07-04
@@ -70,19 +70,19 @@ export function ReportPreviewCard({ className }: ReportPreviewCardProps) {
       <div className="mt-5 grid grid-cols-3 gap-2">
         <div className="report-glow report-glow-danger rounded-xl border border-white/10 bg-white/[0.035] p-3">
           <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            Failed
+            Нарушений
           </p>
           <p className="mt-1 text-xl font-semibold text-foreground/88">2</p>
         </div>
         <div className="report-glow report-glow-warning rounded-xl border border-white/10 bg-white/[0.035] p-3">
           <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            Warning
+            Рисков
           </p>
           <p className="mt-1 text-xl font-semibold text-foreground/88">3</p>
         </div>
         <div className="report-glow report-glow-success rounded-xl border border-white/10 bg-white/[0.035] p-3">
           <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-            Passed
+            Пройдено
           </p>
           <p className="mt-1 text-xl font-semibold text-foreground/88">8</p>
         </div>

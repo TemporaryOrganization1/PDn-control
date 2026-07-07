@@ -9,8 +9,8 @@ const cases = [
   },
   {
     icon: Landmark,
-    title: "Юристам и DPO",
-    text: "Получить evidence, URLs и первичный список действий для проверки по 152-ФЗ.",
+    title: "Юристам",
+    text: "Получить доказательства, URLs и первичный список действий для проверки по 152-ФЗ.",
   },
   {
     icon: UsersRound,
@@ -19,7 +19,7 @@ const cases = [
   },
   {
     icon: Radar,
-    title: "Security-командам",
+    title: "Командам безопасности",
     text: "Свести юридические риски и технические признаки сайта в одном отчете.",
   },
 ];
@@ -28,7 +28,6 @@ export function UseCases() {
   return (
     <SectionShell>
         <div className="max-w-2xl">
-          <p className="text-sm font-medium text-primary">Use cases</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
             Для команд, которым нужен не чек-лист, а управляемый риск
           </h2>

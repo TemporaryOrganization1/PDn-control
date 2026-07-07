@@ -4,7 +4,7 @@ import { SectionShell } from "@/components/marketing/section-shell";
 const evidenceRows = [
   { label: "URL", value: "https://example.ru/contact" },
   { label: "Форма", value: "input[name='phone'] + submit" },
-  { label: "Policy", value: "link[rel='privacy'] не найден" },
+  { label: "Политика", value: "link[rel='privacy'] не найден" },
 ];
 
 export function EvidenceSection() {
@@ -12,13 +12,12 @@ export function EvidenceSection() {
     <SectionShell id="report">
       <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:items-center">
         <div>
-          <p className="text-sm font-medium text-primary">Evidence-based report</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
             Отчет объясняет, где найден риск и почему он важен
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
-            Вместо одинаковых блоков пользователь видит приоритет, affected URL,
-            техническое evidence и рекомендацию, которую можно передать команде.
+            Вместо одинаковых блоков пользователь видит приоритет,
+            техническое доказательства и рекомендацию, которую можно передать команде.
           </p>
         </div>
 
@@ -44,7 +43,7 @@ export function EvidenceSection() {
           <div className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
             <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 text-xs text-muted-foreground">
               <Code2 className="h-3.5 w-3.5 text-primary" />
-              evidence block
+              блок доказательств
             </div>
             <div className="space-y-3 p-4">
               {evidenceRows.map((row) => (

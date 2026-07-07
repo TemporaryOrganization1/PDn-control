@@ -27,7 +27,7 @@ const checks = [
   {
     icon: Lock,
     title: "SSL",
-    text: "Технические признаки HTTPS и данные сертификата, переданные backend.",
+    text: "Технические признаки HTTPS и данные сертификата.",
   },
   {
     icon: Network,
@@ -37,7 +37,7 @@ const checks = [
   {
     icon: FileLock2,
     title: "PDF-артефакты",
-    text: "Подготовка отчета для передачи юристу, compliance или владельцу продукта.",
+    text: "Подготовка отчета для передачи юристу или владельцу продукта.",
   },
 ];
 
@@ -46,13 +46,12 @@ export function ChecksGrid() {
     <SectionShell>
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.4fr] lg:items-start">
           <div>
-            <p className="text-sm font-medium text-primary">Что проверяет система</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               Юридические и технические признаки в одном отчете
             </h2>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
               PDn Control показывает не абстрактную оценку, а конкретные участки,
-              где возникают риски: страницы, формы, policy, сертификаты и evidence.
+              где возникают риски: страницы, формы, политики, сертификаты.
             </p>
           </div>
 
