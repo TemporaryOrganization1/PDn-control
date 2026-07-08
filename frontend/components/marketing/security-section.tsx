@@ -9,8 +9,8 @@ const points = [
   },
   {
     icon: Workflow,
-    title: "Сохраненный backend-flow",
-    text: "Запуск проверки, polling прогресса и результат остаются в текущем контракте проекта.",
+    title: "Сохраненные этапы",
+    text: "Запуск проверки, этапы прогресса и результат остаются в текущем контракте проекта.",
   },
   {
     icon: LockKeyhole,
@@ -29,13 +29,12 @@ export function SecuritySection() {
     <SectionShell>
         <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
           <div>
-            <p className="text-sm font-medium text-primary">Security and reliability</p>
             <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               Спокойный контроль без лишней магии
             </h2>
             <p className="mt-4 text-base leading-7 text-muted-foreground">
               Интерфейс показывает реальные этапы проверки и не обещает больше,
-              чем может подтвердить evidence и backend-результат.
+              чем может подтвердить результат.
             </p>
           </div>
 

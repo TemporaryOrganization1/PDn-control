@@ -5,12 +5,12 @@ const steps = [
   {
     icon: Globe2,
     title: "Введите URL",
-    text: "Сервис принимает домен или полный адрес и запускает проверку через существующий backend-flow.",
+    text: "Сервис принимает домен или полный адрес и запускает проверку через существующий backend.",
   },
   {
     icon: FileSearch,
-    title: "Собираем evidence",
-    text: "Crawler проходит публичные страницы, фиксирует формы, policy, SSL и технические признаки сайта.",
+    title: "Собираем информацию",
+    text: "Crawler проходит публичные страницы, фиксирует формы, политику конфиденциальности, SSL и технические признаки сайта.",
   },
   {
     icon: ListChecks,
@@ -20,7 +20,7 @@ const steps = [
   {
     icon: ClipboardCheck,
     title: "Формируем отчет",
-    text: "На выходе — summary, risk score, возможные штрафы, evidence и PDF для внутреннего контроля.",
+    text: "На выходе — структурированный отчет, риски, возможные штрафы и PDF.",
   },
 ];
 
@@ -28,9 +28,8 @@ export function HowItWorks() {
   return (
     <SectionShell id="how">
         <div className="max-w-2xl">
-          <p className="text-sm font-medium text-primary">Как работает проверка</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            От URL до evidence-based отчета за один сценарий
+            От URL до финального отчета за один сценарий
           </h2>
           <p className="mt-4 text-base leading-7 text-muted-foreground">
             UX остается простым: пользователь запускает проверку, а система показывает

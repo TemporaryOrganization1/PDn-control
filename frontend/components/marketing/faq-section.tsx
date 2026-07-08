@@ -19,7 +19,7 @@ const faqs = [
   {
     question: "Что я получу после проверки?",
     answer:
-      "Структурированный отчет с найденными рисками, evidence, статусами проверок, risk score и PDF.",
+      "Структурированный отчет с найденными рисками, статусами проверок и PDF.",
   },
   {
     question: "Сервис меняет мой сайт?",
@@ -33,7 +33,6 @@ export function FAQSection() {
     <SectionShell id="faq">
       <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
         <div>
-          <p className="text-sm font-medium text-primary">FAQ</p>
           <h2 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
             Коротко о проверке
           </h2>

@@ -47,7 +47,7 @@ export function SiteFooter() {
             {appName}
           </Link>
           <p className="mt-4 max-w-sm text-sm leading-6 text-muted-foreground">
-            Legal-tech scanner для первичной проверки сайтов на риски обработки персональных данных.
+            Легальный технический инструмент для первичной проверки сайтов на риски обработки персональных данных.
           </p>
           <p className="mt-6 max-w-md text-xs leading-5 text-muted-foreground">
             &copy; {new Date().getFullYear()} {appName}. Все права защищены.
