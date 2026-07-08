@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
-import { OpenRouter } from '@openrouter/sdk';
+import { HTTPClient, OpenRouter } from '@openrouter/sdk';
 import type { Data } from '../data.js';
+import { Agent } from 'node:https';
+import fetch from 'node-fetch';
 
 const config = JSON.parse(readFileSync('./config.json', 'utf-8'));
 
@@ -117,6 +119,38 @@ type ReportData = {
   }[];
 };
 
+const customFetcher = async (input: RequestInfo | URL, init?: any) => {
+    // Используем node-fetch или axios с отключенной проверкой SSL
+    const agent = new Agent({
+        rejectUnauthorized: false
+    });
+    let url = "";
+    if (typeof input === 'string') {
+        url = input;
+    }
+    else if (input instanceof Request) {
+        url = input.url;
+        const clonedRequest = input.clone();
+        const bodyText = await clonedRequest.text();
+
+        init = {
+            method: input.method,
+            headers: input.headers,
+            body: bodyText,
+            ...init
+        };
+    }
+    else {
+        url = input.toString();
+    }
+    let res =  await fetch(url, {
+        ...init,
+        agent
+    });
+    console.log(url, init, res);
+    return res;
+};
+
 export async function checkAi(sr: Data) {
     const key = config.openrouter.apiKey || process.env.OPENROUTER_API_KEY || '';
     const b = prompt + sr.baseUrl;
@@ -129,7 +163,7 @@ export async function checkAi(sr: Data) {
         'content': b + prompt_tries + String(tries)
     }];
 
-    let openrouter = new OpenRouter({ apiKey: key });
+    let openrouter = new OpenRouter({ apiKey: key, serverURL: "https://manapi.ru:37777/api/v1", httpClient: new HTTPClient ({fetcher: customFetcher}) } });
     let foundChecks: {[key: string]: boolean} = {};
 
     for (let i = 0; i < tries; i++) {
@@ -311,6 +345,7 @@ export async function checkAi(sr: Data) {
             }
         }
         catch (e) {
+            console.error (e);
             continue;
         }
     }
