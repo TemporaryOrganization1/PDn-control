@@ -4,7 +4,7 @@ import { runCheck, initBrowser } from './runner.js';
 
 interface Config {
   port: number;
-  openrouter: { apiKey: string; model: string };
+  openrouter: { apiKey: string; baseUrl?: string; model: string };
   worker: { pageTimeout: number; maxPageSize: number; maxTextSize: number };
   geoip: { serviceUrl: string };
   checks: { fast: string[]; detail: string[] };

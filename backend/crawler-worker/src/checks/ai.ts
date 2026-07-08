@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
-import { HTTPClient, OpenRouter } from '@openrouter/sdk';
+import { HTTPClient, OpenRouter, type Fetcher } from '@openrouter/sdk';
 import type { Data } from '../data.js';
+import { resolveOpenRouterSettings } from '../openrouter-config.js';
 import { Agent } from 'node:https';
 import fetch from 'node-fetch';
 
@@ -119,7 +120,7 @@ type ReportData = {
   }[];
 };
 
-const customFetcher = async (input: RequestInfo | URL, init?: any) => {
+const customFetcher: Fetcher = async (input: RequestInfo | URL, init?: RequestInit) => {
     // Используем node-fetch или axios с отключенной проверкой SSL
     const agent = new Agent({
         rejectUnauthorized: false
@@ -146,15 +147,16 @@ const customFetcher = async (input: RequestInfo | URL, init?: any) => {
     let res =  await fetch(url, {
         ...init,
         agent
-    });
-    return res;
+    } as any);
+    return res as unknown as Response;
 };
 
 export async function checkAi(sr: Data) {
-    const key = config.openrouter.apiKey || process.env.OPENROUTER_API_KEY || '';
+    const openrouterSettings = resolveOpenRouterSettings(config.openrouter, process.env);
+    const key = openrouterSettings.apiKey;
     const b = prompt + sr.baseUrl;
     const tries = 10;
-    const model = config.openrouter.model || 'google/gemma-4-31b-it';
+    const model = openrouterSettings.model;
     const maxTextSize = config.worker.maxTextSize || 500000;
 
     const messages: MessageType[] = [{
@@ -162,7 +164,11 @@ export async function checkAi(sr: Data) {
         'content': b + prompt_tries + String(tries)
     }];
 
-    let openrouter = new OpenRouter({ apiKey: key, serverURL: "https://manapi.ru:37777/api/v1", httpClient: new HTTPClient ({fetcher: customFetcher})});
+    let openrouter = new OpenRouter({
+        apiKey: key,
+        httpClient: new HTTPClient ({fetcher: customFetcher}),
+        ...(openrouterSettings.baseUrl ? { serverURL: openrouterSettings.baseUrl } : {})
+    });
     let foundChecks: {[key: string]: boolean} = {};
 
     for (let i = 0; i < tries; i++) {
