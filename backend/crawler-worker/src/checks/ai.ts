@@ -147,7 +147,6 @@ const customFetcher = async (input: RequestInfo | URL, init?: any) => {
         ...init,
         agent
     });
-    console.log(url, init, res);
     return res;
 };
 
@@ -163,7 +162,7 @@ export async function checkAi(sr: Data) {
         'content': b + prompt_tries + String(tries)
     }];
 
-    let openrouter = new OpenRouter({ apiKey: key, serverURL: "https://manapi.ru:37777/api/v1", httpClient: new HTTPClient ({fetcher: customFetcher}) } });
+    let openrouter = new OpenRouter({ apiKey: key, serverURL: "https://manapi.ru:37777/api/v1", httpClient: new HTTPClient ({fetcher: customFetcher})});
     let foundChecks: {[key: string]: boolean} = {};
 
     for (let i = 0; i < tries; i++) {
