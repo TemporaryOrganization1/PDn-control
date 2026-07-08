@@ -11,6 +11,7 @@ docker compose up -d --build
 Create a server-side `.env` file from the sanitized root [`.env.example`](../.env.example), then replace placeholders or provide equivalent environment variables before running Compose:
 
 - `OPENROUTER_API_KEY`: required for AI-assisted crawler checks.
+- `OPENROUTER_BASE_URL`: optional OpenRouter-compatible reverse proxy URL. Leave blank for direct OpenRouter access; set to `https://manapi.ru:37777/api/v1` on the production server when using the nginx proxy.
 - `WORKER_SECRET`: shared secret used by crawler workers when reporting progress to the main backend.
 - `APP_BASE_URL`: public site URL used in generated links, for example `https://pdn.example.com`.
 - `SERVER_NAME`: domain handled by the frontend nginx container. Use `_` for local runs.
@@ -41,6 +42,46 @@ docker compose up -d --build
 ```
 
 The frontend nginx container serves the exported Next.js app on `http://localhost` and proxies `/api/` to `main-backend` over the internal Docker network.
+
+## OpenRouter Nginx Proxy
+
+AI-assisted detail checks are executed by `crawler-worker-*`. If the application server cannot reach OpenRouter directly, deploy a separate nginx reverse proxy on a host that can reach `https://openrouter.ai`.
+
+Use [ops/nginx/openrouter-proxy.conf](../ops/nginx/openrouter-proxy.conf) as the proxy-host config:
+
+1. Copy it to the proxy host, for example `/etc/nginx/conf.d/openrouter-proxy.conf`.
+2. Replace `203.0.113.10` with the public IP address of the production application server.
+3. Make sure the certificate paths match the proxy hostname, for example `manapi.ru`.
+4. Validate and reload nginx:
+
+```bash
+nginx -t
+systemctl reload nginx
+```
+
+The proxy listens on `37777`, accepts only `/api/v1/`, forwards requests to `https://openrouter.ai/api/v1/`, preserves the worker-provided `Authorization` header, and keeps buffering disabled for streaming-compatible OpenRouter responses. The committed allowlist uses a documentation IP so the proxy stays closed until the real application server IP is configured.
+
+On the application server, put the proxy URL into `.env` and recreate the crawler workers:
+
+```env
+OPENROUTER_BASE_URL=https://manapi.ru:37777/api/v1
+```
+
+```bash
+docker compose up -d --build crawler-worker-1 crawler-worker-2 crawler-worker-3
+```
+
+Basic checks from the application server:
+
+```bash
+curl -i https://manapi.ru:37777/
+curl -i -X POST https://manapi.ru:37777/api/v1/chat/completions \
+  -H "Authorization: Bearer $OPENROUTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"google/gemma-4-31b-it","messages":[{"role":"user","content":"ping"}],"stream":false}'
+```
+
+The root path should not proxy OpenRouter. The `/api/v1/chat/completions` path should reach the OpenRouter-compatible route when called from the allowlisted application server.
 
 ## SMTP Verification Diagnostics
 
