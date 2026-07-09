@@ -99,11 +99,10 @@ services:
       dockerfile: Dockerfile
     container_name: smtp-ipv6-proxy
     network_mode: host
-    entrypoint: ["/bin/sh", "-lc"]
-    command: >
-      exec socat -d -d
-      TCP4-LISTEN:${SMTP_IPV6_PROXY_PORT:-1587},bind=${SMTP_IPV6_PROXY_BIND:-172.18.0.1},reuseaddr,fork
-      TCP6:${SMTP_IPV6_PROXY_TARGET_HOST:-smtp.yandex.ru}:${SMTP_IPV6_PROXY_TARGET_PORT:-587}
+    entrypoint: ["socat", "-d", "-d"]
+    command:
+      - TCP4-LISTEN:${SMTP_IPV6_PROXY_PORT:-1587},bind=${SMTP_IPV6_PROXY_BIND:-172.18.0.1},reuseaddr,fork
+      - TCP6:${SMTP_IPV6_PROXY_TARGET_HOST:-smtp.yandex.ru}:${SMTP_IPV6_PROXY_TARGET_PORT:-587}
     restart: unless-stopped
 
   crawler-worker-1:
