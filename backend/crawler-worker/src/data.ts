@@ -2,9 +2,35 @@ import { Browser, HTTPRequest, HTTPResponse, Page } from "puppeteer";
 import { delay } from "./delay.js";
 import { getDomain, getMainDomain } from "./url.js";
 
-type SubsType = { 
-    'request': { 'cb': (req: HTTPRequest, data: any) => void, 'init': () => any, 'data'?: any, fin: (data: any) => void }[], 
-    'response': { 'cb': (resp: HTTPResponse, data: any) => void, 'init': () => any, 'data'?: any, fin: (data: any) => void }[] 
+export type WorkerCheck = {
+    id: string;
+    result: 'fail'|'ok'|'warn';
+    data?: Record<string, unknown>;
+    pages?: string[];
+    about?: string;
+    images?: string[];
+};
+
+export type SslInfo = {
+    issuer: string;
+    validFrom: number;
+    validTo: number;
+    protocol: string;
+    subjectName: string;
+    subjectAlternativeNames: string[];
+};
+
+export type WorkerReportPayload = {
+    checks: WorkerCheck[];
+    screenshotId: string|null;
+    ssl: SslInfo|null;
+    about: string|null;
+    country: string|null;
+};
+
+type SubsType = {
+    'request': { 'cb': (req: HTTPRequest, data: any) => void, 'init': () => any, 'data'?: any, fin: (data: any) => void|Promise<void> }[],
+    'response': { 'cb': (resp: HTTPResponse, data: any) => void, 'init': () => any, 'data'?: any, fin: (data: any) => void|Promise<void> }[]
 };
 
 export class Data {
@@ -55,10 +81,10 @@ export class Data {
             let resp : HTTPResponse|null;
             try {
                 this.baseUrl = this.genBaseUrl ();
-                resp = await this.page.goto (this.baseUrl, { 
-                    waitUntil: 'domcontentloaded' 
+                resp = await this.page.goto (this.baseUrl, {
+                    waitUntil: 'domcontentloaded'
                 });
-            
+
             }
             catch (e: Error|unknown) {
                 console.error (e);
@@ -72,7 +98,7 @@ export class Data {
                 }
                 return false;
             }
-            
+
             return true;
         }
     }
@@ -85,10 +111,10 @@ export class Data {
         // await this.collectWalking();
     }
 
-    public finish (): void {
+    public async finish (): Promise<void> {
         for (const [key, value] of Object.entries(this.subs)) {
             for (const p of value) {
-                p.fin (p.data);
+                await p.fin (p.data);
             }
         }
     }
@@ -101,13 +127,7 @@ export class Data {
     public page: Page
     public links: Set<string>
     public subs: SubsType
-    public result: { 
-        'checks': { 'id': string, result: 'fail'|'ok'|'warn', data?: any, images: string[] }[], 
-        'screenshotId': string|null, 
-        'ssl': {issuer: string, validFrom: number, validTo: number, protocol: string, subjectName: string, subjectAlternativeNames: string[]}|null,
-        'about': string|null,
-        'country': string|null
-    }
+    public result: WorkerReportPayload
     public maxLinks: number
     public uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>
     public onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>
@@ -120,7 +140,7 @@ export class Data {
 
     public async open (path: string): Promise<boolean> {
         try {
-            path = this.genPath(path);            
+            path = this.genPath(path);
             if (this.page.url() == path) {
                 return true;
             }
@@ -198,11 +218,11 @@ export class Data {
 
                         return null;
                     })
-                    .filter(href => 
+                    .filter(href =>
                         href
                     );
             })()`).catch((e) => { console.error(e); return []; }) as string[]|undefined;
-            
+
             if (hrefLinks) {
                 for (const link of hrefLinks) {
                     if (link) {

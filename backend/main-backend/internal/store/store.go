@@ -8,16 +8,20 @@ import (
 )
 
 type Task struct {
-	ReqID     string    `json:"req-id"`
-	URL       string    `json:"url"`
-	Type      string    `json:"type"`
-	Status    string    `json:"status"`
-	Worker    string    `json:"worker,omitempty"`
-	Progress  int       `json:"progress"`
-	Results   []Result  `json:"results"`
-	Errors    []string  `json:"errors"`
-	ReportID  string    `json:"report_id,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ReqID        string    `json:"req-id"`
+	URL          string    `json:"url"`
+	Type         string    `json:"type"`
+	Status       string    `json:"status"`
+	Worker       string    `json:"worker,omitempty"`
+	Progress     int       `json:"progress"`
+	Results      []Result  `json:"results"`
+	ScreenshotID string    `json:"screenshotId,omitempty"`
+	SSL          *SslInfo  `json:"ssl,omitempty"`
+	About        string    `json:"about,omitempty"`
+	Country      string    `json:"country,omitempty"`
+	Errors       []string  `json:"errors"`
+	ReportID     string    `json:"report_id,omitempty"`
+	CreatedAt    time.Time `json:"created_at"`
 }
 
 type Result struct {
@@ -25,7 +29,29 @@ type Result struct {
 	Result string   `json:"result"`
 	Pages  []string `json:"pages,omitempty"`
 	About  string   `json:"about,omitempty"`
+	Images []string `json:"images,omitempty"`
 	Data   any      `json:"data,omitempty"`
+}
+
+type SslInfo struct {
+	Issuer                  string   `json:"issuer"`
+	ValidFrom               int64    `json:"validFrom"`
+	ValidTo                 int64    `json:"validTo"`
+	Protocol                string   `json:"protocol"`
+	SubjectName             string   `json:"subjectName"`
+	SubjectAlternativeNames []string `json:"subjectAlternativeNames"`
+}
+
+type ReportPayload struct {
+	Checks       []Result `json:"checks"`
+	ScreenshotID string   `json:"screenshotId,omitempty"`
+	SSL          *SslInfo `json:"ssl,omitempty"`
+	About        string   `json:"about,omitempty"`
+	Country      string   `json:"country,omitempty"`
+}
+
+func PayloadFromResults(results []Result) ReportPayload {
+	return ReportPayload{Checks: append([]Result(nil), results...)}
 }
 
 type guestEntry struct {
@@ -223,6 +249,20 @@ func (s *MemoryStore) SetResults(reqID string, results []Result) {
 		return
 	}
 	t.Results = append([]Result(nil), results...)
+}
+
+func (s *MemoryStore) SetReportPayload(reqID string, payload ReportPayload) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.tasks[reqID]
+	if !ok {
+		return
+	}
+	t.Results = append([]Result(nil), payload.Checks...)
+	t.ScreenshotID = payload.ScreenshotID
+	t.SSL = payload.SSL
+	t.About = payload.About
+	t.Country = payload.Country
 }
 
 func (s *MemoryStore) SetWorker(reqID, workerURL string) {

@@ -25,9 +25,9 @@ export default function PurchasesPage() {
           <BackButton />
         </div>
         <DashboardHeader
-          eyebrow="Billing evidence"
+          eyebrow="Платежные данные"
           title="История покупок"
-          description="Здесь будут храниться платежные события, счета и статусы транзакций после подключения платежного backend."
+          description="Здесь будут храниться платежные события, счета и статусы транзакций после подключения платежного бэкенда."
         />
 
         <DashboardPanel>
@@ -38,7 +38,7 @@ export default function PurchasesPage() {
           />
           <DashboardCard className="flex flex-col items-center py-12 text-center">
             <DashboardIcon icon={Receipt} size="lg" />
-            <DashboardStatusPill className="mt-5">Платежный backend не подключен</DashboardStatusPill>
+            <DashboardStatusPill className="mt-5">Платежный бэкенд не подключен</DashboardStatusPill>
             <p className="mt-5 text-sm font-semibold text-foreground">Покупок пока нет</p>
             <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
               После подключения платежей здесь появятся реальные транзакции, счета и история изменений тарифа.

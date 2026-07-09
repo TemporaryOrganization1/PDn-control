@@ -40,14 +40,14 @@ export async function prepareCountryChecks (sr: Data) {
                             }
                             countries.push (isoCode || 'unknown');
                         } else {
-                            countries.push ('localhost');
+                            countries.push ('unknown');
                         }
                     }
                     catch (e) {
                         if (e instanceof Error) {
                             console.log (e.message);
                         }
-                        countries.push ('localhost');
+                        countries.push ('unknown');
                     }
                 }
 
@@ -82,14 +82,18 @@ export async function checkCountry (sr: Data) {
                 if (geoResp.ok) {
                     const geoData = await geoResp.json() as { country_code?: string; country?: string };
                     const isoCode = (geoData.country_code || geoData.country || "").toLowerCase();
-                    sr.result.country = isoCode;
+                    sr.result.country = isoCode || 'unknown';
+                } else {
+                    sr.result.country = 'unknown';
                 }
             }
         }
+        sr.result.country = sr.result.country || 'unknown';
     }
     catch (e) {
         if (e instanceof Error) {
             console.error ('checkCountry failed', e.message);
         }
+        sr.result.country = sr.result.country || 'unknown';
     }
 }

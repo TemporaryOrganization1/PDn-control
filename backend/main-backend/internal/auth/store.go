@@ -23,9 +23,11 @@ import (
 )
 
 var (
-	ErrUserExists     = errors.New("user already exists")
-	ErrInvalidSession = errors.New("invalid session")
-	ErrGuestLimit     = errors.New("guest limit reached")
+	ErrUserExists      = errors.New("user already exists")
+	ErrInvalidSession  = errors.New("invalid session")
+	ErrGuestLimit      = errors.New("guest limit reached")
+	ErrReportNotFound  = errors.New("report not found")
+	ErrReportForbidden = errors.New("report access denied")
 )
 
 type User struct {
@@ -154,6 +156,7 @@ func (s *Store) migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_check_images_req_id ON check_images(req_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_check_images_expires_at ON check_images(expires_at)`,
 		`ALTER TABLE check_images ADD COLUMN IF NOT EXISTS check_id TEXT NULL REFERENCES check_history(id) ON DELETE SET NULL`,
+		`ALTER TABLE check_images ALTER COLUMN expires_at DROP NOT NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_check_images_check_id ON check_images(check_id)`,
 		`INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, report_id, created_at)
 			SELECT 'legacy-' || id, email, COALESCE(NULLIF(req_id, ''), 'legacy-' || id), url, 'unknown', 'completed', '[]'::jsonb, id, created_at
@@ -189,7 +192,7 @@ func (s *Store) migrate(ctx context.Context) error {
 // SaveReport generates a PDF report for the given targetURL and results,
 // saves it to the reports directory, and records it in pdf_reports table.
 // Returns the generated report ID and the file path.
-func (s *Store) SaveReport(ctx context.Context, email, targetURL, reqID string, results []store.Result) (string, error) {
+func (s *Store) SaveReport(ctx context.Context, email, targetURL, reqID string, payload store.ReportPayload) (string, error) {
 	if reqID != "" {
 		existingID, err := s.reportIDByReqID(ctx, reqID)
 		if err != nil {
@@ -207,11 +210,15 @@ func (s *Store) SaveReport(ctx context.Context, email, targetURL, reqID string, 
 
 	log.Printf("[Auth] Generating PDF report %s for %s (%s)", reportID, email, targetURL)
 
-	if err := pdfGen.GeneratePDFReport(targetURL, results, filePath); err != nil {
+	imagePaths, err := s.ImagePathsForPayload(ctx, reqID, payload)
+	if err != nil {
+		return "", err
+	}
+	if err := pdfGen.GeneratePDFReport(targetURL, payload, filePath, pdfGen.ReportOptions{ImagePaths: imagePaths}); err != nil {
 		return "", fmt.Errorf("generate pdf report: %w", err)
 	}
 
-	_, err := s.db.ExecContext(ctx, `
+	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO pdf_reports (id, email, url, file_path, req_id, created_at)
 		VALUES ($1, $2, $3, $4, NULLIF($5, ''), NOW())
 		ON CONFLICT (req_id) DO NOTHING
@@ -260,21 +267,25 @@ func (s *Store) reportIDByReqID(ctx context.Context, reqID string) (string, erro
 
 // CheckHistory represents a completed check. PDF metadata is optional.
 type CheckHistory struct {
-	ID        string         `json:"id"`
-	Email     string         `json:"email,omitempty"`
-	ReqID     string         `json:"req_id"`
-	URL       string         `json:"url"`
-	CheckType string         `json:"check_type"`
-	Status    string         `json:"status"`
-	ReportID  string         `json:"report_id"`
-	CreatedAt time.Time      `json:"created_at"`
-	FileName  string         `json:"file_name"`
-	Results   []store.Result `json:"results,omitempty"`
+	ID           string         `json:"id"`
+	Email        string         `json:"email,omitempty"`
+	ReqID        string         `json:"req_id"`
+	URL          string         `json:"url"`
+	CheckType    string         `json:"check_type"`
+	Status       string         `json:"status"`
+	ReportID     string         `json:"report_id"`
+	CreatedAt    time.Time      `json:"created_at"`
+	FileName     string         `json:"file_name"`
+	Results      []store.Result `json:"results,omitempty"`
+	ScreenshotID string         `json:"screenshotId,omitempty"`
+	SSL          *store.SslInfo `json:"ssl,omitempty"`
+	About        string         `json:"about,omitempty"`
+	Country      string         `json:"country,omitempty"`
 }
 
 // SaveCheckHistory upserts a completed check independently from PDF generation.
 // For free users, sets expires_at = NOW() + 7 days. For paid users, expires_at remains NULL.
-func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, checkType, status string, results []store.Result) (*CheckHistory, error) {
+func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, checkType, status string, payload store.ReportPayload) (*CheckHistory, error) {
 	email = NormalizeEmail(email)
 	if email == "" {
 		return nil, nil
@@ -286,7 +297,7 @@ func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, c
 		status = "completed"
 	}
 
-	resultsJSON, err := json.Marshal(results)
+	resultsJSON, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("marshal check results: %w", err)
 	}
@@ -334,6 +345,14 @@ func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, c
 	if err != nil {
 		return nil, fmt.Errorf("save check history: %w", err)
 	}
+	h.Results = append([]store.Result(nil), payload.Checks...)
+	h.ScreenshotID = payload.ScreenshotID
+	h.SSL = payload.SSL
+	h.About = payload.About
+	h.Country = payload.Country
+	if err := s.AttachImagesToCheckHistory(ctx, reqID, h.ID); err != nil {
+		return nil, err
+	}
 	return h, nil
 }
 
@@ -361,8 +380,6 @@ func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckH
 		FROM check_history h
 		LEFT JOIN pdf_reports r ON r.id = h.report_id
 		WHERE h.email = $1
-			AND h.report_id IS NOT NULL
-			AND h.report_id <> ''
 		ORDER BY h.created_at DESC
 	`, NormalizeEmail(email))
 	if err != nil {
@@ -382,9 +399,15 @@ func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckH
 			h.FileName = filepath.Base(filePath)
 		}
 		if len(rawResults) > 0 {
-			if err := json.Unmarshal(rawResults, &h.Results); err != nil {
+			payload, err := decodeReportPayload(rawResults)
+			if err != nil {
 				return nil, fmt.Errorf("unmarshal check history results: %w", err)
 			}
+			h.Results = payload.Checks
+			h.ScreenshotID = payload.ScreenshotID
+			h.SSL = payload.SSL
+			h.About = payload.About
+			h.Country = payload.Country
 		}
 		history = append(history, h)
 	}
@@ -392,6 +415,22 @@ func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckH
 		return nil, fmt.Errorf("history rows iteration: %w", err)
 	}
 	return history, nil
+}
+
+func decodeReportPayload(raw []byte) (store.ReportPayload, error) {
+	var payload store.ReportPayload
+	if err := json.Unmarshal(raw, &payload); err == nil {
+		if payload.Checks == nil {
+			payload.Checks = []store.Result{}
+		}
+		return payload, nil
+	}
+
+	var legacy []store.Result
+	if err := json.Unmarshal(raw, &legacy); err != nil {
+		return store.ReportPayload{}, err
+	}
+	return store.PayloadFromResults(legacy), nil
 }
 
 // ReportsDir returns the directory where PDF reports are stored.
@@ -524,11 +563,9 @@ func (s *Store) GetUserPlan(ctx context.Context, userID string) (string, error) 
 	return plan, nil
 }
 
-// CleanupExpiredData removes expired checks and their associated images for free users.
-// Also downgrades expired paid plans to free.
-// Returns the number of checks and images deleted.
+// CleanupExpiredData removes expired checks and their associated PDF/image files for free users.
+// It also downgrades expired paid plans to free.
 func (s *Store) CleanupExpiredData(ctx context.Context) (int, int, error) {
-	// Downgrade expired paid plans
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE auth_users
 		SET plan = 'free', plan_expires_at = NULL
@@ -538,9 +575,9 @@ func (s *Store) CleanupExpiredData(ctx context.Context) (int, int, error) {
 		log.Printf("[Auth] Warning: failed to downgrade expired plans: %v", err)
 	}
 
-	// Find expired checks for free users
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, email FROM check_history
+		SELECT id, req_id, COALESCE(report_id, '')
+		FROM check_history
 		WHERE expires_at <= NOW()
 			AND email IN (SELECT email FROM auth_users WHERE plan = 'free')
 	`)
@@ -549,15 +586,18 @@ func (s *Store) CleanupExpiredData(ctx context.Context) (int, int, error) {
 	}
 	defer rows.Close()
 
-	var checkIDs []string
-	var emails []string
+	type expiredCheck struct {
+		id       string
+		reqID    string
+		reportID string
+	}
+	var expired []expiredCheck
 	for rows.Next() {
-		var id, email string
-		if err := rows.Scan(&id, &email); err != nil {
+		var item expiredCheck
+		if err := rows.Scan(&item.id, &item.reqID, &item.reportID); err != nil {
 			return 0, 0, fmt.Errorf("scan expired check: %w", err)
 		}
-		checkIDs = append(checkIDs, id)
-		emails = append(emails, email)
+		expired = append(expired, item)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, 0, fmt.Errorf("expired checks rows iteration: %w", err)
@@ -565,63 +605,113 @@ func (s *Store) CleanupExpiredData(ctx context.Context) (int, int, error) {
 
 	checksDeleted := 0
 	imagesDeleted := 0
+	var pdfPaths []string
+	var imagePaths []string
 
-	if len(checkIDs) > 0 {
-		// Delete check_history records
-		result, err := s.db.ExecContext(ctx, `
-			DELETE FROM check_history
-			WHERE expires_at <= NOW()
-				AND email IN (SELECT email FROM auth_users WHERE plan = 'free')
-		`)
+	if len(expired) > 0 {
+		tx, err := s.db.BeginTx(ctx, nil)
 		if err != nil {
-			return 0, 0, fmt.Errorf("delete expired checks: %w", err)
+			return 0, 0, fmt.Errorf("begin cleanup transaction: %w", err)
 		}
-		deleted, _ := result.RowsAffected()
-		checksDeleted = int(deleted)
+		committed := false
+		defer func() {
+			if !committed {
+				_ = tx.Rollback()
+			}
+		}()
 
-		// Mark images for deletion (check_id will be SET NULL due to ON DELETE SET NULL)
-		// But we also need to set expires_at = NOW() for images without check_id
-		_, err = s.db.ExecContext(ctx, `
-			UPDATE check_images
-			SET expires_at = NOW()
-			WHERE check_id IS NULL
-				AND expires_at > NOW()
-		`)
-		if err != nil {
-			log.Printf("[Auth] Warning: failed to mark orphaned images: %v", err)
+		for _, item := range expired {
+			if item.reportID != "" {
+				var fp string
+				err := tx.QueryRowContext(ctx, `SELECT file_path FROM pdf_reports WHERE id = $1`, item.reportID).Scan(&fp)
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					return 0, 0, fmt.Errorf("query expired pdf path: %w", err)
+				}
+				if fp != "" {
+					pdfPaths = append(pdfPaths, fp)
+				}
+				if _, err := tx.ExecContext(ctx, `DELETE FROM pdf_reports WHERE id = $1`, item.reportID); err != nil {
+					return 0, 0, fmt.Errorf("delete expired pdf report: %w", err)
+				}
+			}
+
+			imgRows, err := tx.QueryContext(ctx, `SELECT file_path FROM check_images WHERE req_id = $1`, item.reqID)
+			if err != nil {
+				return 0, 0, fmt.Errorf("query expired check images: %w", err)
+			}
+			for imgRows.Next() {
+				var fp string
+				if err := imgRows.Scan(&fp); err != nil {
+					imgRows.Close()
+					return 0, 0, fmt.Errorf("scan expired image path: %w", err)
+				}
+				imagePaths = append(imagePaths, fp)
+			}
+			if err := imgRows.Err(); err != nil {
+				imgRows.Close()
+				return 0, 0, fmt.Errorf("expired image rows iteration: %w", err)
+			}
+			imgRows.Close()
+
+			result, err := tx.ExecContext(ctx, `DELETE FROM check_images WHERE req_id = $1`, item.reqID)
+			if err != nil {
+				return 0, 0, fmt.Errorf("delete expired check images: %w", err)
+			}
+			if deleted, err := result.RowsAffected(); err == nil {
+				imagesDeleted += int(deleted)
+			}
+
+			result, err = tx.ExecContext(ctx, `DELETE FROM check_history WHERE id = $1`, item.id)
+			if err != nil {
+				return 0, 0, fmt.Errorf("delete expired check: %w", err)
+			}
+			if deleted, err := result.RowsAffected(); err == nil {
+				checksDeleted += int(deleted)
+			}
 		}
+
+		if err := tx.Commit(); err != nil {
+			return 0, 0, fmt.Errorf("commit cleanup transaction: %w", err)
+		}
+		committed = true
 	}
 
-	// Delete expired images (expires_at <= NOW() AND check_id IS NULL)
-	imageRows, err := s.db.QueryContext(ctx, `
+	orphanRows, err := s.db.QueryContext(ctx, `
 		SELECT file_path FROM check_images
 		WHERE expires_at <= NOW()
 			AND check_id IS NULL
 	`)
 	if err != nil {
-		return checksDeleted, 0, fmt.Errorf("query expired images: %w", err)
+		return checksDeleted, imagesDeleted, fmt.Errorf("query expired orphan images: %w", err)
 	}
-	defer imageRows.Close()
-
-	var imagePaths []string
-	for imageRows.Next() {
+	var orphanPaths []string
+	for orphanRows.Next() {
 		var fp string
-		if err := imageRows.Scan(&fp); err != nil {
-			return checksDeleted, 0, fmt.Errorf("scan expired image: %w", err)
+		if err := orphanRows.Scan(&fp); err != nil {
+			orphanRows.Close()
+			return checksDeleted, imagesDeleted, fmt.Errorf("scan expired orphan image: %w", err)
 		}
-		imagePaths = append(imagePaths, fp)
+		orphanPaths = append(orphanPaths, fp)
 	}
-	if err := imageRows.Err(); err != nil {
-		return checksDeleted, 0, fmt.Errorf("expired images rows iteration: %w", err)
+	if err := orphanRows.Err(); err != nil {
+		orphanRows.Close()
+		return checksDeleted, imagesDeleted, fmt.Errorf("expired orphan image rows iteration: %w", err)
+	}
+	orphanRows.Close()
+
+	if len(orphanPaths) > 0 {
+		result, err := s.db.ExecContext(ctx, `DELETE FROM check_images WHERE expires_at <= NOW() AND check_id IS NULL`)
+		if err != nil {
+			return checksDeleted, imagesDeleted, fmt.Errorf("delete expired orphan images: %w", err)
+		}
+		if deleted, err := result.RowsAffected(); err == nil {
+			imagesDeleted += int(deleted)
+		}
+		imagePaths = append(imagePaths, orphanPaths...)
 	}
 
-	if len(imagePaths) > 0 {
-		_, err = s.db.ExecContext(ctx, `DELETE FROM check_images WHERE expires_at <= NOW() AND check_id IS NULL`)
-		if err != nil {
-			return checksDeleted, 0, fmt.Errorf("delete expired images: %w", err)
-		}
-		imagesDeleted = len(imagePaths)
-	}
+	removeFiles(pdfPaths)
+	removeFiles(imagePaths)
 
 	if checksDeleted > 0 || imagesDeleted > 0 {
 		log.Printf("[Auth] Cleanup: deleted %d checks and %d images", checksDeleted, imagesDeleted)
@@ -735,14 +825,34 @@ func (s *Store) DeleteUser(ctx context.Context, userID, email string) error {
 	}
 	rows.Close()
 
-	// Mark all images for this user's checks as expired
-	if _, err := s.db.ExecContext(ctx, `
-		UPDATE check_images
-		SET expires_at = NOW()
+	imageRows, err := s.db.QueryContext(ctx, `
+		SELECT file_path
+		FROM check_images
 		WHERE req_id IN (SELECT req_id FROM check_history WHERE email = $1)
-			AND expires_at > NOW()
+	`, email)
+	if err != nil {
+		return fmt.Errorf("query user image paths: %w", err)
+	}
+	var imageFilePaths []string
+	for imageRows.Next() {
+		var fp string
+		if err := imageRows.Scan(&fp); err != nil {
+			imageRows.Close()
+			return fmt.Errorf("scan image file path: %w", err)
+		}
+		imageFilePaths = append(imageFilePaths, fp)
+	}
+	if err := imageRows.Err(); err != nil {
+		imageRows.Close()
+		return fmt.Errorf("image paths rows iteration: %w", err)
+	}
+	imageRows.Close()
+
+	if _, err := s.db.ExecContext(ctx, `
+		DELETE FROM check_images
+		WHERE req_id IN (SELECT req_id FROM check_history WHERE email = $1)
 	`, email); err != nil {
-		log.Printf("[Auth] Warning: failed to mark images for deletion: %v", err)
+		return fmt.Errorf("delete user images: %w", err)
 	}
 
 	// Delete check_history records (by email)
@@ -779,9 +889,126 @@ func (s *Store) DeleteUser(ctx context.Context, userID, email string) error {
 			log.Printf("[Auth] Warning: failed to remove report file %s: %v", fp, err)
 		}
 	}
+	removeFiles(imageFilePaths)
 
 	log.Printf("[Auth] User %s (%s) deleted successfully", userID, email)
 	return nil
+}
+
+func (s *Store) DeleteReport(ctx context.Context, email, reportID string) error {
+	email = NormalizeEmail(email)
+	if email == "" || reportID == "" {
+		return ErrReportNotFound
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete report transaction: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var reportEmail, filePath, reportReqID string
+	err = tx.QueryRowContext(ctx, `
+		SELECT email, file_path, COALESCE(req_id, '')
+		FROM pdf_reports
+		WHERE id = $1
+	`, reportID).Scan(&reportEmail, &filePath, &reportReqID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrReportNotFound
+		}
+		return fmt.Errorf("query report for delete: %w", err)
+	}
+	if NormalizeEmail(reportEmail) != email {
+		return ErrReportForbidden
+	}
+
+	reqIDs := map[string]struct{}{}
+	if reportReqID != "" {
+		reqIDs[reportReqID] = struct{}{}
+	}
+	rows, err := tx.QueryContext(ctx, `
+		SELECT req_id FROM check_history WHERE report_id = $1 AND email = $2
+	`, reportID, email)
+	if err != nil {
+		return fmt.Errorf("query history for delete: %w", err)
+	}
+	for rows.Next() {
+		var reqID string
+		if err := rows.Scan(&reqID); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan history req_id: %w", err)
+		}
+		if reqID != "" {
+			reqIDs[reqID] = struct{}{}
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("history req_id rows iteration: %w", err)
+	}
+	rows.Close()
+
+	var imagePaths []string
+	for reqID := range reqIDs {
+		imgRows, err := tx.QueryContext(ctx, `SELECT file_path FROM check_images WHERE req_id = $1`, reqID)
+		if err != nil {
+			return fmt.Errorf("query report images: %w", err)
+		}
+		for imgRows.Next() {
+			var fp string
+			if err := imgRows.Scan(&fp); err != nil {
+				imgRows.Close()
+				return fmt.Errorf("scan report image path: %w", err)
+			}
+			imagePaths = append(imagePaths, fp)
+		}
+		if err := imgRows.Err(); err != nil {
+			imgRows.Close()
+			return fmt.Errorf("report image rows iteration: %w", err)
+		}
+		imgRows.Close()
+
+		if _, err := tx.ExecContext(ctx, `DELETE FROM check_images WHERE req_id = $1`, reqID); err != nil {
+			return fmt.Errorf("delete report images: %w", err)
+		}
+		if _, err := tx.ExecContext(ctx, `DELETE FROM check_history WHERE req_id = $1 AND email = $2`, reqID, email); err != nil {
+			return fmt.Errorf("delete report history by req_id: %w", err)
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM check_history WHERE report_id = $1 AND email = $2`, reportID, email); err != nil {
+		return fmt.Errorf("delete report history: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pdf_reports WHERE id = $1 AND email = $2`, reportID, email); err != nil {
+		return fmt.Errorf("delete pdf report record: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit delete report transaction: %w", err)
+	}
+	committed = true
+
+	removeFiles([]string{filePath})
+	removeFiles(imagePaths)
+	log.Printf("[Auth] Deleted report %s for %s", reportID, email)
+	return nil
+}
+
+func removeFiles(paths []string) {
+	for _, fp := range paths {
+		if fp == "" {
+			continue
+		}
+		if err := os.Remove(fp); err != nil && !os.IsNotExist(err) {
+			log.Printf("[Auth] Warning: failed to remove file %s: %v", fp, err)
+		}
+	}
 }
 
 // Report represents a PDF report record.
@@ -945,38 +1172,127 @@ type ImageRecord struct {
 // SaveImage inserts a new image record into check_images table with the given imageID.
 // Sets check_id from check_history if available.
 func (s *Store) SaveImage(ctx context.Context, imageID, reqID, filePath string) error {
-	var checkID *string
+	var checkID sql.NullString
+	var historyExpiresAt sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id FROM check_history WHERE req_id = $1 LIMIT 1
-	`, reqID).Scan(&checkID)
+		SELECT id, expires_at FROM check_history WHERE req_id = $1 LIMIT 1
+	`, reqID).Scan(&checkID, &historyExpiresAt)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("query check_id: %w", err)
 	}
 
+	var checkIDValue any
+	var expiresAtValue any = time.Now().UTC().Add(7 * 24 * time.Hour)
+	if checkID.Valid {
+		checkIDValue = checkID.String
+		if historyExpiresAt.Valid {
+			expiresAtValue = historyExpiresAt.Time
+		} else {
+			expiresAtValue = nil
+		}
+	}
+
 	_, err = s.db.ExecContext(ctx, `
 		INSERT INTO check_images (id, req_id, check_id, file_path, created_at, expires_at)
-		VALUES ($1, $2, $3, $4, NOW(), NOW() + INTERVAL '7 days')
-	`, imageID, reqID, checkID, filePath)
+		VALUES ($1, $2, $3, $4, NOW(), $5)
+	`, imageID, reqID, checkIDValue, filePath, expiresAtValue)
 	if err != nil {
 		return fmt.Errorf("save image record: %w", err)
 	}
-	log.Printf("[Auth] Image saved: id=%s req_id=%s check_id=%v path=%s", imageID, reqID, checkID, filePath)
+	log.Printf("[Auth] Image saved: id=%s req_id=%s check_id=%v path=%s", imageID, reqID, checkIDValue, filePath)
 	return nil
+}
+
+func (s *Store) AttachImagesToCheckHistory(ctx context.Context, reqID, checkID string) error {
+	if reqID == "" || checkID == "" {
+		return nil
+	}
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE check_images AS i
+		SET check_id = h.id,
+			expires_at = h.expires_at
+		FROM check_history AS h
+		WHERE i.req_id = $1
+			AND h.id = $2
+			AND h.req_id = i.req_id
+	`, reqID, checkID)
+	if err != nil {
+		return fmt.Errorf("attach images to check history: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) ImagePathsForPayload(ctx context.Context, reqID string, payload store.ReportPayload) (map[string]string, error) {
+	ids := make(map[string]struct{})
+	if payload.ScreenshotID != "" {
+		ids[payload.ScreenshotID] = struct{}{}
+	}
+	for _, check := range payload.Checks {
+		for _, imageID := range check.Images {
+			if imageID != "" {
+				ids[imageID] = struct{}{}
+			}
+		}
+	}
+
+	paths := make(map[string]string)
+	if reqID != "" {
+		rows, err := s.db.QueryContext(ctx, `
+			SELECT id, file_path FROM check_images WHERE req_id = $1
+		`, reqID)
+		if err != nil {
+			return nil, fmt.Errorf("query image paths by req_id: %w", err)
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, filePath string
+			if err := rows.Scan(&id, &filePath); err != nil {
+				return nil, fmt.Errorf("scan image path: %w", err)
+			}
+			paths[id] = filePath
+		}
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("image path rows iteration: %w", err)
+		}
+	}
+
+	for imageID := range ids {
+		if _, ok := paths[imageID]; ok {
+			continue
+		}
+		var filePath string
+		err := s.db.QueryRowContext(ctx, `
+			SELECT file_path FROM check_images WHERE id = $1
+		`, imageID).Scan(&filePath)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return nil, fmt.Errorf("query image path %s: %w", imageID, err)
+		}
+		paths[imageID] = filePath
+	}
+
+	return paths, nil
 }
 
 // GetImage returns the image record by ID. Returns nil if not found or expired.
 func (s *Store) GetImage(ctx context.Context, imageID string) (*ImageRecord, error) {
 	var r ImageRecord
+	var expiresAt sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
 		SELECT id, req_id, file_path, created_at, expires_at
 		FROM check_images
-		WHERE id = $1 AND expires_at > NOW()
-	`, imageID).Scan(&r.ID, &r.ReqID, &r.FilePath, &r.CreatedAt, &r.ExpiresAt)
+		WHERE id = $1 AND (expires_at IS NULL OR expires_at > NOW())
+	`, imageID).Scan(&r.ID, &r.ReqID, &r.FilePath, &r.CreatedAt, &expiresAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("query image: %w", err)
+	}
+	if expiresAt.Valid {
+		r.ExpiresAt = expiresAt.Time
 	}
 	return &r, nil
 }
@@ -986,7 +1302,7 @@ func (s *Store) MarkImagesForDeletion(ctx context.Context, reqID string) error {
 	_, err := s.db.ExecContext(ctx, `
 		UPDATE check_images
 		SET expires_at = NOW()
-		WHERE req_id = $1 AND expires_at > NOW()
+		WHERE req_id = $1 AND (expires_at IS NULL OR expires_at > NOW())
 	`, reqID)
 	if err != nil {
 		return fmt.Errorf("mark images for deletion: %w", err)

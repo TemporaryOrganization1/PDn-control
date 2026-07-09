@@ -4,7 +4,6 @@ import type { Data } from '../data.js';
 import { resolveOpenRouterSettings } from '../openrouter-config.js';
 import { Agent } from 'node:https';
 import fetch from 'node-fetch';
-import { error } from 'node:console';
 
 const config = JSON.parse(readFileSync('./config.json', 'utf-8'));
 
@@ -58,7 +57,7 @@ ONLY check for the presence of a cookie banner with specific buttons.
    - REQUIRED: A checkbox (чекбокс) that is NOT pre-ticked by default. Label must explicitly state agreement to Personal Data processing.
    - FAIL: No checkbox. Checkbox is pre-ticked. Text says "By submitting this form you agree..." without a checkbox.
    - PASS: Unticked checkbox next to consent text and link to Privacy Policy.
-   
+
    !!! IMPORTANT NOTE: CHECK FOR FORMS CAREFULLY IN REGISTER, LOGIN, UPLOAD, FEEDBACK, EMAIL-SUBSCRIBE PAGES. IT IS ONE OF THE IMPORTANT ABILITY !!!
    !!! IMPORTANT NOTE: PREFERABLE TO FILL "images" ON FAIL !!!
 
@@ -96,8 +95,8 @@ ONLY check for the presence of a cookie banner with specific buttons.
 Selected language is RU or Russian.
 
 === REPORT ERRORS ===
-For each found check report call function tool only if the result is not 'ok'. If the result is 'fail' for FAIL, 'warn' for WARN and the pages URL of data. 
-You can write brief description about error in clear russian. Give the results of found checks using function tool "reportError". 
+For each found check report call function tool only if the result is not 'ok'. If the result is 'fail' for FAIL, 'warn' for WARN and the pages URL of data.
+You can write brief description about error in clear russian. Give the results of found checks using function tool "reportError".
 Field "about" must be in this language. Field "images" should contains CSS selector to elements with errors to take a screenshot.
 
 {
@@ -107,8 +106,8 @@ Field "about" must be in this language. Field "images" should contains CSS selec
     "about": "не требует согласия родителей если меньше 18 лет",
     "images": []
 }
- 
-or 
+
+or
 
 {
     "id": "",
@@ -193,7 +192,8 @@ const customFetcher: Fetcher = async (input: RequestInfo | URL, init?: any) => {
         return res as unknown as Response;
     }
     catch (e) {
-        if (error.name == "AbortError") {
+        const err = e as Error;
+        if (err.name == "AbortError") {
             console.log ("Запрос к Proxy прерван по таймауту");
         }
         else {
@@ -385,13 +385,13 @@ export async function checkAi(sr: Data) {
                             if (await sr.open(args.url)) {
                             const fullContent = await sr.page.content();
                             const isLargeFile = fullContent.length > maxTextSize;
-                            
+
                             content += `\n === OPENED ${args.url} ===\n`;
                             content += `\n isLargeFile=${isLargeFile}\n\n\n`;
                             } else {
                             content += `\n === NOT FOUND OR INTERNAL ERROR ===\n\n\n`;
                             }
-                            
+
                             messages.push({ 'role': 'user', 'content': content });
 
                         } else if (func.name == "eval_js") {
@@ -409,13 +409,12 @@ export async function checkAi(sr: Data) {
                             messages.push({ 'role': 'user', content: ' === JS EVAL RESULT ===\n' + result + '\n === END ===' });
                         }
                     }
-                    else {  
+                    else {
                         messages.push({ 'role': 'assistant', 'content': 'Not available. Call a "reportError" and finish with "finishReport"' });
-                    } 
+                    }
 
                     if (func.name == "reportError") {
                         const args = JSON.parse(func.arguments) as ReportData;
-                        let errorMsg: string = '';
                         console.log(func.arguments);
                         const previousURL = sr.page.url();
                         try {
@@ -438,16 +437,12 @@ export async function checkAi(sr: Data) {
                                     catch (e) {
                                         if (e instanceof Error) {
                                             console.error ('Failed to take a screenshot', e.message);
-                                            errorMsg = e.message;
-                                            break;
                                         }
                                     }
                                 }
 
-                                if (errorMsg.length != 0) break;
-                                
                                 foundChecks[p.id] = true;
-                                sr.result.checks.push({ id: p.id, result: p.result, data: { pages: p.pages, about: p.about }, images: imagesIds });
+                                sr.result.checks.push({ id: p.id, result: p.result, pages: p.pages, about: p.about, data: {}, images: imagesIds });
                             }
                         }
                         catch (e) {
@@ -456,9 +451,9 @@ export async function checkAi(sr: Data) {
                         finally {
                             await sr.open (previousURL);
                         }
-                        messages.push({ 'role': 'user', 'content': `${func.arguments}\n\n=== RESULT ===\n` + (errorMsg.length == 0 ? "ACCEPTED" : ("NOT ACCEPTED DUE TO " + errorMsg)) });
+                        messages.push({ 'role': 'user', 'content': `${func.arguments}\n\n=== RESULT ===\nACCEPTED` });
                     }
-                        
+
                     if (func.name == "finishReport") {
                         console.log(func.arguments);
                         i = tries + 100;
@@ -477,8 +472,8 @@ export async function checkAi(sr: Data) {
         }
     }
 
-    const checks = ["sep-consent", "foreign-words", "privacy-policy", 
-        "cookie-banner", "consent-forms", "email-pdn", "ad-marking", 
+    const checks = ["sep-consent", "foreign-words", "privacy-policy",
+        "cookie-banner", "consent-forms", "email-pdn", "ad-marking",
         "minors-data", "special-categ"];
 
     for (const p of checks) {

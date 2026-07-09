@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Full worker report payload propagation with screenshot, SSL, country, about, and evidence image IDs
+- Local SVG country flags under `frontend/public/flags`
+- Report deletion endpoint and history UI action that remove related PDF and image records
+
+### Changed
+- Result score now represents check completion quality instead of fine probability
+- PDF reports include the new payload data, possible fines, SSL/site info, and evidence image references
+
+### Fixed
+- Final worker payloads sent as objects are now normalized and saved by the main backend
+- Free report cleanup now removes related PDF files and evidence images
+
 ### Removed
 - Auth service, user registration, login, and account UI
 - Guest check limit that depended on authentication

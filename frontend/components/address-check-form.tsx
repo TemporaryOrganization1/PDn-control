@@ -21,11 +21,11 @@ export function AddressCheckForm() {
 
     const trimmed = url.trim();
     if (!trimmed) {
-      toast.error("Введите URL сайта для проверки");
+      toast.error("Введите адрес сайта для проверки");
       return;
     }
     if (!URL_REGEX.test(trimmed)) {
-      toast.error("Введите корректный URL сайта");
+      toast.error("Введите корректный адрес сайта");
       return;
     }
 
@@ -35,7 +35,7 @@ export function AddressCheckForm() {
       const response = await startCheck(trimmed, "detail");
       const reqId = response["req-id"] || response.data?.["req-id"];
       if (!reqId) {
-        throw new Error("Backend не вернул идентификатор проверки");
+        throw new Error("Бэкенд не вернул идентификатор проверки");
       }
       router.push(`/check?reqId=${encodeURIComponent(reqId)}`);
     } catch (error) {

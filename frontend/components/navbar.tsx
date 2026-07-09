@@ -17,7 +17,7 @@ const navLinks = [
   { label: "Продукт", href: "/#product" },
   { label: "Как работает", href: "/#how" },
   { label: "Отчет", href: "/#report" },
-  { label: "FAQ", href: "/#faq" },
+  { label: "Вопросы", href: "/#faq" },
 ];
 
 export function Navbar() {

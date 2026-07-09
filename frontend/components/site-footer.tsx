@@ -16,13 +16,13 @@ const footerLinks = [
     links: [
       { label: "Юристам", href: "/" },
       { label: "Владельцам сайтов", href: "/" },
-      { label: "Security-командам", href: "/" },
+      { label: "Командам безопасности", href: "/" },
     ],
   },
   {
     heading: "Ресурсы",
     links: [
-      { label: "FAQ", href: "/#faq" },
+      { label: "Вопросы", href: "/#faq" },
       { label: "152-ФЗ", href: "/" },
       { label: "PDF-отчет", href: "/result" },
     ],

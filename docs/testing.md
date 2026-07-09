@@ -30,7 +30,7 @@ Global repository coverage is lower because command entrypoints, DB-backed store
 
 | Test type | Scope | Command or CI check | Latest result | Evidence |
 |---|---|---|---|---|
-| Unit tests | Guest quota, task state, URL parsing, frontend API helpers, result scoring. | `go test ./...`, `npm test -- --coverage`, `npm run check` | Backend tests plus Next lint/typecheck and Vitest frontend coverage. | [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
+| Unit tests | Guest quota, task state, URL parsing, worker payload shape, frontend API helpers, result scoring, fines, and country flag helpers. | `go test ./...`, `npm test -- --coverage`, `npm run check` | Backend tests plus Next lint/typecheck and Vitest frontend coverage. | [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
 | Integration tests | Worker pool HTTP dispatch with `httptest`; GeoIP MMDB download with `httptest`; crawler check subscriptions with fake request/response objects. | `go test ./...`, `npm test -- --coverage` | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28668920944). |
 | Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection. | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1`; `npm run typecheck`; `npm test -- --run tests/runner.test.ts`; `go test ./internal/api -run TestValidEmail -count=1` | Passing in the latest protected-branch CI run. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28668920944). |
 
@@ -76,6 +76,8 @@ Lychee checks repository Markdown on pull requests and pushes to `main`. Exclusi
 The `Quality Gates` workflow, the `Link Checker` workflow, the tests added for critical modules, coverage reporting, dependency vulnerability scanning, architecture documentation, ADR links, and this testing document remain active after Assignment 4 and Assignment 5. Later PBIs must keep these checks and maintained artifacts current or replace them with documented equivalent or stronger checks when product scope changes.
 
 ## Local Verification Notes
+
+DB-backed report lifecycle tests in `backend/main-backend/internal/auth` are opt-in and run when `TEST_DATABASE_URL` points to a PostgreSQL database. Without that variable they are skipped; pure unit tests still run with `go test ./...`.
 
 If the host shell does not expose `go` or `npm` reliably, verification can be performed through Docker containers:
 

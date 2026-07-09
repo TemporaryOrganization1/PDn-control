@@ -19,24 +19,36 @@ func TestGeneratePDFReportWritesStyledFile(t *testing.T) {
 		}
 	}
 
-	err := GeneratePDFReport("https://example.ru", []store.Result{
-		{
-			ID:     "privacy-policy",
-			Result: "fail",
-			Pages:  []string{"https://example.ru/privacy"},
-			About:  "Политика конфиденциальности не найдена на публичных страницах сайта.",
-			Data: map[string]interface{}{
-				"pages": []interface{}{"https://example.ru/privacy"},
+	err := GeneratePDFReport("https://example.ru", store.ReportPayload{
+		About:   "Краткое описание сайта из worker payload.",
+		Country: "ru",
+		SSL: &store.SslInfo{
+			Issuer:                  "Example CA",
+			ValidFrom:               1700000000,
+			ValidTo:                 2000000000,
+			Protocol:                "TLS 1.3",
+			SubjectName:             "example.ru",
+			SubjectAlternativeNames: []string{"example.ru"},
+		},
+		Checks: []store.Result{
+			{
+				ID:     "privacy-policy",
+				Result: "fail",
+				Pages:  []string{"https://example.ru/privacy"},
+				About:  "Политика конфиденциальности не найдена на публичных страницах сайта.",
+				Data: map[string]interface{}{
+					"pages": []interface{}{"https://example.ru/privacy"},
+				},
 			},
-		},
-		{
-			ID:     "cookie-banner",
-			Result: "warn",
-			About:  "Cookie-баннер требует ручной проверки формулировок согласия.",
-		},
-		{
-			ID:     "https",
-			Result: "ok",
+			{
+				ID:     "cookie-banner",
+				Result: "warn",
+				About:  "Cookie-баннер требует ручной проверки формулировок согласия.",
+			},
+			{
+				ID:     "https",
+				Result: "ok",
+			},
 		},
 	}, outputPath)
 	if err != nil {

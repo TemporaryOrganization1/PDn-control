@@ -10,7 +10,7 @@ export function FinalCTA() {
             Проверьте сайт до того, как риски станут проблемой
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-            Введите URL и получите первичный отчет по рискам обработки персональных данных.
+            Введите адрес сайта и получите первичный отчет по рискам обработки персональных данных.
           </p>
           <div className="mx-auto mt-10 max-w-2xl">
             <AddressCheckForm />

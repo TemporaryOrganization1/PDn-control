@@ -55,15 +55,36 @@ type ProgressUpdate struct {
 	UserEmail string   `json:"user-email,omitempty"`
 }
 
+type SslInfo struct {
+	Issuer                  string   `json:"issuer"`
+	ValidFrom               int64    `json:"validFrom"`
+	ValidTo                 int64    `json:"validTo"`
+	Protocol                string   `json:"protocol"`
+	SubjectName             string   `json:"subjectName"`
+	SubjectAlternativeNames []string `json:"subjectAlternativeNames"`
+}
+
+type ReportPayload struct {
+	Checks       []CheckResult `json:"checks"`
+	ScreenshotID string        `json:"screenshotId,omitempty"`
+	SSL          *SslInfo      `json:"ssl,omitempty"`
+	About        string        `json:"about,omitempty"`
+	Country      string        `json:"country,omitempty"`
+}
+
 type TaskState struct {
-	ReqID    string        `json:"req-id"`
-	URL      string        `json:"url"`
-	Type     string        `json:"type"`
-	Status   string        `json:"status"`
-	Worker   string        `json:"worker,omitempty"`
-	Progress int           `json:"progress"`
-	Results  []CheckResult `json:"results"`
-	Errors   []string      `json:"errors"`
+	ReqID        string        `json:"req-id"`
+	URL          string        `json:"url"`
+	Type         string        `json:"type"`
+	Status       string        `json:"status"`
+	Worker       string        `json:"worker,omitempty"`
+	Progress     int           `json:"progress"`
+	Results      []CheckResult `json:"results"`
+	ScreenshotID string        `json:"screenshotId,omitempty"`
+	SSL          *SslInfo      `json:"ssl,omitempty"`
+	About        string        `json:"about,omitempty"`
+	Country      string        `json:"country,omitempty"`
+	Errors       []string      `json:"errors"`
 }
 
 type CheckResult struct {
@@ -71,6 +92,8 @@ type CheckResult struct {
 	Result string   `json:"result"`
 	Pages  []string `json:"pages,omitempty"`
 	About  string   `json:"about,omitempty"`
+	Images []string `json:"images,omitempty"`
+	Data   any      `json:"data,omitempty"`
 }
 
 var ErrorCodes = map[string]string{

@@ -92,6 +92,7 @@ APP_BASE_URL=https://your-domain.example
 SERVER_NAME=your-domain.example
 ENABLE_HTTPS=true
 COOKIE_SECURE=true
+IMAGE_SECRET=replace-with-a-private-image-upload-secret
 LETSENCRYPT_DIR=/etc/letsencrypt
 ```
 
@@ -115,6 +116,10 @@ The dev server runs at [http://localhost:8080](http://localhost:8080) with hot r
 | GeoIP API | internal Docker network only | - |
 
 The OpenAPI contract is maintained in [`api/openapi.yaml`](api/openapi.yaml).
+
+## Evidence Images and Flags
+
+Crawler evidence images are uploaded to the backend with `X-Image-Secret` and served back through `/api/img/{id}`. Country flags are bundled locally from the open-source `flag-icons` SVG set under `frontend/public/flags`, so runtime pages use URLs such as `/flags/ru.svg` without an external CDN.
 
 ## Reports
 

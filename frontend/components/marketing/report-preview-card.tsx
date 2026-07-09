@@ -49,19 +49,19 @@ export function ReportPreviewCard({ className }: ReportPreviewCardProps) {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5 text-foreground/65" />
-            Preview отчета
+            Предпросмотр отчета
           </div>
           <h3 className="mt-4 text-lg font-semibold tracking-tight text-foreground">
             Проверка сайта
           </h3>
           <p className="mt-1 font-mono text-xs text-muted-foreground">
-            report-id: PDN-2026-07-04
+            идентификатор отчета: PDN-2026-07-04
           </p>
         </div>
 
         <div className="report-glow report-glow-danger rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-right">
           <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-            Risk
+            Риск
           </p>
           <p className="text-2xl font-semibold text-foreground/88">74%</p>
         </div>

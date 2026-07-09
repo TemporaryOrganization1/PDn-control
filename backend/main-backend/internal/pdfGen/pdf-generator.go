@@ -3,13 +3,16 @@ package pdfGen
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/jung-kurt/gofpdf"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/compliance"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 )
 
@@ -139,6 +142,10 @@ type reportDoc struct {
 	y   float64
 }
 
+type ReportOptions struct {
+	ImagePaths map[string]string
+}
+
 type reportStats struct {
 	total        int
 	failed       int
@@ -165,22 +172,16 @@ func calcComplianceScore(results []store.Result) int {
 	if len(results) == 0 {
 		return 0
 	}
-	fails, warns := 0, 0
+	points := 0.0
 	for _, r := range results {
-		if r.Result == "fail" {
-			fails++
-		} else if r.Result == "warn" {
-			warns++
+		switch r.Result {
+		case "ok":
+			points += 1
+		case "warn":
+			points += 0.5
 		}
 	}
-	score := 100 - (fails*25 + warns*10)
-	if score < 0 {
-		return 0
-	}
-	if score > 100 {
-		return 100
-	}
-	return score
+	return int(math.Round(points / float64(len(results)) * 100))
 }
 
 func GetHostname(rawURL string) string {
@@ -243,6 +244,16 @@ func riskTone(risk int) (rgb, string) {
 	return pdfSuccess, "Низкий риск"
 }
 
+func scoreTone(score int) (rgb, string) {
+	if score >= 80 {
+		return pdfSuccess, "Высокий индекс"
+	}
+	if score >= 50 {
+		return pdfWarning, "Средний индекс"
+	}
+	return pdfDanger, "Низкий индекс"
+}
+
 func summarize(results []store.Result) reportStats {
 	stats := reportStats{total: len(results)}
 	for _, r := range results {
@@ -259,16 +270,6 @@ func summarize(results []store.Result) reportStats {
 		}
 	}
 	return stats
-}
-
-func maxFineLabel(stats reportStats) string {
-	if stats.failed > 0 {
-		return "до 500 000 ₽"
-	}
-	if stats.warnings > 0 {
-		return "до 300 000 ₽"
-	}
-	return "—"
 }
 
 func (d *reportDoc) addPage() {
@@ -338,10 +339,9 @@ func (d *reportDoc) statusPill(x, y float64, label string, accent rgb) float64 {
 	return w
 }
 
-func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStats, complianceScore int) {
+func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStats, complianceScore int, payload store.ReportPayload) {
 	pdf := d.pdf
-	risk := 100 - complianceScore
-	accent, riskLabel := riskTone(risk)
+	accent, scoreLabel := scoreTone(complianceScore)
 	h := 64.0
 	x := marginX
 	y := d.y
@@ -357,7 +357,7 @@ func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStat
 	pdf.CellFormat(10, 4, "PDn", "", 0, "C", false, 0, "")
 
 	d.statusPill(x+26, y+6, "Enterprise compliance report", pdfNeutral)
-	d.statusPill(x+116, y+6, riskLabel, accent)
+	d.statusPill(x+116, y+6, scoreLabel, accent)
 
 	setText(pdf, pdfText)
 	setFont(pdf, "B", 23)
@@ -367,7 +367,11 @@ func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStat
 	setText(pdf, pdfMuted)
 	setFont(pdf, "", 9.5)
 	pdf.SetXY(x+6, y+39)
-	pdf.MultiCell(108, 4.8, "Сводка рисков, возможных штрафов и технического evidence по результатам backend-проверки.", "", "L", false)
+	heroCopy := "Индекс прохождения проверок, возможные штрафы и техническое evidence по результатам backend-проверки."
+	if strings.TrimSpace(payload.About) != "" {
+		heroCopy = payload.About
+	}
+	pdf.MultiCell(108, 4.8, heroCopy, "", "L", false)
 
 	setFill(pdf, rgb{10, 12, 18})
 	setDraw(pdf, rgb{58, 65, 80})
@@ -391,7 +395,7 @@ func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStat
 	pdf.CellFormat(0, 4, fmt.Sprintf("Дата формирования: %s", time.Now().Format("02.01.2006 15:04")), "", 0, "L", false, 0, "")
 	setText(pdf, pdfDim)
 	pdf.SetXY(x+120, y+55.5)
-	pdf.CellFormat(0, 4, fmt.Sprintf("Всего проверок: %d", stats.total), "", 0, "L", false, 0, "")
+	pdf.CellFormat(0, 4, fmt.Sprintf("Индекс: %d/100 / проверок: %d", complianceScore, stats.total), "", 0, "L", false, 0, "")
 
 	d.y += h + 8
 }
@@ -417,23 +421,35 @@ func (d *reportDoc) drawMetricCard(x, y, w float64, label, value, caption string
 	pdf.CellFormat(w-14, 4, caption, "", 0, "L", false, 0, "")
 }
 
-func (d *reportDoc) drawSummary(stats reportStats, complianceScore int) {
-	risk := 100 - complianceScore
-	riskAccent, riskLabel := riskTone(risk)
+func rubLabel(value int) string {
+	if value <= 0 {
+		return "—"
+	}
+	raw := fmt.Sprintf("%d", value)
+	parts := []string{}
+	for len(raw) > 3 {
+		parts = append([]string{raw[len(raw)-3:]}, parts...)
+		raw = raw[:len(raw)-3]
+	}
+	parts = append([]string{raw}, parts...)
+	return strings.Join(parts, " ") + " ₽"
+}
+
+func (d *reportDoc) drawSummary(stats reportStats, complianceScore int, estimate compliance.FineEstimate) {
+	scoreAccent, scoreLabel := scoreTone(complianceScore)
 	y := d.y
 	gap := 3.0
 	w := (usableW - gap*3) / 4
-	d.drawMetricCard(marginX, y, w, "Compliance score", fmt.Sprintf("%d/100", complianceScore), "чем выше, тем лучше", pdfNeutral)
-	d.drawMetricCard(marginX+w+gap, y, w, "Risk score", fmt.Sprintf("%d%%", risk), riskLabel, riskAccent)
-	d.drawMetricCard(marginX+(w+gap)*2, y, w, "Нарушения", fmt.Sprintf("%d", stats.failed), "требуют приоритета", pdfDanger)
-	d.drawMetricCard(marginX+(w+gap)*3, y, w, "Возможный штраф", maxFineLabel(stats), "первичная оценка", pdfWarning)
+	d.drawMetricCard(marginX, y, w, "Индекс прохождения", fmt.Sprintf("%d/100", complianceScore), "чем выше, тем лучше", scoreAccent)
+	d.drawMetricCard(marginX+w+gap, y, w, "Физическое лицо", rubLabel(estimate.PhysicalPerson), "возможный максимум", pdfWarning)
+	d.drawMetricCard(marginX+(w+gap)*2, y, w, "Юридическое лицо", rubLabel(estimate.LegalEntity), "возможный максимум", pdfWarning)
+	d.drawMetricCard(marginX+(w+gap)*3, y, w, "Результат", scoreLabel, fmt.Sprintf("fail %d / warn %d", stats.failed, stats.warnings), scoreAccent)
 	d.y += 39
 }
 
 func (d *reportDoc) drawExecutiveSummary(stats reportStats, complianceScore int) {
 	pdf := d.pdf
-	risk := 100 - complianceScore
-	accent, riskLabel := riskTone(risk)
+	accent, scoreLabel := scoreTone(complianceScore)
 	h := 34.0
 	d.ensureSpace(h + 8)
 	x, y := marginX, d.y
@@ -451,7 +467,7 @@ func (d *reportDoc) drawExecutiveSummary(stats reportStats, complianceScore int)
 		copy = "Найдены зоны, которые стоит проверить вручную и закрыть до повторной проверки."
 	}
 
-	d.statusPill(x+11, y+7, riskLabel, accent)
+	d.statusPill(x+11, y+7, scoreLabel, accent)
 	setText(pdf, pdfText)
 	setFont(pdf, "B", 12)
 	pdf.SetXY(x+11, y+16)
@@ -461,6 +477,193 @@ func (d *reportDoc) drawExecutiveSummary(stats reportStats, complianceScore int)
 	pdf.SetXY(x+11, y+23)
 	pdf.MultiCell(160, 4.5, copy, "", "L", false)
 	d.y += h + 9
+}
+
+func imageType(filePath string) string {
+	switch strings.ToLower(filepath.Ext(filePath)) {
+	case ".png":
+		return "PNG"
+	case ".jpg", ".jpeg":
+		return "JPG"
+	default:
+		return ""
+	}
+}
+
+func countryName(code string) string {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "ru":
+		return "Россия"
+	case "us":
+		return "США"
+	case "kz":
+		return "Казахстан"
+	case "by":
+		return "Беларусь"
+	case "de":
+		return "Германия"
+	case "nl":
+		return "Нидерланды"
+	case "fr":
+		return "Франция"
+	case "", "unknown", "localhost":
+		return "Не определено"
+	default:
+		return strings.ToUpper(code)
+	}
+}
+
+func formatUnixTime(value int64) string {
+	if value <= 0 {
+		return "Не определено"
+	}
+	ts := value
+	if ts > 100000000000 {
+		ts = ts / 1000
+	}
+	return time.Unix(ts, 0).UTC().Format("02.01.2006")
+}
+
+func (d *reportDoc) drawScreenshot(payload store.ReportPayload, options ReportOptions) {
+	if payload.ScreenshotID == "" {
+		d.sectionTitle("Скриншот сайта", "Worker не передал верхний screenshotId для этого отчета.")
+		return
+	}
+
+	filePath := options.ImagePaths[payload.ScreenshotID]
+	if filePath == "" {
+		d.sectionTitle("Скриншот сайта", "Файл скриншота недоступен; сохранен только image id: "+payload.ScreenshotID)
+		return
+	}
+	if _, err := os.Stat(filePath); err != nil {
+		d.sectionTitle("Скриншот сайта", "Файл скриншота отсутствует; image id: "+payload.ScreenshotID)
+		return
+	}
+
+	d.sectionTitle("Скриншот сайта", "Верхний screenshot из crawler-worker evidence.")
+	d.ensureSpace(78)
+	x, y := marginX, d.y
+	d.roundedPanel(x, y, usableW, 76)
+	opts := gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true}
+	d.pdf.ImageOptions(filePath, x+6, y+7, usableW-12, 62, false, opts, 0, "")
+	setText(d.pdf, pdfDim)
+	setFont(d.pdf, "", 7.2)
+	d.pdf.SetXY(x+6, y+70)
+	d.pdf.CellFormat(0, 4, "image id: "+payload.ScreenshotID, "", 0, "L", false, 0, "")
+	d.y += 84
+}
+
+func (d *reportDoc) drawSiteInfo(payload store.ReportPayload) {
+	d.ensureSpace(48)
+	x, y := marginX, d.y
+	d.roundedPanel(x, y, usableW, 40)
+	setText(d.pdf, pdfText)
+	setFont(d.pdf, "B", 11)
+	d.pdf.SetXY(x+7, y+8)
+	d.pdf.CellFormat(0, 5, "Информация о сайте", "", 0, "L", false, 0, "")
+	setText(d.pdf, pdfMuted)
+	setFont(d.pdf, "", 8.2)
+	country := countryName(payload.Country)
+	code := strings.ToUpper(strings.TrimSpace(payload.Country))
+	if code == "" || strings.EqualFold(code, "unknown") || strings.EqualFold(code, "localhost") {
+		code = "—"
+	}
+	d.pdf.SetXY(x+7, y+18)
+	d.pdf.CellFormat(0, 4.5, fmt.Sprintf("Страна: %s / ISO: %s", country, code), "", 0, "L", false, 0, "")
+	about := strings.TrimSpace(payload.About)
+	if about == "" {
+		about = "Краткое описание сайта не передано worker."
+	}
+	d.pdf.SetXY(x+7, y+25)
+	d.pdf.MultiCell(usableW-14, 4.5, about, "", "L", false)
+	d.y += 47
+}
+
+func (d *reportDoc) drawSSLBlock(info *store.SslInfo) {
+	d.ensureSpace(54)
+	x, y := marginX, d.y
+	d.roundedPanel(x, y, usableW, 48)
+	setText(d.pdf, pdfText)
+	setFont(d.pdf, "B", 11)
+	d.pdf.SetXY(x+7, y+8)
+	d.pdf.CellFormat(0, 5, "SSL/TLS", "", 0, "L", false, 0, "")
+	setText(d.pdf, pdfMuted)
+	setFont(d.pdf, "", 8.2)
+	if info == nil {
+		d.pdf.SetXY(x+7, y+19)
+		d.pdf.CellFormat(0, 4.5, "Worker не передал верхний SSL-блок.", "", 0, "L", false, 0, "")
+		d.y += 55
+		return
+	}
+	status := "не истек"
+	if info.ValidTo > 0 {
+		ts := info.ValidTo
+		if ts > 100000000000 {
+			ts = ts / 1000
+		}
+		if time.Unix(ts, 0).Before(time.Now()) {
+			status = "истек"
+		}
+	}
+	lines := []string{
+		"issuer: " + emptyDash(info.Issuer),
+		"protocol: " + emptyDash(info.Protocol),
+		"subjectName: " + emptyDash(info.SubjectName),
+		"validFrom: " + formatUnixTime(info.ValidFrom),
+		"validTo: " + formatUnixTime(info.ValidTo) + " (" + status + ")",
+		"SAN: " + emptyDash(strings.Join(info.SubjectAlternativeNames, ", ")),
+	}
+	d.pdf.SetXY(x+7, y+18)
+	d.pdf.MultiCell(usableW-14, 4.2, strings.Join(lines, "\n"), "", "L", false)
+	d.y += 55
+}
+
+func emptyDash(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "—"
+	}
+	return value
+}
+
+func (d *reportDoc) drawImageEvidence(title string, imageIDs []string, options ReportOptions) {
+	if len(imageIDs) == 0 {
+		return
+	}
+	d.sectionTitle("Evidence images: "+title, "Прикрепленные изображения из /api/img/upload. Если файл недоступен, ниже указан image id.")
+	for index, imageID := range imageIDs {
+		if index >= 4 {
+			d.ensureSpace(9)
+			setText(d.pdf, pdfDim)
+			setFont(d.pdf, "", 7.2)
+			d.pdf.SetXY(marginX, d.y)
+			d.pdf.CellFormat(0, 4, fmt.Sprintf("Еще изображений: %d", len(imageIDs)-index), "", 0, "L", false, 0, "")
+			d.y += 8
+			return
+		}
+		filePath := options.ImagePaths[imageID]
+		if filePath == "" {
+			d.ensureSpace(18)
+			blockH := d.detailBlock(marginX, d.y, usableW, "image id: "+imageID+" (файл не найден)")
+			d.y += blockH + 4
+			continue
+		}
+		if _, err := os.Stat(filePath); err != nil {
+			d.ensureSpace(18)
+			blockH := d.detailBlock(marginX, d.y, usableW, "image id: "+imageID+" (файл отсутствует на диске)")
+			d.y += blockH + 4
+			continue
+		}
+		d.ensureSpace(54)
+		x, y := marginX, d.y
+		d.roundedPanel(x, y, usableW, 48)
+		opts := gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true}
+		d.pdf.ImageOptions(filePath, x+6, y+6, 70, 36, false, opts, 0, "")
+		setText(d.pdf, pdfDim)
+		setFont(d.pdf, "", 7.2)
+		d.pdf.SetXY(x+82, y+12)
+		d.pdf.MultiCell(90, 4.2, "image id: "+imageID, "", "L", false)
+		d.y += 54
+	}
 }
 
 func (d *reportDoc) sectionTitle(title, subtitle string) {
@@ -730,9 +933,17 @@ func (d *reportDoc) drawPassedChecks(items []store.Result) {
 	}
 }
 
-// GeneratePDFReport creates a premium dark compliance PDF report from check results.
+// GeneratePDFReport creates a premium dark compliance PDF report from a normalized worker payload.
 // It preserves the existing API and output path used by auth.Store.SaveReport.
-func GeneratePDFReport(targetURL string, results []store.Result, outputPath string) error {
+func GeneratePDFReport(targetURL string, payload store.ReportPayload, outputPath string, opts ...ReportOptions) error {
+	options := ReportOptions{}
+	if len(opts) > 0 {
+		options = opts[0]
+	}
+	if options.ImagePaths == nil {
+		options.ImagePaths = map[string]string{}
+	}
+	results := payload.Checks
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(0, 0, 0)
 	pdf.SetAutoPageBreak(false, 0)
@@ -747,15 +958,20 @@ func GeneratePDFReport(targetURL string, results []store.Result, outputPath stri
 	hostname := GetHostname(targetURL)
 	stats := summarize(results)
 	complianceScore := calcComplianceScore(results)
+	fineEstimate := compliance.Estimate(results)
 
-	doc.drawHero(targetURL, hostname, stats, complianceScore)
-	doc.drawSummary(stats, complianceScore)
+	doc.drawHero(targetURL, hostname, stats, complianceScore, payload)
+	doc.drawScreenshot(payload, options)
+	doc.drawSummary(stats, complianceScore, fineEstimate)
 	doc.drawExecutiveSummary(stats, complianceScore)
+	doc.drawSiteInfo(payload)
+	doc.drawSSLBlock(payload.SSL)
 
 	if len(stats.violations) > 0 {
 		doc.sectionTitle("Critical findings", "Нарушения и предупреждения сгруппированы как evidence-блоки. Цвет используется только как мягкий акцент, статус всегда подписан текстом.")
 		for _, item := range stats.violations {
 			doc.drawFinding(item)
+			doc.drawImageEvidence(item.ID, item.Images, options)
 		}
 	}
 

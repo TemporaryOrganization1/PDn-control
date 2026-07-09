@@ -22,7 +22,7 @@ const plans = [
     features: [
       "3 бесплатные проверки",
       "Базовый отчет",
-      "Поддержка по email",
+      "Поддержка по почте",
       "Можно начать без регистрации",
     ],
     cta: "Начать бесплатно",
@@ -40,7 +40,7 @@ const plans = [
       "Неограниченные проверки",
       "Расширенный отчет с PDF",
       "Приоритетная поддержка",
-      "API доступ",
+      "Доступ к API",
       "История проверок",
       "Мультипользовательский доступ",
     ],
@@ -56,7 +56,7 @@ const comparisonRows = [
   { feature: "Количество проверок", free: "3 в месяц", paid: "Неограниченно" },
   { feature: "PDF отчет", free: false, paid: true },
   { feature: "Приоритетная поддержка", free: false, paid: true },
-  { feature: "API доступ", free: false, paid: true },
+  { feature: "Доступ к API", free: false, paid: true },
   { feature: "История проверок", free: "7 дней", paid: "Без ограничений" },
   { feature: "Мультипользовательский доступ", free: false, paid: true },
   { feature: "Кастомные правила", free: false, paid: true },
@@ -84,7 +84,7 @@ export default function PricingPage() {
   return (
     <DashboardPage>
       <DashboardHeader
-        eyebrow="Pricing"
+        eyebrow="Тарифы"
         title="Тарифы и цены"
         description="Выберите режим проверки под текущую задачу: первичная оценка рисков или регулярный контроль с расширенными отчетами."
       />
@@ -94,7 +94,7 @@ export default function PricingPage() {
           <DashboardSectionTitle
             icon={ShieldCheck}
             title="Планы"
-            description="Платный план выделен не цветом, а светлой рамкой, верхней подсветкой и основным premium CTA."
+            description="Платный план выделен не цветом, а светлой рамкой, верхней подсветкой и основной кнопкой действия."
           />
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -148,7 +148,7 @@ export default function PricingPage() {
           <DashboardSectionTitle
             icon={Infinity}
             title="Сравнение тарифов"
-            description="Таблица компактная на desktop и остается читаемой на узких экранах через горизонтальный скролл."
+            description="Таблица компактная на настольных экранах и остается читаемой на узких экранах через горизонтальную прокрутку."
           />
           <DashboardCard className="overflow-hidden p-0">
             <div className="overflow-x-auto">

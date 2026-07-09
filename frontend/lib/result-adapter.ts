@@ -1,5 +1,7 @@
-import type { BackendCheckResult, CheckHistoryItem, TaskState } from "@/lib/api";
-import type { CheckItem, CheckResult } from "@/lib/data";
+import type { BackendCheckResult, BackendSslInfo, CheckHistoryItem, TaskState } from "@/lib/api";
+import { countryCodeToDisplayName, countryCodeToFlagUrl } from "@/lib/country";
+import type { CheckItem, CheckResult, ServerGeoItem } from "@/lib/data";
+import { calculateFineEstimate } from "@/lib/fines";
 
 type UiStatus = CheckItem["status"];
 
@@ -8,11 +10,11 @@ const CHECK_LABELS: Record<string, string> = {
   "ssl/tls": "SSL/TLS сертификат",
   ips: "География серверов",
   country: "География серверов",
-  "cookie-ads": "Cookie и сторонние трекеры",
-  cookies: "Cookie и сторонние трекеры",
+  "cookie-ads": "Куки и сторонние трекеры",
+  cookies: "Куки и сторонние трекеры",
   "sep-consent": "Согласие на обработку ПДн",
   "privacy-policy": "Политика конфиденциальности",
-  "cookie-banner": "Cookie-баннер",
+  "cookie-banner": "Куки-баннер",
   "consent-forms": "Формы согласия",
   forms: "Формы сбора данных",
   "email-pdn": "Контакты по персональным данным",
@@ -28,6 +30,35 @@ function toUiStatus(result: string): UiStatus {
   return "fail";
 }
 
+function isRussianDomainName(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.endsWith(".ru") || normalized.endsWith(".su") || normalized.endsWith(".xn--p1ai");
+}
+
+function sslIssueEntries(check: BackendCheckResult): Array<[string, string]> {
+  const endpoints = check.data?.endpoints;
+  if (!endpoints || typeof endpoints !== "object" || Array.isArray(endpoints)) return [];
+  return Object.entries(endpoints as Record<string, unknown>).flatMap(([domain, reason]) => {
+    if (typeof reason !== "string") return [];
+    return [[domain, reason] as [string, string]];
+  });
+}
+
+function hasOnlyRussianBrowserTrustIssues(check: BackendCheckResult): boolean {
+  if (check.id !== "ssl/tls" || check.result !== "fail") return false;
+  const issues = sslIssueEntries(check);
+  return issues.length > 0 && issues.every(([domain, reason]) => reason === "insecure" && isRussianDomainName(domain));
+}
+
+function normalizeCheckResult(check: BackendCheckResult): BackendCheckResult {
+  if (!hasOnlyRussianBrowserTrustIssues(check)) return check;
+  return {
+    ...check,
+    result: "warn",
+    about: check.about || "SSL/TLS сертификат использует российскую цепочку доверия; это не считается критической ошибкой, но стоит проверить вручную.",
+  };
+}
+
 function titleFor(status: UiStatus): CheckItem["title"] {
   if (status === "pass") return "отлично";
   if (status === "warning") return "предупреждение";
@@ -36,6 +67,9 @@ function titleFor(status: UiStatus): CheckItem["title"] {
 
 function descriptionFor(check: BackendCheckResult, status: UiStatus): string {
   if (check.about && check.about !== "<nil>") return check.about;
+  if (check.data && typeof check.data.about === "string" && check.data.about !== "<nil>") {
+    return check.data.about;
+  }
   const label = CHECK_LABELS[check.id] || check.id;
   if (status === "pass") return `${label}: нарушений не обнаружено.`;
   if (status === "warning") return `${label}: обнаружены предупреждения, рекомендуется проверить вручную.`;
@@ -155,11 +189,17 @@ function domainsFor(check: BackendCheckResult): string[] {
   return Array.from(result);
 }
 
+function stringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === "string");
+}
+
 function toCheckItem(check: BackendCheckResult): CheckItem {
   const status = toUiStatus(check.result);
   const label = CHECK_LABELS[check.id] || check.id;
   const dataDetails = flattenData(check.data);
-  const pages = check.pages || [];
+  const pages = check.pages?.length ? check.pages : stringArray(check.data?.pages);
+  const images = check.images?.length ? check.images : stringArray(check.data?.images);
 
   return {
     status,
@@ -169,6 +209,7 @@ function toCheckItem(check: BackendCheckResult): CheckItem {
     lawExcerpts: status === "pass" ? [] : ["Проверьте соответствие требованиям 152-ФЗ и связанным нормативным актам."],
     foundUrls: pages,
     domainsIps: domainsFor(check),
+    images,
     title: titleFor(status),
   };
 }
@@ -195,6 +236,7 @@ function fallbackItem(label: string): CheckItem {
     lawExcerpts: [],
     foundUrls: [],
     domainsIps: [],
+    images: [],
     title: "отлично",
   };
 }
@@ -222,32 +264,76 @@ function statusFromCounts(failedCount: number, warningCount: number): CheckResul
   return "compliant";
 }
 
-function riskScore(failedCount: number, warningCount: number, totalCount: number): number {
-  if (totalCount === 0) return 0;
-  return Math.min(100, failedCount * 30 + warningCount * 15);
+function completionScore(results: BackendCheckResult[]): number {
+  if (results.length === 0) return 0;
+  const points = results.reduce((total, item) => {
+    if (item.result === "ok") return total + 1;
+    if (item.result === "warn") return total + 0.5;
+    return total;
+  }, 0);
+  return Math.round((points / results.length) * 100);
 }
 
-function maxFineLegalEntity(overallStatus: CheckResult["overallStatus"]): number {
-  if (overallStatus === "compliant") return 0;
-  if (overallStatus === "partial") return 300_000;
-  return 500_000;
+function legacyRiskScoreFromCompletion(score: number): number {
+  return Math.max(0, Math.min(100, 100 - score));
 }
 
-function maxFineIndividual(overallStatus: CheckResult["overallStatus"]): number {
-  if (overallStatus === "compliant") return 0;
-  if (overallStatus === "partial") return 50_000;
-  return 100_000;
+function formatSslDate(value?: number): string {
+  if (!value) return "Не определено";
+  const timestampMs = value > 100_000_000_000 ? value : value * 1000;
+  const date = new Date(timestampMs);
+  if (Number.isNaN(date.getTime())) return "Не определено";
+  return date.toLocaleDateString("ru-RU", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function sslIsExpired(ssl?: BackendSslInfo | null): boolean {
+  if (!ssl?.validTo) return false;
+  const timestampMs = ssl.validTo > 100_000_000_000 ? ssl.validTo : ssl.validTo * 1000;
+  return timestampMs < Date.now();
+}
+
+function serverGeoFor(results: BackendCheckResult[]): ServerGeoItem[] {
+  const data = results.find((item) => item.id === "ips" || item.id === "country")?.data;
+  const services = Array.isArray(data?.services) ? data.services : [];
+  return services.flatMap((service) => {
+    if (!service || typeof service !== "object") return [];
+    const item = service as Record<string, unknown>;
+    const domain = typeof item.domain === "string" ? item.domain : "Не определено";
+    const ips = stringArray(item.ip);
+    const countries = stringArray(item.country);
+    if (ips.length === 0) {
+      return [{ domain, ip: "Не определено", country: countries[0] || "unknown" }];
+    }
+    return ips.map((ip, index) => ({
+      domain,
+      ip,
+      country: countries[index] || countries[0] || "unknown",
+    }));
+  });
+}
+
+function normalizedCountryCode(value?: string | null): string | undefined {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === "unknown" || normalized === "localhost") return undefined;
+  return normalized;
 }
 
 export function taskToCheckResult(task: TaskState): CheckResult {
-  const results = task.results || [];
+  const results = (task.results || []).map(normalizeCheckResult);
   const passedCount = results.filter((item) => item.result === "ok").length;
   const warningCount = results.filter((item) => item.result === "warn").length;
   const failedCount = results.filter((item) => item.result === "fail").length;
   const totalCount = results.length;
   const overallStatus = statusFromCounts(failedCount, warningCount);
-  const score = Math.max(0, 100 - riskScore(failedCount, warningCount, totalCount));
+  const score = completionScore(results);
   const checks = sortChecksBySeverity(results.map(toCheckItem));
+  const fineEstimate = calculateFineEstimate(results);
+  const countryCode = normalizedCountryCode(task.country);
+  const ssl = task.ssl;
 
   return {
     url: task.url,
@@ -259,22 +345,28 @@ export function taskToCheckResult(task: TaskState): CheckResult {
     securityStatus: pickItem(results, ["https", "ssl/tls", "ips", "country"], "Меры защиты данных"),
     checks,
     checkedAt: formatDate(task.created_at),
-    maxFineLegalEntity: maxFineLegalEntity(overallStatus),
-    maxFineIndividual: maxFineIndividual(overallStatus),
-    riskScore: riskScore(failedCount, warningCount, totalCount),
+    maxFineLegalEntity: fineEstimate.legalEntity,
+    maxFineIndividual: fineEstimate.physicalPerson,
+    riskScore: legacyRiskScoreFromCompletion(score),
     checkType: "free",
     passedCount,
     failedCount,
     warningCount,
     totalCount,
     siteIps: domainsFor(results.find((item) => ["ips", "country"].includes(item.id)) || { id: "", result: "ok" }),
-    siteCountry: "Не определено",
-    siteCountryFlag: "",
-    siteAiDescription: results.find((item) => item.about && item.about !== "<nil>")?.about || "Описание сайта не передано backend.",
-    sslIssuer: "Не определено",
-    sslValidFrom: "Не определено",
-    sslValidTo: "Не определено",
-    sslIsExpired: results.some((item) => item.id === "ssl/tls" && item.result === "fail"),
+    siteCountry: countryCodeToDisplayName(task.country),
+    siteCountryCode: countryCode,
+    siteCountryFlag: countryCodeToFlagUrl(task.country) || "",
+    serverGeo: serverGeoFor(results),
+    siteAiDescription: task.about || results.find((item) => item.about && item.about !== "<nil>")?.about || "Описание сайта не передано бэкендом.",
+    screenshotId: task.screenshotId ?? null,
+    sslIssuer: ssl?.issuer || "Не определено",
+    sslProtocol: ssl?.protocol || "Не определено",
+    sslSubjectName: ssl?.subjectName || "Не определено",
+    sslSubjectAlternativeNames: ssl?.subjectAlternativeNames || [],
+    sslValidFrom: formatSslDate(ssl?.validFrom),
+    sslValidTo: formatSslDate(ssl?.validTo),
+    sslIsExpired: sslIsExpired(ssl) || results.some((item) => item.id === "ssl/tls" && item.result === "fail"),
     reportId: task.report_id,
   };
 }
@@ -287,6 +379,10 @@ export function historyItemToTask(item: CheckHistoryItem): TaskState {
     status: item.status,
     progress: item.status === "completed" ? 100 : 0,
     results: item.results || [],
+    screenshotId: item.screenshotId,
+    ssl: item.ssl,
+    about: item.about,
+    country: item.country,
     errors: [],
     report_id: item.report_id,
     created_at: item.created_at,

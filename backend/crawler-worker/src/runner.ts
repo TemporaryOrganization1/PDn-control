@@ -38,7 +38,7 @@ export async function runCheck(
   type: string,
   config: any,
   onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>,
-  uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>
+  uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null> = async () => null
 ): Promise<any> {
   const domain = getDomain(baseUrl);
   if (domain === null) {
@@ -61,7 +61,7 @@ export async function runCheck(
     throw new Error('Failed to connect to ' + baseUrl);
   }
 
-  sr.finish();
+  await sr.finish();
   await page.close();
 
   return sr.result;

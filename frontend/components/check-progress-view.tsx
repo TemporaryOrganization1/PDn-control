@@ -104,7 +104,7 @@ export default function CheckProgressView() {
   }, [reqId, router]);
 
   const progress = Math.max(0, Math.min(100, task?.progress || 0));
-  const checkedUrl = task?.url || "ожидаем данные backend";
+  const checkedUrl = task?.url || "ожидаем данные бэкенда";
   const currentStatus = useMemo(() => task?.status || "queued", [task?.status]);
   const activeStage = useMemo(() => activeStageIndex(progress, currentStatus), [currentStatus, progress]);
   const currentStatusLabel = useMemo(
@@ -113,15 +113,15 @@ export default function CheckProgressView() {
   );
   const scanLog = useMemo(
     () => [
-      "[12:41:02] task accepted by queue",
-      "[12:41:04] crawler worker started",
-      `[12:41:07] target: ${checkedUrl}`,
+      "[12:41:02] задача принята в очередь",
+      "[12:41:04] обработчик запустил проверку",
+      `[12:41:07] цель: ${checkedUrl}`,
       progress >= 20
-        ? "[12:41:11] public pages discovery in progress"
-        : "[12:41:11] waiting for browser context",
+        ? "[12:41:11] идет поиск публичных страниц"
+        : "[12:41:11] ожидаем браузерный контекст",
       progress >= 60
-        ? "[12:41:18] analyzing forms, policy and ssl evidence"
-        : "[12:41:18] collecting technical signals",
+        ? "[12:41:18] анализируем формы, политику и SSL-доказательства"
+        : "[12:41:18] собираем технические признаки",
     ],
     [checkedUrl, progress]
   );
@@ -148,7 +148,7 @@ export default function CheckProgressView() {
       <section className="border-b border-white/10 px-5 py-12 sm:px-8 sm:py-16 lg:px-10">
         <div className="mx-auto max-w-5xl">
           <div className="mb-8">
-            <p className="text-sm font-medium text-primary">Scan console</p>
+            <p className="text-sm font-medium text-primary">Ход проверки</p>
             <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
               Проверяем сайт
             </h1>
@@ -179,7 +179,7 @@ export default function CheckProgressView() {
 
               <div className="mt-6">
                 <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Progress</span>
+                  <span>Прогресс</span>
                   <span className="font-mono tabular-nums">{Math.round(progress)}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-white/10">
@@ -252,7 +252,7 @@ export default function CheckProgressView() {
                 <div className="border-t border-white/10 bg-black/20 p-5 lg:border-l lg:border-t-0 sm:p-6">
                   <div className="mb-4 flex items-center gap-2 text-xs font-medium text-muted-foreground">
                     <Terminal className="h-3.5 w-3.5 text-primary" />
-                    technical log
+                    Технический журнал
                   </div>
                   <div className="space-y-2">
                     {scanLog.map((line) => (
@@ -272,4 +272,3 @@ export default function CheckProgressView() {
     </div>
   );
 }
-

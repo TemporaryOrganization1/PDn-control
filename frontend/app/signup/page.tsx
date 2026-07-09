@@ -47,7 +47,7 @@ export default function SignupPage() {
 
       const result = await signup(email, password);
       if (result.status === "pending_verification") {
-        toast.success("Аккаунт создан! Проверьте email для подтверждения.", {
+        toast.success("Аккаунт создан! Проверьте почту для подтверждения.", {
           duration: 5000,
         });
         setShowVerificationMessage(true);
@@ -118,7 +118,7 @@ export default function SignupPage() {
         <form onSubmit={handleSubmit} className="mt-10 space-y-5">
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium text-foreground/90">
-              Email
+              Электронная почта
             </label>
             <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
               <div className="flex min-w-0 flex-1 items-center gap-3 px-3">

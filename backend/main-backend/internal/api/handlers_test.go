@@ -32,9 +32,11 @@ func TestNormalizeResultsKeepsNestedPagesAndAbout(t *testing.T) {
 		map[string]any{
 			"id":     "https",
 			"result": "ok",
+			"images": []any{"img-1"},
 			"data": map[string]any{
 				"pages": []any{"https://example.com/privacy"},
 				"about": "HTTPS check",
+				"extra": "kept",
 			},
 		},
 		map[string]any{
@@ -59,8 +61,60 @@ func TestNormalizeResultsKeepsNestedPagesAndAbout(t *testing.T) {
 	if results[0].About != "HTTPS check" {
 		t.Fatalf("first about = %q, want HTTPS check", results[0].About)
 	}
+	if len(results[0].Images) != 1 || results[0].Images[0] != "img-1" {
+		t.Fatalf("first images = %#v, want img-1", results[0].Images)
+	}
+	if data, ok := results[0].Data.(map[string]any); !ok || data["extra"] != "kept" {
+		t.Fatalf("first data = %#v, want preserved nested data", results[0].Data)
+	}
 	if results[1].Pages[0] != "/contact" || results[1].About != "Consent form check" {
 		t.Fatalf("second result = %#v, want top-level fields", results[1])
+	}
+}
+
+func TestNormalizeReportPayloadAcceptsWorkerObject(t *testing.T) {
+	input := map[string]any{
+		"checks": []any{
+			map[string]any{
+				"id":     "ssl/tls",
+				"result": "ok",
+				"pages":  []any{"https://example.com"},
+				"about":  "SSL is valid",
+				"images": []any{"img-ssl"},
+				"data": map[string]any{
+					"endpoints": map[string]any{"api.example.com": "ok"},
+				},
+			},
+		},
+		"screenshotId": "img-top",
+		"ssl": map[string]any{
+			"issuer":                  "Example CA",
+			"validFrom":               float64(1700000000),
+			"validTo":                 float64(2000000000),
+			"protocol":                "TLS 1.3",
+			"subjectName":             "example.com",
+			"subjectAlternativeNames": []any{"example.com", "www.example.com"},
+		},
+		"about":   "About site",
+		"country": "RU",
+	}
+
+	payload := normalizeReportPayload(input)
+	if payload.ScreenshotID != "img-top" {
+		t.Fatalf("screenshot = %q, want img-top", payload.ScreenshotID)
+	}
+	if payload.About != "About site" || payload.Country != "ru" {
+		t.Fatalf("about/country = %q/%q, want About site/ru", payload.About, payload.Country)
+	}
+	if payload.SSL == nil || payload.SSL.Issuer != "Example CA" || len(payload.SSL.SubjectAlternativeNames) != 2 {
+		t.Fatalf("ssl = %#v, want normalized ssl", payload.SSL)
+	}
+	if len(payload.Checks) != 1 {
+		t.Fatalf("checks length = %d, want 1", len(payload.Checks))
+	}
+	check := payload.Checks[0]
+	if check.ID != "ssl/tls" || check.Images[0] != "img-ssl" || check.Pages[0] != "https://example.com" || check.About != "SSL is valid" {
+		t.Fatalf("check = %#v, want full normalized check", check)
 	}
 }
 

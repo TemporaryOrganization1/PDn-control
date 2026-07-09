@@ -124,7 +124,7 @@ func NewServer(cfg Config) (*Server, error) {
 	s.echo.Use(middleware.Recover())
 	s.echo.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     allowedOrigins(cfg.AllowedOrigins),
-		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodOptions},
 		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization},
 		AllowCredentials: true,
 	}))
@@ -153,6 +153,7 @@ func (s *Server) registerRoutes() {
 	s.echo.GET("/api/progress/:reqId", s.handleProgress)
 	s.echo.GET("/api/reports", s.handleListReports)
 	s.echo.GET("/api/reports/:reportId", s.handleDownloadReport)
+	s.echo.DELETE("/api/reports/:reportId", s.handleDeleteReport)
 	s.echo.POST("/api/progress", s.handleProgressUpdate)
 	s.echo.GET("/api/workers", s.handleWorkerStatus)
 	s.echo.GET("/api/health", s.handleHealth)
@@ -478,6 +479,31 @@ func (s *Server) handleDownloadReport(c echo.Context) error {
 	return c.File(report.FilePath)
 }
 
+func (s *Server) handleDeleteReport(c echo.Context) error {
+	user := s.currentUser(c)
+	if user == nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
+	}
+
+	reportID := c.Param("reportId")
+	if reportID == "" {
+		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "report id is required")
+	}
+
+	if err := s.authStore.DeleteReport(c.Request().Context(), user.Email, reportID); err != nil {
+		if errors.Is(err, auth.ErrReportNotFound) {
+			return s.errResponse(c, http.StatusNotFound, "ERR_NOT_FOUND", "", "report not found")
+		}
+		if errors.Is(err, auth.ErrReportForbidden) {
+			return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", "", "access denied")
+		}
+		log.Printf("[API] Failed to delete report %s for %s: %v", reportID, user.Email, err)
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to delete report")
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (s *Server) handleGuestRemaining(c echo.Context) error {
 	clientIP := getClientIP(c)
 	remaining := s.store.GetGuestRemaining(clientIP, s.config.GuestLimit)
@@ -550,7 +576,11 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 
 	s.store.UpdateProgress(update.ReqID, update.Progress, update.Status, update.Completed, update.Errors)
 
-	results := normalizeResults(update.Data)
+	payload := normalizeReportPayload(update.Data)
+	results := payload.Checks
+	if hasReportPayload(payload) {
+		s.store.SetReportPayload(update.ReqID, payload)
+	}
 	if isFinalProgress(update) && len(results) > 0 {
 		task := s.store.Get(update.ReqID)
 		targetURL := ""
@@ -562,12 +592,12 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 			existingReportID = task.ReportID
 		}
 
-		s.store.SetResults(update.ReqID, results)
+		s.store.SetReportPayload(update.ReqID, payload)
 
 		email := auth.NormalizeEmail(update.UserEmail)
 		historyReportID := ""
 		if email != "" {
-			history, err := s.authStore.SaveCheckHistory(c.Request().Context(), email, update.ReqID, targetURL, checkType, update.Status, results)
+			history, err := s.authStore.SaveCheckHistory(c.Request().Context(), email, update.ReqID, targetURL, checkType, update.Status, payload)
 			if err != nil {
 				log.Printf("[API] Failed to save check history for %s: %v", update.ReqID, err)
 			} else if history != nil {
@@ -581,7 +611,7 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 
 		if existingReportID == "" && historyReportID == "" {
 			log.Printf("[API] Saving PDF report: req=%s, email=%s, results=%d", update.ReqID, email, len(results))
-			reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, update.ReqID, results)
+			reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, update.ReqID, payload)
 			if err != nil {
 				log.Printf("[API] Failed to save PDF report for progress update %s: %v", update.ReqID, err)
 			} else {
@@ -933,16 +963,141 @@ func toStringSlice(v any) []string {
 	return nil
 }
 
-func isFinalProgress(update models.ProgressUpdate) bool {
-	return update.Status == "completed" || update.Progress >= 100
+func toStringValue(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch value := v.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case fmt.Stringer:
+		return strings.TrimSpace(value.String())
+	default:
+		text := strings.TrimSpace(fmt.Sprintf("%v", value))
+		if text == "<nil>" {
+			return ""
+		}
+		return text
+	}
 }
 
-func normalizeResults(data any) []store.Result {
-	items, ok := data.([]any)
+func toInt64Value(v any) int64 {
+	switch value := v.(type) {
+	case int:
+		return int64(value)
+	case int64:
+		return value
+	case int32:
+		return int64(value)
+	case float64:
+		return int64(value)
+	case float32:
+		return int64(value)
+	case json.Number:
+		n, _ := value.Int64()
+		return n
+	case string:
+		var n int64
+		if _, err := fmt.Sscanf(value, "%d", &n); err == nil {
+			return n
+		}
+	}
+	return 0
+}
+
+func normalizeNullableString(v any) string {
+	value := toStringValue(v)
+	switch strings.ToLower(value) {
+	case "", "null", "<nil>":
+		return ""
+	default:
+		return value
+	}
+}
+
+func normalizeCountry(v any) string {
+	value := strings.ToLower(normalizeNullableString(v))
+	if value == "localhost" {
+		return "unknown"
+	}
+	return value
+}
+
+func normalizeSSLInfo(v any) *store.SslInfo {
+	if v == nil {
+		return nil
+	}
+	if info, ok := v.(*store.SslInfo); ok {
+		return info
+	}
+	if info, ok := v.(store.SslInfo); ok {
+		return &info
+	}
+	m, ok := v.(map[string]any)
 	if !ok {
 		return nil
 	}
 
+	info := &store.SslInfo{
+		Issuer:                  normalizeNullableString(m["issuer"]),
+		ValidFrom:               toInt64Value(m["validFrom"]),
+		ValidTo:                 toInt64Value(m["validTo"]),
+		Protocol:                normalizeNullableString(m["protocol"]),
+		SubjectName:             normalizeNullableString(m["subjectName"]),
+		SubjectAlternativeNames: toStringSlice(m["subjectAlternativeNames"]),
+	}
+	if info.Issuer == "" && info.ValidFrom == 0 && info.ValidTo == 0 && info.Protocol == "" && info.SubjectName == "" && len(info.SubjectAlternativeNames) == 0 {
+		return nil
+	}
+	return info
+}
+
+func isFinalProgress(update models.ProgressUpdate) bool {
+	return update.Status == "completed" || update.Progress >= 100
+}
+
+func hasReportPayload(payload store.ReportPayload) bool {
+	return len(payload.Checks) > 0 || payload.ScreenshotID != "" || payload.SSL != nil || payload.About != "" || payload.Country != ""
+}
+
+func normalizeReportPayload(data any) store.ReportPayload {
+	switch value := data.(type) {
+	case nil:
+		return store.ReportPayload{}
+	case store.ReportPayload:
+		return value
+	case []store.Result:
+		return store.PayloadFromResults(value)
+	case []any:
+		return store.PayloadFromResults(normalizeResultItems(value))
+	case map[string]any:
+		payload := store.ReportPayload{
+			ScreenshotID: normalizeNullableString(value["screenshotId"]),
+			SSL:          normalizeSSLInfo(value["ssl"]),
+			About:        normalizeNullableString(value["about"]),
+			Country:      normalizeCountry(value["country"]),
+		}
+		if checks, ok := value["checks"]; ok {
+			payload.Checks = normalizeResultList(checks)
+		}
+		return payload
+	default:
+		return store.ReportPayload{}
+	}
+}
+
+func normalizeResultList(data any) []store.Result {
+	switch items := data.(type) {
+	case []store.Result:
+		return append([]store.Result(nil), items...)
+	case []any:
+		return normalizeResultItems(items)
+	default:
+		return nil
+	}
+}
+
+func normalizeResultItems(items []any) []store.Result {
 	results := make([]store.Result, 0, len(items))
 	for _, item := range items {
 		rm, ok := item.(map[string]any)
@@ -960,14 +1115,32 @@ func normalizeResults(data any) []store.Result {
 		if about == "" && dataMap != nil {
 			about, _ = dataMap["about"].(string)
 		}
+		images := toStringSlice(rm["images"])
+		if len(images) == 0 && dataMap != nil {
+			images = toStringSlice(dataMap["images"])
+		}
+
+		id := normalizeNullableString(rm["id"])
+		if id == "" {
+			continue
+		}
+		result := normalizeNullableString(rm["result"])
+		if result == "" {
+			result = "ok"
+		}
 
 		results = append(results, store.Result{
-			ID:     fmt.Sprintf("%v", rm["id"]),
-			Result: fmt.Sprintf("%v", rm["result"]),
+			ID:     id,
+			Result: result,
 			Pages:  pages,
 			About:  about,
+			Images: images,
 			Data:   rm["data"],
 		})
 	}
 	return results
+}
+
+func normalizeResults(data any) []store.Result {
+	return normalizeReportPayload(data).Checks
 }

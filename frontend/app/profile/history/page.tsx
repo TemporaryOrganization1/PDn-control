@@ -2,12 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
   Download,
+  Eye,
   FileText,
   ListFilter,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -22,7 +25,9 @@ import {
   DashboardSectionTitle,
   DashboardStatusPill,
 } from "@/components/profile-dashboard";
-import { downloadReport, getReports, type CheckHistoryItem } from "@/lib/api";
+import { deleteReport, downloadReport, getReports, type CheckHistoryItem } from "@/lib/api";
+import { historyItemToTask } from "@/lib/result-adapter";
+import { saveLastResult } from "@/lib/result-storage";
 
 type StatusTone = "neutral" | "success" | "warning" | "danger";
 
@@ -37,7 +42,15 @@ function statusMeta(status: string): {
   if (status === "failed") {
     return { label: "Ошибка", tone: "danger", icon: XCircle };
   }
-  return { label: status || "В работе", tone: "warning", icon: AlertTriangle };
+  const labels: Record<string, string> = {
+    queued: "В очереди",
+    dispatched: "Передано обработчику",
+    starting: "Запускается",
+    data_collection: "Сбор данных",
+    pending: "В ожидании",
+    running: "В работе",
+  };
+  return { label: labels[status] || "В работе", tone: "warning", icon: AlertTriangle };
 }
 
 function formatDate(value: string) {
@@ -46,22 +59,24 @@ function formatDate(value: string) {
   return date.toLocaleString("ru-RU");
 }
 
+function checkTypeLabel(type?: string | null): string {
+  if (type === "fast") return "Быстрая";
+  if (type === "detail" || !type) return "Подробная";
+  return type;
+}
+
 export default function HistoryPage() {
+  const router = useRouter();
   const [history, setHistory] = useState<CheckHistoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deletingReportId, setDeletingReportId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     getReports()
       .then((items) => {
         if (cancelled) return;
-        const uniqueItems = Array.from(
-          new Map(
-            items
-              .filter((item) => item.report_id)
-              .map((item) => [item.req_id || item.report_id, item])
-          ).values()
-        );
+        const uniqueItems = Array.from(new Map(items.map((item) => [item.req_id || item.report_id || item.id, item])).values());
         setHistory(uniqueItems);
       })
       .catch((loadError) => {
@@ -98,6 +113,31 @@ export default function HistoryPage() {
     }
   };
 
+  const handleOpenReport = (item: CheckHistoryItem) => {
+    saveLastResult(historyItemToTask(item));
+    router.push("/result");
+  };
+
+  const handleDeleteReport = async (item: CheckHistoryItem) => {
+    if (!item.report_id) {
+      toast.error("У этого отчета нет идентификатора PDF-отчета для удаления");
+      return;
+    }
+    const confirmed = window.confirm("Удалить отчет из истории? PDF и связанные изображения будут удалены бэкендом.");
+    if (!confirmed) return;
+
+    setDeletingReportId(item.report_id);
+    try {
+      await deleteReport(item.report_id);
+      setHistory((current) => current?.filter((entry) => entry.report_id !== item.report_id && entry.id !== item.id) ?? null);
+      toast.success("Отчет удален");
+    } catch (deleteError) {
+      toast.error(deleteError instanceof Error ? deleteError.message : "Не удалось удалить отчет");
+    } finally {
+      setDeletingReportId(null);
+    }
+  };
+
   return (
     <AuthGuard>
       <DashboardPage>
@@ -105,7 +145,7 @@ export default function HistoryPage() {
           <BackButton />
         </div>
         <DashboardHeader
-          eyebrow="Reports archive"
+          eyebrow="Архив отчетов"
           title="История проверок"
           description="Архив завершенных отчетов с датой, статусом, краткой сводкой риска и быстрым скачиванием PDF."
         />
@@ -114,7 +154,7 @@ export default function HistoryPage() {
           <DashboardSectionTitle
             icon={ListFilter}
             title="Сводка архива"
-            description="Статусы показаны текстом и мягкой подсветкой, без цветных dashboard-бейджей."
+            description="Статусы показаны текстом и мягкой подсветкой, без цветных панельных меток."
           />
 
           <div className="mb-6 grid gap-4 md:grid-cols-3">
@@ -175,20 +215,39 @@ export default function HistoryPage() {
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
                           <span>{formatDate(item.created_at)}</span>
-                          <span>Тип: {item.check_type || "detail"}</span>
+                          <span>Тип: {checkTypeLabel(item.check_type)}</span>
                           <span>Проверок: {checksTotal}</span>
                           <span>Риск-сигналы: {issuesTotal}</span>
                         </div>
                       </div>
-                      <button
-                        type="button"
-                        className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-55"
-                        disabled={!item.report_id}
-                        onClick={() => handleDownloadPDF(item.report_id)}
-                      >
-                        <Download className="h-4 w-4" />
-                        PDF отчет
-                      </button>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                          onClick={() => handleOpenReport(item)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          Открыть
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-55"
+                          disabled={!item.report_id}
+                          onClick={() => handleDownloadPDF(item.report_id)}
+                        >
+                          <Download className="h-4 w-4" />
+                          PDF отчет
+                        </button>
+                        <button
+                          type="button"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-55"
+                          disabled={!item.report_id || deletingReportId === item.report_id}
+                          onClick={() => handleDeleteReport(item)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {deletingReportId === item.report_id ? "Удаляем..." : "Удалить"}
+                        </button>
+                      </div>
                     </div>
                   </DashboardCard>
                 );
