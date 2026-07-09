@@ -41,6 +41,9 @@ write_common_locations() {
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_read_timeout 300s;
         proxy_send_timeout 300s;
+        proxy_next_upstream error timeout invalid_header http_502 http_503;
+        proxy_next_upstream_tries 3;
+        proxy_connect_timeout 5s;
     }
 
     location / {

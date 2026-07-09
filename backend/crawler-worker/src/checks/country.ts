@@ -61,9 +61,35 @@ export async function prepareCountryChecks (sr: Data) {
             sr.result.checks.push ({
                 'id': 'ips',
                 'result': res,
-                'data': { 'services': services }
+                'data': { 'services': services },
+                'images': []
             });
         },
         'init': () => { return {'services': {}}; }
     });
+}
+
+export async function checkCountry (sr: Data) {
+    try {
+        let zres = await sr.page.goto (sr.genPath('/'), {
+            'waitUntil': 'domcontentloaded'
+        });
+
+        if (zres) {
+            const ip = zres.remoteAddress().ip;
+            if (ip) {
+                const geoResp = await fetch(`${geoipServiceUrl}/api/v1/lookup/${ip}`);
+                if (geoResp.ok) {
+                    const geoData = await geoResp.json() as { country_code?: string; country?: string };
+                    const isoCode = (geoData.country_code || geoData.country || "").toLowerCase();
+                    sr.result.country = isoCode;
+                }
+            }
+        }
+    }
+    catch (e) {
+        if (e instanceof Error) {
+            console.error ('checkCountry failed', e.message);
+        }
+    }
 }
