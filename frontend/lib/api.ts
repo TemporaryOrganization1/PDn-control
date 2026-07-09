@@ -47,7 +47,17 @@ export interface BackendCheckResult {
   result: "ok" | "warn" | "fail" | string;
   pages?: string[];
   about?: string;
+  images?: string[];
   data?: Record<string, unknown>;
+}
+
+export interface BackendSslInfo {
+  issuer: string;
+  validFrom: number;
+  validTo: number;
+  protocol: string;
+  subjectName: string;
+  subjectAlternativeNames: string[];
 }
 
 export interface TaskState {
@@ -58,6 +68,10 @@ export interface TaskState {
   worker?: string;
   progress: number;
   results?: BackendCheckResult[];
+  screenshotId?: string | null;
+  ssl?: BackendSslInfo | null;
+  about?: string | null;
+  country?: string | null;
   errors?: string[];
   report_id?: string;
   created_at?: string;
@@ -74,6 +88,10 @@ export interface CheckHistoryItem {
   created_at: string;
   file_name?: string;
   results?: BackendCheckResult[];
+  screenshotId?: string | null;
+  ssl?: BackendSslInfo | null;
+  about?: string | null;
+  country?: string | null;
 }
 
 export class ApiError extends Error {
@@ -93,13 +111,13 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   ERR_INVALID_TYPE: "Некорректный тип проверки",
   ERR_GUEST_LIMIT: "Гостевой лимит проверок исчерпан. Войдите или зарегистрируйтесь, чтобы продолжить.",
   ERR_WORKER_UNAVAILABLE: "Сейчас нет свободных обработчиков. Попробуйте еще раз чуть позже.",
-  ERR_INVALID_CREDENTIALS: "Неверный email или пароль",
-  ERR_EMAIL_EXISTS: "Пользователь с таким email уже существует",
+  ERR_INVALID_CREDENTIALS: "Неверная почта или пароль",
+  ERR_EMAIL_EXISTS: "Пользователь с такой почтой уже существует",
   ERR_WEAK_PASSWORD: "Пароль должен быть не короче 8 символов",
   ERR_UNAUTHORIZED: "Нужно войти в аккаунт",
   ERR_FORBIDDEN: "Недостаточно прав для этого действия",
   ERR_NOT_FOUND: "Запрошенные данные не найдены",
-  ERR_EMAIL_NOT_VERIFIED: "Подтвердите ваш email перед входом",
+  ERR_EMAIL_NOT_VERIFIED: "Подтвердите вашу почту перед входом",
 };
 
 function normalizeUrl(url: string): string {
@@ -262,4 +280,12 @@ export async function downloadReport(reportId: string): Promise<void> {
   anchor.click();
   window.URL.revokeObjectURL(url);
   anchor.remove();
+}
+
+export async function deleteReport(reportId: string): Promise<void> {
+  const response = await fetch(`/api/reports/${encodeURIComponent(reportId)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  await parseJsonResponse(response);
 }

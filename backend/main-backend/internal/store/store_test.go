@@ -68,7 +68,13 @@ func TestMemoryStoreTaskProgressAndResults(t *testing.T) {
 
 	s.SetWorker("req-1", "http://worker:3000")
 	s.UpdateProgress("req-1", 50, "running", []string{"https"}, []string{"warning"})
-	s.SetResults("req-1", []Result{{ID: "https", Result: "ok"}})
+	s.SetReportPayload("req-1", ReportPayload{
+		Checks:       []Result{{ID: "https", Result: "ok", Images: []string{"img-1"}}},
+		ScreenshotID: "img-top",
+		SSL:          &SslInfo{Issuer: "Example CA"},
+		About:        "About site",
+		Country:      "ru",
+	})
 	s.SetReportID("req-1", "report-1")
 
 	got := s.Get("req-1")
@@ -81,8 +87,11 @@ func TestMemoryStoreTaskProgressAndResults(t *testing.T) {
 	if len(got.Errors) != 1 || got.Errors[0] != "warning" {
 		t.Fatalf("errors = %#v, want warning", got.Errors)
 	}
-	if len(got.Results) != 1 || got.Results[0].ID != "https" {
+	if len(got.Results) != 1 || got.Results[0].ID != "https" || got.Results[0].Images[0] != "img-1" {
 		t.Fatalf("results = %#v, want https result", got.Results)
+	}
+	if got.ScreenshotID != "img-top" || got.SSL == nil || got.SSL.Issuer != "Example CA" || got.About != "About site" || got.Country != "ru" {
+		t.Fatalf("payload fields = screenshot:%q ssl:%#v about:%q country:%q", got.ScreenshotID, got.SSL, got.About, got.Country)
 	}
 	if got.ReportID != "report-1" {
 		t.Fatalf("report id = %q, want report-1", got.ReportID)

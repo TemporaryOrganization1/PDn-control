@@ -84,7 +84,7 @@ export default function PasswordSettingsPage() {
           <BackButton />
         </div>
         <DashboardHeader
-          eyebrow="Account security"
+          eyebrow="Безопасность аккаунта"
           title="Настройки пароля"
           description="Обновите пароль для входа в аккаунт. Проверка совпадения и минимальной длины выполняется до запроса."
         />

@@ -20,7 +20,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           cache-dependency-path: backend/main-backend/go.sum
 
       - name: Formatting check
@@ -65,7 +65,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.25.12"
+          go-version: "1.26.5"
           cache-dependency-path: backend/geoip-service/go.sum
 
       - name: Formatting check

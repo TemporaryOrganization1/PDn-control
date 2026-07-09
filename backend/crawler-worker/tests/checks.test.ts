@@ -20,7 +20,7 @@ describe('HTTPS connection check', () => {
     subscription.fin(data);
 
     expect(state.result.checks).toEqual([
-      { id: 'https', result: 'ok', data: { endpoints: [] } },
+      { id: 'https', result: 'ok', data: { endpoints: [] }, images: [] },
     ]);
   });
 
@@ -35,7 +35,7 @@ describe('HTTPS connection check', () => {
     subscription.fin(data);
 
     expect(state.result.checks).toEqual([
-      { id: 'https', result: 'fail', data: { endpoints: ['cdn.example.com'] } },
+      { id: 'https', result: 'fail', data: { endpoints: ['cdn.example.com'] }, images: [] },
     ]);
   });
 });
@@ -50,6 +50,8 @@ describe('SSL/TLS check', () => {
     subscription.cb(
       {
         url: () => 'https://example.com/',
+        status: () => 200,
+        request: () => ({ redirectChain: () => [] }),
         securityDetails: () => ({
           issuer: () => 'Trusted CA',
           subjectName: () => 'example.com',
@@ -60,7 +62,37 @@ describe('SSL/TLS check', () => {
     subscription.fin(data);
 
     expect(state.result.checks).toEqual([
-      { id: 'ssl/tls', result: 'ok', data: { endpoints: {} } },
+      { id: 'ssl/tls', result: 'ok', data: { endpoints: {} }, images: [] },
+    ]);
+  });
+
+  it('does not fail Russian HTTPS endpoints when Chromium hides Russian trust details', async () => {
+    const state = makeState();
+    await prepareSslConnection(state);
+    const subscription = state.subs.response[0];
+    const data = subscription.init();
+
+    subscription.cb(
+      {
+        url: () => 'https://bs.yandex.ru/',
+        status: () => 200,
+        request: () => ({ redirectChain: () => [] }),
+        securityDetails: () => null,
+      },
+      data,
+    );
+    subscription.fin(data);
+
+    expect(state.result.checks).toEqual([
+      {
+        id: 'ssl/tls',
+        result: 'ok',
+        data: {
+          endpoints: {},
+          acceptedRussianCertificates: ['bs.yandex.ru'],
+        },
+        images: [],
+      },
     ]);
   });
 
@@ -73,6 +105,8 @@ describe('SSL/TLS check', () => {
     subscription.cb(
       {
         url: () => 'https://self.example.com/',
+        status: () => 200,
+        request: () => ({ redirectChain: () => [] }),
         securityDetails: () => ({
           issuer: () => 'self.example.com',
           subjectName: () => 'self.example.com',
@@ -83,6 +117,8 @@ describe('SSL/TLS check', () => {
     subscription.cb(
       {
         url: () => 'http://plain.example.com/',
+        status: () => 200,
+        request: () => ({ redirectChain: () => [] }),
         securityDetails: () => null,
       },
       data,
@@ -99,6 +135,7 @@ describe('SSL/TLS check', () => {
             'self.example.com': 'self-signed',
           },
         },
+        images: [],
       },
     ]);
   });

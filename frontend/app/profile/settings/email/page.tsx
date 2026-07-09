@@ -30,10 +30,10 @@ export default function EmailSettingsPage() {
 
     try {
       await updateEmail(email);
-      toast.success("Email обновлён");
+      toast.success("Почта обновлена");
       router.push("/profile");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Не удалось обновить email");
+      toast.error(error instanceof Error ? error.message : "Не удалось обновить почту");
     } finally {
       setIsLoading(false);
     }
@@ -46,18 +46,18 @@ export default function EmailSettingsPage() {
           <BackButton />
         </div>
         <DashboardHeader
-          eyebrow="Account settings"
-          title="Настройки email"
+          eyebrow="Настройки аккаунта"
+          title="Настройки почты"
           description="Измените адрес электронной почты, который используется для входа и уведомлений аккаунта."
         />
 
         <DashboardPanel>
-          <DashboardSectionTitle icon={Mail} title="Email аккаунта" />
+          <DashboardSectionTitle icon={Mail} title="Почта аккаунта" />
           <DashboardCard className="max-w-2xl">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-foreground">
-                  Новый email
+                  Новая почта
                 </label>
                 <div className="auth-input-shell flex h-14 items-center gap-3 rounded-2xl px-4">
                   <DashboardIcon icon={Mail} size="sm" className="h-8 w-8 rounded-xl" />

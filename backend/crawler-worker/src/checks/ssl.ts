@@ -2,16 +2,57 @@ import type { SecurityDetails } from "puppeteer";
 import type { Data } from "../data.js";
 import { getDomain } from "../url.js";
 
-type SslData = { 'endpoints': {[key: string]: string} };
+type SslData = { 'endpoints': {[key: string]: string}, 'acceptedRussianCertificates': string[] };
+
+const russianCertificateIssuerMarkers = [
+    'russian trusted',
+    'digital.gov.ru',
+    'digital government',
+    'ministry of digital development',
+    'минцифр',
+    'минкомсвяз',
+    'минцифры',
+];
+
+function isHttpsEndpoint(value: string): boolean {
+    try {
+        return new URL(value).protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
+function isRussianDomain(domain: string): boolean {
+    const normalized = domain.trim().toLowerCase();
+    return normalized.endsWith('.ru') || normalized.endsWith('.su') || normalized.endsWith('.xn--p1ai');
+}
+
+function hasRussianCertificateIssuer(details: SecurityDetails): boolean {
+    const issuer = details.issuer().toLowerCase();
+    return russianCertificateIssuerMarkers.some((marker) => issuer.includes(marker));
+}
+
+function addUnique(value: string[], item: string): void {
+    if (!value.includes(item)) value.push(item);
+}
 
 export async function prepareSslConnection (sr: Data) {
     sr.subs.response.push ({
         'cb': (resp, data: SslData) => {
             let details : SecurityDetails|null = null;
             let msg: string = 'insecure';
-            
+            let finalUrl = resp.url();
+
             try { details = resp.securityDetails (); }
             catch (e: unknown) { }
+
+            try {
+                const chain = resp.request().redirectChain();
+                if (chain && chain.length > 0) {
+                    const z = chain[chain.length - 1];
+                    if (z) finalUrl = z.url();
+                }
+            } catch (e) { }
 
             const statusCode = resp.status();
             if (statusCode >= 300 && statusCode < 400 && statusCode != 304) {
@@ -19,29 +60,28 @@ export async function prepareSslConnection (sr: Data) {
             }
 
             if (statusCode == 200) {
+                const domain = getDomain (finalUrl);
+                if (!domain) return;
+
                 if (details !== null) {
-                    if (details.issuer() == details.subjectName()) {
+                    if (hasRussianCertificateIssuer(details)) {
+                        msg = 'ok';
+                        addUnique(data.acceptedRussianCertificates, domain);
+                    }
+                    else if (details.issuer() == details.subjectName()) {
                         msg = 'self-signed';
                     }
                     else {
                         msg = 'ok';
                     }
                 }
-
-                
-                let finalUrl = resp.url();
-                try {
-                    const chain = resp.request().redirectChain();
-                    if (chain && chain.length > 0) {
-                        const z = chain[chain.length - 1];
-                        if (z) finalUrl = z.url();
-                    }
-                } catch (e) { }
-                const domain = getDomain (finalUrl);
-                if (domain) {
-                    if (domain in data['endpoints'] == false || data['endpoints'][domain] == 'fail')
-                        data['endpoints'][domain] = msg;
+                else if (isHttpsEndpoint(finalUrl) && isRussianDomain(domain)) {
+                    msg = 'ok';
+                    addUnique(data.acceptedRussianCertificates, domain);
                 }
+
+                if (msg !== 'ok' && (domain in data['endpoints'] == false || data['endpoints'][domain] == 'fail'))
+                    data['endpoints'][domain] = msg;
             }
         },
         'fin': (data: SslData) => {
@@ -54,14 +94,19 @@ export async function prepareSslConnection (sr: Data) {
             if (Object.keys (data.endpoints).length != 0)
                 res = 'fail';
 
+            const resultData: Record<string, unknown> = { 'endpoints': data.endpoints };
+            if (data.acceptedRussianCertificates.length > 0) {
+                resultData['acceptedRussianCertificates'] = data.acceptedRussianCertificates.sort();
+            }
+
             sr.result.checks.push ({
                 'id': 'ssl/tls',
                 'result': res,
-                'data': { 'endpoints': data.endpoints },
+                'data': resultData,
                 'images': []
             });
         },
-        'init': () => { return {'endpoints': {}}; }
+        'init': () => { return {'endpoints': {}, 'acceptedRussianCertificates': []}; }
     });
 }
 

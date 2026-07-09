@@ -79,7 +79,7 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="mt-10 space-y-5">
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-medium text-foreground/90">
-              Email
+              Электронная почта
             </label>
             <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
               <div className="flex min-w-0 flex-1 items-center gap-3 px-3">

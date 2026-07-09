@@ -33,7 +33,7 @@ export function PdfDownloadButton({ result }: PdfDownloadButtonProps) {
       className="premium-cta inline-flex h-10 items-center justify-center gap-2 px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-55"
       onClick={handleDownload}
       disabled={disabled}
-      title={result.reportId ? "Скачать PDF отчет" : "PDF появится после сохранения отчета backend"}
+      title={result.reportId ? "Скачать PDF отчет" : "PDF появится после сохранения отчета бэкендом"}
     >
       <Download className="h-4 w-4" />
       {loading ? "Скачиваем..." : "Скачать PDF отчет"}

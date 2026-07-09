@@ -98,12 +98,8 @@ export default function ProfilePage() {
     getReports()
       .then((items) => {
         if (cancelled) return;
-        const uniquePdfChecks = new Set(
-          items
-            .filter((item) => item.report_id)
-            .map((item) => item.req_id || item.report_id)
-        );
-        setChecksCount(uniquePdfChecks.size);
+        const uniqueChecks = new Set(items.map((item) => item.req_id || item.report_id || item.id));
+        setChecksCount(uniqueChecks.size);
       })
       .catch(() => {
         if (!cancelled) setChecksCount(0);
@@ -133,7 +129,7 @@ export default function ProfilePage() {
     <AuthGuard>
       <DashboardPage>
         <DashboardHeader
-          eyebrow="Account control room"
+          eyebrow="Управление аккаунтом"
           title="Личный кабинет"
           description=""
           action={
@@ -156,11 +152,11 @@ export default function ProfilePage() {
                 <div className="flex items-start justify-between gap-4">
                   <DashboardIcon icon={Mail} tone={user.isVerified ? "success" : "warning"} />
                   <DashboardStatusPill tone={user.isVerified ? "success" : "warning"}>
-                    {user.isVerified ? "Email подтверждён" : "Email не подтверждён"}
+                    {user.isVerified ? "Почта подтверждена" : "Почта не подтверждена"}
                   </DashboardStatusPill>
                 </div>
                 <div className="mt-5">
-                  <p className="text-xs uppercase text-muted-foreground">Email</p>
+                  <p className="text-xs uppercase text-muted-foreground">Электронная почта</p>
                   <p className="mt-2 truncate font-mono text-sm text-foreground">{user.email}</p>
                 </div>
                 <div className="mt-5 flex justify-end">
@@ -213,9 +209,9 @@ export default function ProfilePage() {
               <DashboardCard className="lg:col-span-2">
                 <div className="flex items-start justify-between gap-4">
                   <DashboardIcon icon={ShieldCheck} />
-                  <DashboardStatusPill>Evidence workspace</DashboardStatusPill>
+                  <DashboardStatusPill>Рабочая область доказательств</DashboardStatusPill>
                 </div>
-                <p className="mt-5 text-sm font-semibold text-foreground">Отчеты и evidence</p>
+                <p className="mt-5 text-sm font-semibold text-foreground">Отчеты и доказательства</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   Сохраненные проверки доступны в истории. PDF скачивается только для завершенных отчетов.
                 </p>
@@ -240,7 +236,7 @@ export default function ProfilePage() {
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <ProfileActionCard
                 icon={Mail}
-                title="Настройки email"
+                title="Настройки почты"
                 description="Изменить адрес для входа и уведомлений."
                 tone="success"
                 onClick={() => router.push("/profile/settings/email")}
@@ -281,7 +277,7 @@ export default function ProfilePage() {
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
                       <p className="text-sm font-semibold text-foreground">Удаление аккаунта</p>
-                      <DashboardStatusPill tone="danger">Danger zone</DashboardStatusPill>
+                      <DashboardStatusPill tone="danger">Опасная зона</DashboardStatusPill>
                     </div>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
                       Все данные аккаунта, история проверок и сохраненные отчеты будут безвозвратно удалены.

@@ -44,7 +44,9 @@ func main() {
 	if workerSecret := os.Getenv("WORKER_SECRET"); workerSecret != "" {
 		mainCfg.Server.WorkerSecret = workerSecret
 	}
-	if imageSecret := os.Getenv("IMAGES_SECRET"); imageSecret != "" {
+	if imageSecret := os.Getenv("IMAGE_SECRET"); imageSecret != "" {
+		mainCfg.Server.ImageSecret = imageSecret
+	} else if imageSecret := os.Getenv("IMAGES_SECRET"); imageSecret != "" {
 		mainCfg.Server.ImageSecret = imageSecret
 	}
 	if cookieSecure := os.Getenv("COOKIE_SECURE"); cookieSecure != "" {

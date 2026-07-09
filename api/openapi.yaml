@@ -177,6 +177,47 @@ paths:
           description: Forbidden
         '404':
           description: Report not found
+    delete:
+      summary: Delete a saved report and its related PDF/images
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Report deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+        '404':
+          description: Report not found
+
+  /img/{id}:
+    get:
+      summary: Get an uploaded evidence image
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Evidence image
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Image not found or expired
 
   /guest/remaining:
     get:
@@ -307,8 +348,25 @@ components:
           type: integer
         results:
           type: array
+          description: Backward-compatible alias of ReportPayload.checks.
           items:
             $ref: '#/components/schemas/CheckResult'
+        screenshotId:
+          type: string
+          nullable: true
+          description: Top-level website screenshot image id.
+        ssl:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/SslInfo'
+        about:
+          type: string
+          nullable: true
+          description: Top-level short site description.
+        country:
+          type: string
+          nullable: true
+          description: ISO alpha-2 country code, unknown, or null.
         errors:
           type: array
           items:
@@ -326,15 +384,63 @@ components:
           type: string
         result:
           type: string
+          enum: [ok, warn, fail]
         pages:
           type: array
           items:
             type: string
         about:
           type: string
+        images:
+          type: array
+          description: Evidence image ids served through /img/{id}.
+          items:
+            type: string
         data:
           type: object
           additionalProperties: true
+
+    SslInfo:
+      type: object
+      properties:
+        issuer:
+          type: string
+        validFrom:
+          type: integer
+          format: int64
+        validTo:
+          type: integer
+          format: int64
+        protocol:
+          type: string
+        subjectName:
+          type: string
+        subjectAlternativeNames:
+          type: array
+          items:
+            type: string
+
+    ReportPayload:
+      type: object
+      required: [checks]
+      properties:
+        checks:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckResult'
+        screenshotId:
+          type: string
+          nullable: true
+        ssl:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/SslInfo'
+        about:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true
 
     CheckHistory:
       type: object
@@ -362,3 +468,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CheckResult'
+        screenshotId:
+          type: string
+          nullable: true
+        ssl:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/SslInfo'
+        about:
+          type: string
+          nullable: true
+        country:
+          type: string
+          nullable: true

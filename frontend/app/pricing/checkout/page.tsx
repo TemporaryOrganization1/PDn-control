@@ -30,9 +30,9 @@ export default function CheckoutPage() {
       </div>
 
       <DashboardHeader
-        eyebrow="Checkout"
+        eyebrow="Оформление"
         title="Оформление подписки"
-        description="Платежный backend пока не подключен, поэтому frontend не имитирует успешную оплату."
+        description="Платежный бэкенд пока не подключен, поэтому фронтенд не имитирует успешную оплату."
       />
 
       <DashboardPanel>
@@ -43,10 +43,10 @@ export default function CheckoutPage() {
             <div>
               <div className="flex flex-wrap items-center gap-3">
                 <p className="text-sm font-semibold text-foreground">Оплата недоступна</p>
-                <DashboardStatusPill tone="warning">Backend required</DashboardStatusPill>
+                <DashboardStatusPill tone="warning">Нужен бэкенд</DashboardStatusPill>
               </div>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Для включения подписки нужен backend endpoint оплаты и хранения тарифа.
+                Для включения подписки нужна серверная точка API для оплаты и хранения тарифа.
                 Интерфейс оставлен честной заглушкой, без фиктивного успешного платежа.
               </p>
               <AnimatedButton variant="outline" className="mt-6" onClick={() => router.push("/pricing")}>

@@ -1,8 +1,17 @@
+"use client";
+
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
+  ChevronDown,
+  ChevronUp,
   CheckCircle2,
+  Download,
   ExternalLink,
   Globe,
+  Image as ImageIcon,
+  X,
   XCircle,
 } from "lucide-react";
 import type { CheckItem } from "@/lib/data";
@@ -37,8 +46,96 @@ const STATUS_META = {
   },
 } as const;
 
+function imageUrl(id: string): string {
+  return `/api/img/${encodeURIComponent(id)}`;
+}
+
+function ExpandablePillList({ items, initialCount = 18 }: { items: string[]; initialCount?: number }) {
+  const [expanded, setExpanded] = useState(false);
+  const visibleItems = expanded ? items : items.slice(0, initialCount);
+  const hiddenCount = Math.max(0, items.length - initialCount);
+  const Icon = expanded ? ChevronUp : ChevronDown;
+
+  return (
+    <div>
+      <div className="flex max-h-52 flex-wrap gap-2 overflow-hidden data-[expanded=true]:max-h-none" data-expanded={expanded}>
+        {visibleItems.map((domain, index) => (
+          <span
+            key={`${domain}-${index}`}
+            className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-[11px] text-foreground/75"
+          >
+            {domain}
+          </span>
+        ))}
+      </div>
+      {hiddenCount > 0 ? (
+        <button
+          type="button"
+          className="mt-3 inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.035] px-3 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          onClick={() => setExpanded((value) => !value)}
+        >
+          <Icon className="h-3.5 w-3.5" />
+          {expanded ? "Свернуть" : `Показать еще ${hiddenCount}`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function EvidenceLightbox({
+  imageId,
+  onClose,
+}: {
+  imageId: string;
+  onClose: () => void;
+}) {
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-md"
+      role="dialog"
+      aria-modal="true"
+      onClick={onClose}
+    >
+      <div className="w-full max-w-[min(96vw,1180px)]" onClick={(event) => event.stopPropagation()}>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <code className="min-w-0 truncate font-mono text-xs text-white/65">{imageId}</code>
+          <div className="flex shrink-0 items-center gap-2">
+            <a
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.08] px-3 text-xs font-semibold text-white transition hover:border-white/25 hover:bg-white/[0.13] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              href={imageUrl(imageId)}
+              download
+            >
+              <Download className="h-3.5 w-3.5" />
+              Скачать
+            </a>
+            <button
+              type="button"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/[0.08] text-white transition hover:border-white/25 hover:bg-white/[0.13] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              onClick={onClose}
+              aria-label="Закрыть"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-white/12 bg-white/[0.045] p-2 shadow-2xl">
+          <img
+            src={imageUrl(imageId)}
+            alt="Доказательство"
+            className="mx-auto max-h-[82vh] w-auto max-w-full rounded-xl object-contain"
+          />
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
   const meta = STATUS_META[item.status];
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   return (
     <DashboardCard className={`report-glow ${meta.glow}`}>
@@ -76,7 +173,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         <div className="mt-5">
           <p className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground/70">
             <ExternalLink className="h-3.5 w-3.5" />
-            URLs где найден риск
+            Адреса, где найден риск
           </p>
           <div className="space-y-2">
             {item.foundUrls.map((url, index) => (
@@ -97,16 +194,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
             <Globe className="h-3.5 w-3.5" />
             Домены и IP-адреса
           </p>
-          <div className="flex flex-wrap gap-2">
-            {item.domainsIps.map((domain, index) => (
-              <span
-                key={index}
-                className="rounded-xl border border-white/10 bg-black/20 px-2.5 py-1 font-mono text-[11px] text-foreground/75"
-              >
-                {domain}
-              </span>
-            ))}
-          </div>
+          <ExpandablePillList items={item.domainsIps} />
         </div>
       ) : null}
 
@@ -124,6 +212,49 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {item.images.length > 0 ? (
+        <div className="mt-5">
+          <p className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground/70">
+            <ImageIcon className="h-3.5 w-3.5" />
+            Прикрепленные изображения
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {item.images.map((id) => (
+              <div key={id} className="rounded-2xl border border-white/10 bg-black/20 p-2">
+                <button
+                  type="button"
+                  className="block aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-white/[0.035] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                  onClick={() => setActiveImage(id)}
+                  title="Открыть изображение"
+                >
+                  <img
+                    src={imageUrl(id)}
+                    alt="Доказательство"
+                    className="h-full w-full object-contain"
+                    loading="lazy"
+                  />
+                </button>
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  <code className="min-w-0 truncate font-mono text-[10px] text-muted-foreground">{id}</code>
+                  <a
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.035] text-foreground/80 transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                    href={imageUrl(id)}
+                    download
+                    title="Скачать изображение"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {activeImage ? (
+        <EvidenceLightbox imageId={activeImage} onClose={() => setActiveImage(null)} />
       ) : null}
     </DashboardCard>
   );

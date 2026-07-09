@@ -44,7 +44,7 @@ export default function SubscriptionPage() {
 
       const minutes = Math.floor(diff / 60000);
       const seconds = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${minutes}m ${seconds}s`);
+      setTimeLeft(`${minutes} мин ${seconds} с`);
     };
 
     updateTimer();
@@ -89,7 +89,7 @@ export default function SubscriptionPage() {
           <BackButton />
         </div>
         <DashboardHeader
-          eyebrow="Plan and limits"
+          eyebrow="План и лимиты"
           title="Управление подпиской"
           description="Тарифы оформлены как рабочие опции кабинета: текущий план подсвечен нейтрально, основные действия остаются рядом с описанием."
           action={
@@ -103,7 +103,7 @@ export default function SubscriptionPage() {
           <DashboardSectionTitle
             icon={CreditCard}
             title="Планы аккаунта"
-            description="Backend тарифов и платежей пока не реализован полностью, поэтому интерфейс использует текущий тестовый endpoint."
+            description="Бэкенд тарифов и платежей пока не реализован полностью, поэтому интерфейс использует текущую тестовую точку API."
           />
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -124,7 +124,7 @@ export default function SubscriptionPage() {
               <ul className="mt-6 space-y-3">
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
-                  Гостевой лимит контролируется backend.
+                  Гостевой лимит контролируется бэкендом.
                 </li>
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />

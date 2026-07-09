@@ -2,9 +2,9 @@ import { Code2, ExternalLink, FileWarning } from "lucide-react";
 import { SectionShell } from "@/components/marketing/section-shell";
 
 const evidenceRows = [
-  { label: "URL", value: "https://example.ru/contact" },
-  { label: "Форма", value: "input[name='phone'] + submit" },
-  { label: "Политика", value: "link[rel='privacy'] не найден" },
+  { label: "Адрес", value: "https://example.ru/contact" },
+  { label: "Форма", value: "поле телефона и кнопка отправки" },
+  { label: "Политика", value: "ссылка на политику не найдена" },
 ];
 
 export function EvidenceSection() {

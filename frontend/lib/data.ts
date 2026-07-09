@@ -2,7 +2,7 @@ export const siteConfig = {
   name: "PDn Control",
   tagline: "Проверка сайта на риски по 152-ФЗ",
   description:
-    "Введите URL — получите отчет о нарушениях, рисках обработки персональных данных и возможных штрафах.",
+    "Введите адрес сайта — получите отчет о нарушениях, рисках обработки персональных данных и возможных штрафах.",
   serviceIps: [
     "45.67.89.10",
     "45.67.89.11",
@@ -19,7 +19,14 @@ export interface CheckItem {
   lawExcerpts: string[];
   foundUrls: string[];
   domainsIps: string[];
+  images: string[];
   title: string;
+}
+
+export interface ServerGeoItem {
+  domain: string;
+  ip: string;
+  country: string;
 }
 
 export interface CheckResult {
@@ -42,9 +49,15 @@ export interface CheckResult {
   totalCount: number;
   siteIps: string[];
   siteCountry: string;
+  siteCountryCode?: string;
   siteCountryFlag: string;
+  serverGeo: ServerGeoItem[];
   siteAiDescription: string;
+  screenshotId?: string | null;
   sslIssuer: string;
+  sslProtocol: string;
+  sslSubjectName: string;
+  sslSubjectAlternativeNames: string[];
   sslValidFrom: string;
   sslValidTo: string;
   sslIsExpired: boolean;
