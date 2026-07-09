@@ -4,7 +4,7 @@ import { runCheck, initBrowser } from './runner.js';
 
 interface Config {
   port: number;
-  openrouter: { apiKey: string; baseUrl?: string; model: string };
+  openrouter: { apiKey: string; model: string };
   worker: { pageTimeout: number; maxPageSize: number; maxTextSize: number };
   geoip: { serviceUrl: string };
   checks: { fast: string[]; detail: string[] };
@@ -40,7 +40,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
     return;
   }
 
-  const { url, type, 'req-id': reqId, fallback, 'progress-secret': progressSecret, 'user-email': userEmail } = parsed;
+  const { url, type, 'req-id': reqId, fallback, 'progress-secret': progressSecret, 'image-secret': imageSecret, 'user-email': userEmail } = parsed;
 
   if (!url || !type || !reqId) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -55,7 +55,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
   // Report progress via fallback
   const reportProgress = async (progress: number, status: string, completed: string[] = [], errors: string[] = [], resultData?: any) => {
     if (!fallback) return;
-    console.log (resultData);
+    if (resultData) console.log (JSON.stringify(resultData, undefined, 2));
     try {
       const payload = JSON.stringify({
         code: errorCodes.ERR_OK,
@@ -71,7 +71,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
       const options: http.RequestOptions = {
         hostname: urlObj.hostname,
         port: urlObj.port,
-        path: urlObj.pathname,
+        path: `${urlObj.pathname}/progress`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -87,18 +87,38 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
     }
   };
 
+  const uploadImage = async (image: Uint8Array<ArrayBufferLike>) => {
+    try {
+      const urlObj = new URL (fallback);
+      const fd = new FormData();
+      fd.append('file', new Blob ([Buffer.from(image)], { 'type': 'image/png' }), 'screenshot.png');
+      fd.append('req-id', reqId);
+
+      const response = await fetch(`${fallback}/img/upload`, {
+          method: 'POST',
+          headers: {
+            'X-Image-Secret': imageSecret
+          },
+          body: fd
+      });
+      const result = await response.json() as {"image_id": string};
+      return result;
+    } catch (e) {
+      console.error ('Failed to upload image', e);
+    }
+    return null;
+  }
+
   try {
     await reportProgress(10, 'starting');
 
     const browser = await initBrowser();
     try {
-      await reportProgress(20, 'browser_ready');
+      await reportProgress(20, 'data_collection');
 
-      const results = await runCheck(browser, url, type, config, async (progress, status, completed, errors) => {
-        await reportProgress(progress, status, completed, errors);
-      });
+      const results = await runCheck(browser, url, type, config, reportProgress, uploadImage);
 
-      await reportProgress(100, 'completed', results.map((r: any) => r.id), [], results);
+      await reportProgress(100, 'completed', results.checks.map((r: any) => r.id), [], results);
     } finally {
       await browser.close();
     }

@@ -126,7 +126,8 @@ export async function prepareCookieChecks (sr: Data) {
             sr.result.checks.push ({
                 'id': 'cookie-ads',
                 'result': res,
-                'data': { 'endpoints': Array.from (data.endpoints) }
+                'data': { 'endpoints': Array.from (data.endpoints) },
+                'images': []
             });
         },
         'init': () => { return {'endpoints': new Set<string>()}; }

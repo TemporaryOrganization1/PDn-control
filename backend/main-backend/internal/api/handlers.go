@@ -368,7 +368,7 @@ func (s *Server) handleCheck(c echo.Context) error {
 		req.ReqID = fmt.Sprintf("req-%d", time.Now().UnixMilli())
 	}
 	if req.Fallback == "" {
-		req.Fallback = "http://main-backend:4000/api/progress"
+		req.Fallback = "http://main-backend:4000/api"
 	}
 
 	worker := s.pool.GetFreeWorker()

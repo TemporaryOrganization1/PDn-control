@@ -8,9 +8,11 @@ type SubsType = {
 };
 
 export class Data {
-    constructor (browser: Browser, page: Page, baseUrl: string, domain: string) {
+    constructor (browser: Browser, page: Page, baseUrl: string, domain: string, uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>,
+            onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>) {
         this.mainDomain = getMainDomain (domain) ?? domain;
         this.isSsl = this.isSslUrl(baseUrl);
+        this.onProgress = onProgress;
         this.browser = browser;
         this.baseUrl = baseUrl.trim();
         this.domain = domain;
@@ -18,7 +20,11 @@ export class Data {
         this.links = new Set<string>();
         this.maxLinks = 3000;
         this.result = {
-            'checks': []
+            'checks': [],
+            'screenshotId': null,
+            'ssl': null,
+            'about': null,
+            'country': null
         };
         this.subs = {'request': [], 'response': []};
         this.page.on ('request', (request) => {
@@ -33,6 +39,7 @@ export class Data {
                 catch (e: any) { console.error (e); }
             }
         });
+        this.uploadImage = uploadImage;
 
         console.log ('domain', domain, 'baseUrl', baseUrl);
     }
@@ -94,14 +101,29 @@ export class Data {
     public page: Page
     public links: Set<string>
     public subs: SubsType
-    public result: { 'checks': { 'id': string, result: 'fail'|'ok'|'warn', data?: any }[] }
+    public result: { 
+        'checks': { 'id': string, result: 'fail'|'ok'|'warn', data?: any, images: string[] }[], 
+        'screenshotId': string|null, 
+        'ssl': {issuer: string, validFrom: number, validTo: number, protocol: string, subjectName: string, subjectAlternativeNames: string[]}|null,
+        'about': string|null,
+        'country': string|null
+    }
     public maxLinks: number
+    public uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>
+    public onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>
+
+    public genPath (path: string): string {
+        if (!path.startsWith ('http://') && !path.startsWith ('https://'))
+            path = `${this.baseUrl}${path}`;
+        return path;
+    }
 
     public async open (path: string): Promise<boolean> {
         try {
-            
-            if (!path.startsWith ('http://') && !path.startsWith ('https://'))
-                path = `${this.baseUrl}${path}`;
+            path = this.genPath(path);            
+            if (this.page.url() == path) {
+                return true;
+            }
 
             let res = await this.page.goto (path, {
                 'waitUntil': 'domcontentloaded'

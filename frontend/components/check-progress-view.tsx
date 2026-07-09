@@ -26,7 +26,7 @@ function activeStageIndex(progress: number, status: string): number {
     case "dispatched":
     case "starting":
       return 1;
-    case "browser_ready":
+    case "data_collection":
       return 2;
     default:
       if (progress >= 20) return 2;
@@ -50,7 +50,7 @@ function statusLabel(status: string, progress: number): string {
     case "dispatched":
     case "starting":
       return "Обработчик запускает проверку";
-    case "browser_ready":
+    case "data_collection":
       return "Выполняется анализ сайта";
     case "failed":
       return "Проверка завершилась с ошибкой";

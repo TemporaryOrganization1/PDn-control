@@ -21,7 +21,8 @@ export async function prepareHttpsConnection (sr: Data) {
             sr.result.checks.push ({
                 'id': 'https',
                 'result': res,
-                'data': { 'endpoints': Array.from (data.endpoints) }
+                'data': { 'endpoints': Array.from (data.endpoints) },
+                'images': []
             });
         },
         'init': () => { return {'endpoints': new Set<string>()}; }

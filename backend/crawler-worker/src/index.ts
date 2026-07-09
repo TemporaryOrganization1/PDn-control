@@ -39,22 +39,22 @@ async function run() {
 
     const page = await browser.newPage();
     
-    let sr = new Data (browser, page, baseUrl, domain);
+    // let sr = new Data (browser, page, baseUrl, domain);
 
-    await prepare (sr);
+    // await prepare (sr);
 
-    if (await sr.checkConnection ()) {
-        await check (sr, 'detail');
-    }
-    else {
-        console.error ('sr.checkConnection failed');
-    }
+    // if (await sr.checkConnection ()) {
+    //     await check (sr, 'detail');
+    // }
+    // else {
+    //     console.error ('sr.checkConnection failed');
+    // }
 
-    sr.finish ();
+    // sr.finish ();
 
-    await browser.close();
+    // await browser.close();
 
-    console.log (JSON.stringify (sr.result, undefined, 2));
+    // console.log (JSON.stringify (sr.result, undefined, 2));
 }
 
 run();

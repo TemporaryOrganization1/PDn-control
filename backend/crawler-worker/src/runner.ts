@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer';
 import { check, prepare } from './checks.js';
 import { Data } from './data.js';
 import { getDomain } from './url.js';
+import type { RequestOptions } from 'http';
 
 export async function initBrowser() {
   const browser = await puppeteer.launch({
@@ -36,15 +37,21 @@ export async function runCheck(
   baseUrl: string,
   type: string,
   config: any,
-  onProgress: (progress: number, status: string, completed: string[], errors: string[]) => Promise<void>
-): Promise<any[]> {
+  onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>,
+  uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>
+): Promise<any> {
   const domain = getDomain(baseUrl);
   if (domain === null) {
     throw new Error('Invalid URL');
   }
 
   const page = await browser.newPage();
-  const sr = new Data(browser, page, baseUrl, domain);
+  await page.setViewport ({
+      width: 1280,
+      height: 720
+  });
+
+  const sr = new Data(browser, page, baseUrl, domain, uploadImage, onProgress);
 
   await prepare(sr);
 
@@ -57,5 +64,5 @@ export async function runCheck(
   sr.finish();
   await page.close();
 
-  return sr.result.checks;
+  return sr.result;
 }
