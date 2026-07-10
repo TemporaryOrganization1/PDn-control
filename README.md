@@ -1,127 +1,88 @@
 # PDn-control
 
-A website compliance checker for Federal Law No. 152 (FL-152) and related Russian regulations.
-Crawls a target site, runs security and legal checks, and displays violations with evidence from real crawler data.
+PDn-control is a legal-tech website checker for risks related to Russian personal-data law, especially Federal Law No. 152. It crawls a submitted website, collects technical and page evidence, classifies compliance risks, shows a user-facing report, and can generate a PDF report for follow-up review.
 
-Deployed product: [https://pdn2.neurolife.tech/](https://pdn2.neurolife.tech/)
+## Current Access
 
-## Architecture
+- Product: [https://pdn2.neurolife.tech/](https://pdn2.neurolife.tech/)
+- Hosted documentation: [http://194.87.95.22:8088/](http://194.87.95.22:8088/)
+- Customer handover guide: [docs/customer-handover.md](docs/customer-handover.md)
+
+The public deployment accepts a website URL and returns a risk-oriented report. The service performs an initial technical/content check only; final legal conclusions should be confirmed by a qualified specialist.
+
+## Repository Guidance
+
+- Contributor workflow: [CONTRIBUTING.md](CONTRIBUTING.md)
+- AI-agent guidance: [AGENTS.md](AGENTS.md)
+- Development process and configuration management: [docs/development-process.md](docs/development-process.md)
+- Definition of Done: [docs/definition-of-done.md](docs/definition-of-done.md)
+
+## Maintained Documentation
+
+- Architecture and ADRs: [docs/architecture/README.md](docs/architecture/README.md)
+- Deployment notes: [docs/deployment.md](docs/deployment.md)
+- Testing and QA status: [docs/testing.md](docs/testing.md)
+- Quality requirements: [docs/quality-requirements.md](docs/quality-requirements.md)
+- Quality requirement tests: [docs/quality-requirement-tests.md](docs/quality-requirement-tests.md)
+- User acceptance tests: [docs/user-acceptance-tests.md](docs/user-acceptance-tests.md)
+- User-story index: [docs/user-stories.md](docs/user-stories.md)
+- Roadmap: [docs/roadmap.md](docs/roadmap.md)
+- OpenAPI contract: [api/openapi.yaml](api/openapi.yaml)
+
+## Architecture At A Glance
 
 ```text
-Frontend (exported Next.js + nginx proxy)
-      |
-      v
-Main Backend (Go/Echo)
-      |
-      v
-Crawler Workers (Puppeteer/Node)
-
-GeoIP Service (Go) -> PostgreSQL + GeoIP data
+Browser
+  -> frontend nginx / exported Next.js
+  -> main-backend Go/Echo API
+  -> crawler workers with Puppeteer
+  -> GeoIP service and PostgreSQL
 ```
 
-The application includes built-in email/password accounts in the main backend. Anonymous guests can run 3 accepted checks per browser device; authenticated users are not limited by that guest quota.
+The Docker Compose stack contains the frontend proxy, main backend, three crawler workers, GeoIP service, PostgreSQL, persistent report/image storage, and optional SMTP/OpenRouter integration. The maintained architecture views explain the service boundaries, scan sequence, and deployment topology in [docs/architecture/README.md](docs/architecture/README.md).
 
-For the maintained architecture views and ADRs, see [docs/architecture/README.md](docs/architecture/README.md).
+## Run Locally
 
-## Documentation
+Prerequisites:
 
-- [Self-hosted documentation site](docs-site/README.md)
-- [Development process and configuration management](docs/development-process.md)
-- [Architecture and ADRs](docs/architecture/README.md)
-- [Deployment notes](docs/deployment.md)
-- [Testing and QA status](docs/testing.md)
-- [Quality requirements](docs/quality-requirements.md)
-- [Quality requirement tests](docs/quality-requirement-tests.md)
-- [Definition of Done](docs/definition-of-done.md)
-- [User acceptance tests](docs/user-acceptance-tests.md)
-- [Roadmap](docs/roadmap.md)
-- [OpenAPI contract](api/openapi.yaml)
+- Docker and Docker Compose
+- An OpenRouter API key for AI-assisted checks
+- Optional SMTP credentials if email verification must be tested
 
-### Run Documentation Only
+```bash
+git clone https://github.com/TemporaryOrganization1/PDn-control.git
+cd PDn-control
+cp .env.example .env
+docker compose up --build
+```
 
-On a separate lightweight server, clone the repository and start only the documentation viewer:
+The local product is served at [http://localhost](http://localhost). Replace placeholders in `.env` before running realistic crawler, SMTP, or production-like checks. Do not commit `.env` or private access details.
+
+For deployment configuration, HTTPS, SMTP diagnostics, OpenRouter proxying, and recovery notes, use [docs/deployment.md](docs/deployment.md).
+
+## Run The Documentation Site
 
 ```bash
 python3 docs-site/server.py --host 0.0.0.0 --port 8088
 ```
 
-This serves the maintained files from `docs/` as a browsable site and does not start the product frontend, backend, workers, PostgreSQL, or Docker Compose stack. See [docs-site/README.md](docs-site/README.md) for details.
+This starts only the documentation viewer for files under `docs/`. It does not start the product services. See [docs-site/README.md](docs-site/README.md).
 
-## Local Setup
+## Verification
 
-### Prerequisites
-
-- [Docker](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
-- [Node.js](https://nodejs.org/) 20+ for frontend dev server only
-- [OpenRouter API key](https://openrouter.ai/keys)
-
-### 1. Clone and prepare environment
+Common local checks:
 
 ```bash
-git clone https://github.com/TemporaryOrganization1/PDn-control
-cd PDn-control
-
-# Create .env from the sanitized example and replace placeholders
-cp .env.example .env
+(cd backend/main-backend && go test ./...)
+(cd backend/geoip-service && go test ./...)
+(cd frontend && npm run check && npm run build && npm test -- --coverage)
+(cd backend/crawler-worker && npm run typecheck && npm test -- --coverage)
 ```
 
-**Note:** The SMTP settings are optional. If not configured, the application will work without email verification. To enable email verification during user registration, configure the SMTP settings with your Yandex email credentials.
+On Windows PowerShell, use `npm.cmd` if `npm.ps1` is blocked by execution policy.
 
-### 2. Start all services with Docker
+## Reports And Releases
 
-```bash
-docker-compose up --build
-```
-
-This starts:
-
-| Service          | Container name     | Port |
-|------------------|--------------------|------|
-| Public frontend proxy | frontend       | 80 |
-| Main backend API | main-backend       | internal |
-| Crawler workers  | crawler-worker-*   | internal |
-| GeoIP service    | geoip-service      | internal |
-| PostgreSQL       | postgres           | internal |
-
-The frontend is served at [http://localhost](http://localhost).
-
-For a server deployment with a real domain, set these values in `.env` before starting Compose:
-
-```env
-APP_BASE_URL=https://your-domain.example
-SERVER_NAME=your-domain.example
-ENABLE_HTTPS=true
-COOKIE_SECURE=true
-IMAGE_SECRET=replace-with-a-private-image-upload-secret
-LETSENCRYPT_DIR=/etc/letsencrypt
-```
-
-The frontend nginx container will serve the exported Next.js app, redirect HTTP to HTTPS, and proxy `/api/` to `main-backend`.
-
-### 3. Run frontend in dev mode
-
-```bash
-cd frontend
-npm install
-BACKEND_ORIGIN=http://localhost:4000 npm run dev:docker
-```
-
-The dev server runs at [http://localhost:8080](http://localhost:8080) with hot reload when using the `dev:docker` script.
-
-## API
-
-| Service   | Base URL                    | Docs |
-|-----------|-----------------------------|------|
-| Main API  | `http://localhost/api` | [`api/openapi.yaml`](api/openapi.yaml) |
-| GeoIP API | internal Docker network only | - |
-
-The OpenAPI contract is maintained in [`api/openapi.yaml`](api/openapi.yaml).
-
-## Evidence Images and Flags
-
-Crawler evidence images are uploaded to the backend with `X-Image-Secret` and served back through `/api/img/{id}`. Country flags are bundled locally from the open-source `flag-icons` SVG set under `frontend/public/flags`, so runtime pages use URLs such as `/flags/ru.svg` without an external CDN.
-
-## Reports
-
-- [Week 2 Report](reports/week2/README.md)
-- [MVP v0 Report](reports/week2/mvp-v0-report.md)
+- Latest maintained public evidence index: [reports/week5/README.md](reports/week5/README.md)
+- Assignment 6 evidence will be indexed from `reports/week6/README.md` and `reports/week7/README.md` when those reports are completed.
+- Changelog: [CHANGELOG.md](CHANGELOG.md)

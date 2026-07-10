@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Result score now represents check completion quality instead of fine probability
 - PDF reports include the new payload data, possible fines, SSL/site info, and evidence image references
+- Public repository entry points now include current product access, hosted documentation, customer handover, contributor, and AI-agent guidance
 
 ### Fixed
 - Final worker payloads sent as objects are now normalized and saved by the main backend
