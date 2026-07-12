@@ -350,6 +350,7 @@ export default function ResultView() {
     let cancelled = false;
 
     const load = async () => {
+      setTask(null);
       setLoading(true);
       setError(null);
 

@@ -15,6 +15,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { CheckItem } from "@/lib/data";
+import { countryCodeToFlagUrl } from "@/lib/country";
 import {
   DashboardCard,
   DashboardIcon,
@@ -48,6 +49,29 @@ const STATUS_META = {
 
 function imageUrl(id: string): string {
   return `/api/img/${encodeURIComponent(id)}`;
+}
+
+function extractCountryFlagUrl(detail: string): string | undefined {
+  const match = detail.match(/\bcountry:\s*(\w{2})\b/);
+  if (!match) return undefined;
+  const code = match[1].toLowerCase();
+  if (code === "unknown" || code === "localhost") return undefined;
+  const url = countryCodeToFlagUrl(code);
+  return url ?? undefined;
+}
+
+function FlaggedDetail({ flagUrl, text }: { flagUrl: string; text: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <img
+        src={flagUrl}
+        alt=""
+        className="h-3.5 w-5 rounded-[2px] border border-white/10 object-cover"
+        loading="lazy"
+      />
+      {text}
+    </span>
+  );
 }
 
 function ExpandablePillList({ items, initialCount = 18 }: { items: string[]; initialCount?: number }) {
@@ -202,14 +226,21 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         <div className="mt-5">
           <p className="mb-2 text-xs font-medium text-foreground/70">Технические детали</p>
           <ul className="space-y-2">
-            {item.details.map((detail, index) => (
-              <li
-                key={index}
-                className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs leading-5 text-foreground/80"
-              >
-                {detail}
-              </li>
-            ))}
+            {item.details.map((detail, index) => {
+              const flagUrl = extractCountryFlagUrl(detail);
+              return (
+                <li
+                  key={index}
+                  className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs leading-5 text-foreground/80"
+                >
+                  {flagUrl ? (
+                    <FlaggedDetail flagUrl={flagUrl} text={detail} />
+                  ) : (
+                    detail
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}
