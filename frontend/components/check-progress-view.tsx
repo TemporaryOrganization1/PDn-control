@@ -65,7 +65,13 @@ export default function CheckProgressView() {
   const reqId = searchParams.get("reqId");
   const [task, setTask] = useState<TaskState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (!reqId) return;
@@ -111,19 +117,87 @@ export default function CheckProgressView() {
     () => statusLabel(currentStatus, progress),
     [currentStatus, progress]
   );
-  const scanLog = useMemo(
+  const startTimeRef = useRef(Date.now());
+  const thresholdTimestampsRef = useRef<Record<number, number>>({});
+
+  function fmtTime(offsetSec: number) {
+    const d = new Date(startTimeRef.current + offsetSec * 1000);
+    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
+
+  const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+
+  function effectiveOffset(i: number, base: number, threshold: number | null): number {
+    if (threshold === null) return base;
+    // порог достигнут — фиксируем реальное время его наступления
+    if (progress >= threshold) {
+      if (!(i in thresholdTimestampsRef.current)) {
+        thresholdTimestampsRef.current[i] = elapsedSeconds;
+      }
+      return thresholdTimestampsRef.current[i];
+    }
+    // порог не достигнут, но время уже ушло дальше базового offset — время растёт
+    if (elapsedSeconds > base) return elapsedSeconds;
+    // строка ещё не должна показываться
+    return base;
+  }
+
+  const logConfig = useMemo(
     () => [
-      "[12:41:02] задача принята в очередь",
-      "[12:41:04] обработчик запустил проверку",
-      `[12:41:07] цель: ${checkedUrl}`,
-      progress >= 20
-        ? "[12:41:11] идет поиск публичных страниц"
-        : "[12:41:11] ожидаем браузерный контекст",
-      progress >= 60
-        ? "[12:41:18] анализируем формы, политику и SSL-доказательства"
-        : "[12:41:18] собираем технические признаки",
+      { offset: 0, progressThreshold: null as number | null },
+      { offset: 2, progressThreshold: null },
+      { offset: 5, progressThreshold: null },
+      { offset: 9, progressThreshold: 20 },
+      { offset: 16, progressThreshold: 60 },
     ],
-    [checkedUrl, progress]
+    []
+  );
+
+  type LogEntry = { offset: number; text: string };
+
+  const rawEntries = useMemo(
+    (): LogEntry[] => [
+      {
+        offset: effectiveOffset(0, 0, null),
+        text: `[${fmtTime(effectiveOffset(0, 0, null))}] задача принята в очередь`,
+      },
+      {
+        offset: effectiveOffset(1, 2, null),
+        text: `[${fmtTime(effectiveOffset(1, 2, null))}] обработчик запустил проверку`,
+      },
+      {
+        offset: effectiveOffset(2, 5, null),
+        text: `[${fmtTime(effectiveOffset(2, 5, null))}] цель: ${checkedUrl}`,
+      },
+      {
+        offset: effectiveOffset(3, 9, 20),
+        text: progress >= 20
+          ? `[${fmtTime(effectiveOffset(3, 9, 20))}] идет поиск публичных страниц`
+          : `[${fmtTime(effectiveOffset(3, 9, 20))}] ожидаем браузерный контекст`,
+      },
+      {
+        offset: effectiveOffset(4, 16, 60),
+        text: progress >= 60
+          ? `[${fmtTime(effectiveOffset(4, 16, 60))}] анализируем формы, политику и SSL-доказательства`
+          : `[${fmtTime(effectiveOffset(4, 16, 60))}] собираем технические признаки`,
+      },
+    ],
+    [checkedUrl, progress, elapsedSeconds]
+  );
+
+  const scanLog = useMemo(
+    () =>
+      rawEntries
+        .filter((_, i) => {
+          const cfg = logConfig[i];
+          const timeReady = elapsedSeconds >= cfg.offset;
+          const progressReady =
+            cfg.progressThreshold !== null && progress >= cfg.progressThreshold;
+          return timeReady || progressReady;
+        })
+        .sort((a, b) => a.offset - b.offset)
+        .map((entry) => entry.text),
+    [rawEntries, elapsedSeconds, progress, logConfig]
   );
 
   if (!reqId) {
