@@ -66,17 +66,16 @@ export default function CheckProgressView() {
   const [task, setTask] = useState<TaskState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const startTimeRef = useRef(0);
-  const thresholdTimestampsRef = useRef<Record<number, number>>({});
+  const [startTime, setStartTime] = useState(0);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    startTimeRef.current = Date.now();
+    const now = Date.now();
+    setStartTime(now);
     setElapsedSeconds(0);
-    thresholdTimestampsRef.current = {};
 
     const id = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setElapsedSeconds(Math.floor((Date.now() - now) / 1000));
     }, 1000);
 
     return () => clearInterval(id);
@@ -128,20 +127,16 @@ export default function CheckProgressView() {
   );
 
   function fmtTime(offsetSec: number) {
-    const d = new Date(startTimeRef.current + offsetSec * 1000);
+    if (startTime === 0) return "--:--:--";
+    const d = new Date(startTime + offsetSec * 1000);
     return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
   const effectiveOffset = useCallback(
     (i: number, base: number, threshold: number | null): number => {
       if (threshold === null) return base;
-      // порог достигнут — фиксируем реальное время его наступления
-      if (progress >= threshold) {
-        if (!(i in thresholdTimestampsRef.current)) {
-          thresholdTimestampsRef.current[i] = elapsedSeconds;
-        }
-        return thresholdTimestampsRef.current[i];
-      }
+      // порог достигнут — используем текущее elapsedSeconds
+      if (progress >= threshold) return elapsedSeconds;
       // порог не достигнут, но время уже ушло дальше базового offset — время растёт
       if (elapsedSeconds > base) return elapsedSeconds;
       // строка ещё не должна показываться
