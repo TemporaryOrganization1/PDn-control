@@ -74,3 +74,22 @@ All notable changes to this project will be documented in this file.
 - Several bug fixs
 
 ### Security
+
+## [2.1.0] - 2026-07-12
+
+### Added
+- Total fine calculation
+- Risk scoring
+- Flags for countries
+- Real-time log-journal during the check
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+- A few minor fixes
+
+### Security
