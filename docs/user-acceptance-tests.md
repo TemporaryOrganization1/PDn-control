@@ -131,3 +131,54 @@ The user's account with all the information is opened
 **Actual Result**
 
 Passed for the demonstrated flow. After verification, the user could access the account/profile area, including profile-related pages and history/report access.
+
+## UAT-006: Screenshot generation
+
+**Preconditions**
+
+- The website is running.
+- User is on the main page
+
+**Goal**
+
+Verify the user can see the generated screenshots after
+
+**Steps**
+
+1. User enters valid website url.
+2. Clicks "Проверить" button
+3. The check is finished successfully
+
+**Expected Result**
+
+The user should see the screenshots from the checked website where it's appropriate.
+
+**Actual Result**
+
+The customer indeed saw the screenshots and approved the test.
+
+## UAT-007: Invalid input
+
+**Preconditions**
+
+- The website is running.
+- User is on the main page
+
+**Goal**
+
+Prevent the user from entering invalid url
+
+**Steps**
+
+1. User enters invalid website url
+2. User clicks "Проверить" button
+
+**Expected Result**
+
+The message with error appears and the start of the check is prevented
+
+**Actual Result**
+
+The customer approved the test
+
+
