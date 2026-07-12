@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Circle, Globe, Loader2, Terminal } from "lucide-react";
@@ -65,13 +65,22 @@ export default function CheckProgressView() {
   const reqId = searchParams.get("reqId");
   const [task, setTask] = useState<TaskState | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const startTimeRef = useRef(0);
+  const thresholdTimestampsRef = useRef<Record<number, number>>({});
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    startTimeRef.current = Date.now();
+    setElapsedSeconds(0);
+    thresholdTimestampsRef.current = {};
+
+    const id = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+    }, 1000);
+
     return () => clearInterval(id);
-  }, []);
+  }, [reqId]);
 
   useEffect(() => {
     if (!reqId) return;
@@ -117,30 +126,29 @@ export default function CheckProgressView() {
     () => statusLabel(currentStatus, progress),
     [currentStatus, progress]
   );
-  const startTimeRef = useRef(Date.now());
-  const thresholdTimestampsRef = useRef<Record<number, number>>({});
 
   function fmtTime(offsetSec: number) {
     const d = new Date(startTimeRef.current + offsetSec * 1000);
     return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
   }
 
-  const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-
-  function effectiveOffset(i: number, base: number, threshold: number | null): number {
-    if (threshold === null) return base;
-    // порог достигнут — фиксируем реальное время его наступления
-    if (progress >= threshold) {
-      if (!(i in thresholdTimestampsRef.current)) {
-        thresholdTimestampsRef.current[i] = elapsedSeconds;
+  const effectiveOffset = useCallback(
+    (i: number, base: number, threshold: number | null): number => {
+      if (threshold === null) return base;
+      // порог достигнут — фиксируем реальное время его наступления
+      if (progress >= threshold) {
+        if (!(i in thresholdTimestampsRef.current)) {
+          thresholdTimestampsRef.current[i] = elapsedSeconds;
+        }
+        return thresholdTimestampsRef.current[i];
       }
-      return thresholdTimestampsRef.current[i];
-    }
-    // порог не достигнут, но время уже ушло дальше базового offset — время растёт
-    if (elapsedSeconds > base) return elapsedSeconds;
-    // строка ещё не должна показываться
-    return base;
-  }
+      // порог не достигнут, но время уже ушло дальше базового offset — время растёт
+      if (elapsedSeconds > base) return elapsedSeconds;
+      // строка ещё не должна показываться
+      return base;
+    },
+    [progress, elapsedSeconds]
+  );
 
   const logConfig = useMemo(
     () => [
@@ -182,7 +190,7 @@ export default function CheckProgressView() {
           : `[${fmtTime(effectiveOffset(4, 16, 60))}] собираем технические признаки`,
       },
     ],
-    [checkedUrl, progress, elapsedSeconds]
+    [checkedUrl, progress, elapsedSeconds, effectiveOffset]
   );
 
   const scanLog = useMemo(
