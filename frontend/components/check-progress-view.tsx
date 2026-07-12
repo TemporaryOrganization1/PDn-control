@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Circle, Globe, Loader2, Terminal } from "lucide-react";
@@ -59,17 +59,96 @@ function statusLabel(status: string, progress: number): string {
   }
 }
 
+function fmtTime(start: number, offsetSec: number): string {
+  if (start === 0) return "--:--:--";
+  const d = new Date(start + offsetSec * 1000);
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+
+const LOG_BASES: { base: number; threshold: number | null }[] = [
+  { base: 0, threshold: null },
+  { base: 2, threshold: null },
+  { base: 5, threshold: null },
+  { base: 9, threshold: 20 },
+  { base: 16, threshold: 60 },
+];
+
+const LOG_TEXTS_READY: string[] = [
+  "задача принята в очередь",
+  "обработчик запустил проверку",
+  "цель: ",
+  "идет поиск публичных страниц",
+  "анализируем формы, политику и SSL-доказательства",
+];
+
+const LOG_TEXTS_WAITING: string[] = [
+  "",
+  "",
+  "",
+  "ожидаем браузерный контекст",
+  "собираем технические признаки",
+];
+
+function buildLogLines(start: number, elapsed: number, url: string, progress: number): string[] {
+  const entries: { offset: number; text: string }[] = [];
+
+  for (let i = 0; i < LOG_BASES.length; i++) {
+    const { base, threshold } = LOG_BASES[i];
+
+    // determine effective offset
+    let offset: number;
+    if (threshold === null) {
+      offset = base;
+    } else if (progress >= threshold) {
+      offset = elapsed;
+    } else if (elapsed > base) {
+      offset = elapsed;
+    } else {
+      offset = base;
+    }
+
+    // check if line should be visible
+    const timeReady = elapsed >= base;
+    const progressReady = threshold !== null && progress >= threshold;
+    if (!timeReady && !progressReady) continue;
+
+    const ts = fmtTime(start, offset);
+    const text = threshold === null
+      ? (i === 2 ? `${LOG_TEXTS_READY[i]}${url}` : LOG_TEXTS_READY[i])
+      : progress >= threshold
+        ? (i === 2 ? `${LOG_TEXTS_READY[i]}${url}` : LOG_TEXTS_READY[i])
+        : LOG_TEXTS_WAITING[i];
+
+    entries.push({ offset, text: `[${ts}] ${text}` });
+  }
+
+  entries.sort((a, b) => a.offset - b.offset);
+  return entries.map((entry) => entry.text);
+}
+
 export default function CheckProgressView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reqId = searchParams.get("reqId");
   const [task, setTask] = useState<TaskState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [logLines, setLogLines] = useState<string[]>([]);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressRef = useRef(0);
+  const checkedUrlRef = useRef("ожидаем данные бэкенда");
 
   useEffect(() => {
     if (!reqId) return;
     let cancelled = false;
+
+    const start = Date.now();
+    setLogLines(buildLogLines(start, 0, checkedUrlRef.current, 0));
+
+    const tickId = setInterval(() => {
+      if (cancelled) return;
+      const elapsed = Math.floor((Date.now() - start) / 1000);
+      setLogLines(buildLogLines(start, elapsed, checkedUrlRef.current, progressRef.current));
+    }, 1000);
 
     const poll = async () => {
       try {
@@ -99,32 +178,22 @@ export default function CheckProgressView() {
 
     return () => {
       cancelled = true;
+      clearInterval(tickId);
       if (pollRef.current) clearTimeout(pollRef.current);
     };
   }, [reqId, router]);
 
   const progress = Math.max(0, Math.min(100, task?.progress || 0));
   const checkedUrl = task?.url || "ожидаем данные бэкенда";
-  const currentStatus = useMemo(() => task?.status || "queued", [task?.status]);
-  const activeStage = useMemo(() => activeStageIndex(progress, currentStatus), [currentStatus, progress]);
-  const currentStatusLabel = useMemo(
-    () => statusLabel(currentStatus, progress),
-    [currentStatus, progress]
-  );
-  const scanLog = useMemo(
-    () => [
-      "[12:41:02] задача принята в очередь",
-      "[12:41:04] обработчик запустил проверку",
-      `[12:41:07] цель: ${checkedUrl}`,
-      progress >= 20
-        ? "[12:41:11] идет поиск публичных страниц"
-        : "[12:41:11] ожидаем браузерный контекст",
-      progress >= 60
-        ? "[12:41:18] анализируем формы, политику и SSL-доказательства"
-        : "[12:41:18] собираем технические признаки",
-    ],
-    [checkedUrl, progress]
-  );
+
+  useEffect(() => {
+    progressRef.current = progress;
+    checkedUrlRef.current = checkedUrl;
+  }, [progress, checkedUrl]);
+
+  const currentStatus = task?.status || "queued";
+  const activeStage = activeStageIndex(progress, currentStatus);
+  const currentStatusLabel = statusLabel(currentStatus, progress);
 
   if (!reqId) {
     return (
@@ -255,7 +324,7 @@ export default function CheckProgressView() {
                     Технический журнал
                   </div>
                   <div className="space-y-2">
-                    {scanLog.map((line) => (
+                    {logLines.map((line) => (
                       <p key={line} className="font-mono text-xs leading-6 text-foreground/70">
                         {line}
                       </p>
