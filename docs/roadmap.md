@@ -59,3 +59,20 @@ https://github.com/TemporaryOrganization1/PDn-control/issues/137
 
 **Next sprint**
 * The next sprint will most likely focus on improving the quality of the project and fixing the issues
+
+## Sprint 4
+
+**Milestone:** Sprint 4
+
+**Dates:** 2026-07-06 - 2026-07-12
+
+**Sprint Goal:** Add risk scoring and total possible fine calculation
+
+**Focus / Expected Outcome:** The team will add risk scoring and total possible fine calculation and fix minor issues met during development
+
+**Linked Planned Items:**
+https://github.com/TemporaryOrganization1/PDn-control/issues/24
+https://github.com/TemporaryOrganization1/PDn-control/issues/23
+
+**Next sprint**
+* The next sprint will add paid subscription handling and fix pdf report
