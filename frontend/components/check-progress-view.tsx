@@ -185,8 +185,11 @@ export default function CheckProgressView() {
 
   const progress = Math.max(0, Math.min(100, task?.progress || 0));
   const checkedUrl = task?.url || "ожидаем данные бэкенда";
-  progressRef.current = progress;
-  checkedUrlRef.current = checkedUrl;
+
+  useEffect(() => {
+    progressRef.current = progress;
+    checkedUrlRef.current = checkedUrl;
+  }, [progress, checkedUrl]);
 
   const currentStatus = task?.status || "queued";
   const activeStage = activeStageIndex(progress, currentStatus);
