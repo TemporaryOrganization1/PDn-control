@@ -360,7 +360,7 @@ func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStat
 	d.statusPill(x+116, y+6, scoreLabel, accent)
 
 	setText(pdf, pdfText)
-	setFont(pdf, "B", 23)
+	setFont(pdf, "B", 22)
 	pdf.SetXY(x+6, y+26)
 	pdf.CellFormat(112, 9, "Отчет о проверке сайта", "", 0, "L", false, 0, "")
 
@@ -408,15 +408,15 @@ func (d *reportDoc) drawMetricCard(x, y, w float64, label, value, caption string
 	setFill(pdf, accent)
 	roundedRect(pdf, x+5, y+5, 1.4, 22, 0.6, "F")
 	setText(pdf, pdfDim)
-	setFont(pdf, "", 7.2)
+	setFont(pdf, "", 5)
 	pdf.SetXY(x+10, y+6)
 	pdf.CellFormat(w-14, 4, label, "", 0, "L", false, 0, "")
 	setText(pdf, pdfText)
-	setFont(pdf, "B", 16)
+	setFont(pdf, "B", 9)
 	pdf.SetXY(x+10, y+13)
 	pdf.CellFormat(w-14, 7, value, "", 0, "L", false, 0, "")
 	setText(pdf, pdfMuted)
-	setFont(pdf, "", 7.2)
+	setFont(pdf, "", 5)
 	pdf.SetXY(x+10, y+23)
 	pdf.CellFormat(w-14, 4, caption, "", 0, "L", false, 0, "")
 }
@@ -582,7 +582,7 @@ func (d *reportDoc) drawSiteInfo(payload store.ReportPayload) {
 func (d *reportDoc) drawSSLBlock(info *store.SslInfo) {
 	d.ensureSpace(54)
 	x, y := marginX, d.y
-	d.roundedPanel(x, y, usableW, 48)
+	d.roundedPanel(x, y, usableW, 54)
 	setText(d.pdf, pdfText)
 	setFont(d.pdf, "B", 11)
 	d.pdf.SetXY(x+7, y+8)
