@@ -4,6 +4,12 @@ import { Data } from './data.js';
 import { getDomain } from './url.js';
 import type { RequestOptions } from 'http';
 
+export type ScanOptions = {
+  aiIterations: number;
+  captureImages: boolean;
+  detailLevel: 'summary' | 'full';
+};
+
 export async function initBrowser() {
   const browser = await puppeteer.launch({
     browser: 'chrome',
@@ -11,6 +17,7 @@ export async function initBrowser() {
     args: [
       '--no-sandbox',
       '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
       '--disable-extensions',
       '--disable-plugins',
       '--disable-gpu',
@@ -38,7 +45,8 @@ export async function runCheck(
   type: string,
   config: any,
   onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>,
-  uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null> = async () => null
+  uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null> = async () => null,
+  options: ScanOptions = { aiIterations: 3, captureImages: false, detailLevel: 'summary' }
 ): Promise<any> {
   const domain = getDomain(baseUrl);
   if (domain === null) {
@@ -51,12 +59,12 @@ export async function runCheck(
       height: 720
   });
 
-  const sr = new Data(browser, page, baseUrl, domain, uploadImage, onProgress);
+  const sr = new Data(browser, page, baseUrl, domain, uploadImage, options.captureImages, onProgress);
 
   await prepare(sr);
 
   if (await sr.checkConnection()) {
-    await check(sr, type);
+    await check(sr, type, options);
   } else {
     throw new Error('Failed to connect to ' + baseUrl);
   }

@@ -7,6 +7,7 @@ Assignment 5 adds architecture traceability through ADR links in [docs/quality-r
 - [QRT-001: Scan dispatch responsiveness](#qrt-001-scan-dispatch-responsiveness)
 - [QRT-002: Crawler type-check feedback](#qrt-002-crawler-type-check-feedback)
 - [QRT-003: Invalid input protection](#qrt-003-invalid-input-protection)
+- [QRT-004: Scan entitlement enforcement](#qrt-004-scan-entitlement-enforcement)
 
 ## QRT-001: Scan dispatch responsiveness
 
@@ -55,3 +56,19 @@ Assignment 5 adds architecture traceability through ADR links in [docs/quality-r
 **Evidence link:** [Backend validation test](../backend/main-backend/internal/api/handlers_test.go); [Crawler invalid URL test](../backend/crawler-worker/tests/runner.test.ts); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml).
 
 **Architecture traceability:** [ADR-001](architecture/adr/ADR-001-docker-compose-service-boundaries.md), [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md).
+
+## QRT-004: Scan entitlement enforcement
+
+**Linked quality requirement:** [QR-004](quality-requirements.md#qr-004-server-enforced-scan-entitlements)
+
+**Verification method:** Automated backend payload-sanitization tests and crawler-worker scan-policy tests.
+
+**Test data, setup, or environment:** Standard Go and Node CI environments; no production secret or external website is required.
+
+**Automated command or CI check:** `go test ./internal/api -run TestSanitizeReportPayload -count=1`; `npm test -- --run tests/scan-policy.test.ts` in the corresponding Quality Gates jobs.
+
+**Expected measurable result:** Free payloads retain only category ID, status, and short conclusion; invalid or contradictory worker options resolve to the restrictive 3-iteration summary profile; the fourth exploration call is denied; unexamined categories resolve to `unknown`.
+
+**Evidence link:** [Backend entitlement tests](../backend/main-backend/internal/api/handlers_test.go); [Crawler scan-policy tests](../backend/crawler-worker/tests/scan-policy.test.ts); [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml).
+
+**Architecture traceability:** [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md), [ADR-004](architecture/adr/ADR-004-server-side-scan-entitlements.md).

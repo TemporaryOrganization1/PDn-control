@@ -18,6 +18,7 @@ import (
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/entitlements"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/pdfGen"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 )
@@ -25,7 +26,7 @@ import (
 var (
 	ErrUserExists      = errors.New("user already exists")
 	ErrInvalidSession  = errors.New("invalid session")
-	ErrGuestLimit      = errors.New("guest limit reached")
+	ErrScanLimit       = errors.New("free scan limit reached")
 	ErrReportNotFound  = errors.New("report not found")
 	ErrReportForbidden = errors.New("report access denied")
 )
@@ -38,12 +39,6 @@ type User struct {
 	EmailVerified bool       `json:"email_verified"`
 	Plan          string     `json:"plan"`
 	PlanExpiresAt *time.Time `json:"plan_expires_at"`
-}
-
-type GuestStats struct {
-	Limit     int `json:"limit"`
-	Used      int `json:"used"`
-	Remaining int `json:"remaining"`
 }
 
 type Store struct {
@@ -126,12 +121,6 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at)`,
-		`CREATE TABLE IF NOT EXISTS guest_usage (
-			guest_id TEXT PRIMARY KEY,
-			used INTEGER NOT NULL DEFAULT 0,
-			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-		)`,
 		`CREATE TABLE IF NOT EXISTS check_history (
 			id TEXT PRIMARY KEY,
 			email TEXT NOT NULL,
@@ -145,7 +134,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_check_history_email_created_at ON check_history(email, created_at DESC)`,
 		`ALTER TABLE check_history ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ NULL`,
+		`ALTER TABLE check_history ADD COLUMN IF NOT EXISTS scan_profile JSONB NULL`,
 		`CREATE INDEX IF NOT EXISTS idx_check_history_expires_at ON check_history(expires_at)`,
+		`CREATE TABLE IF NOT EXISTS scan_usage_events (
+			id TEXT PRIMARY KEY,
+			subject_key TEXT NOT NULL,
+			accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_scan_usage_subject_time ON scan_usage_events(subject_key, accepted_at)`,
 		`CREATE TABLE IF NOT EXISTS check_images (
 			id TEXT PRIMARY KEY,
 			req_id TEXT NOT NULL,
@@ -267,25 +263,26 @@ func (s *Store) reportIDByReqID(ctx context.Context, reqID string) (string, erro
 
 // CheckHistory represents a completed check. PDF metadata is optional.
 type CheckHistory struct {
-	ID           string         `json:"id"`
-	Email        string         `json:"email,omitempty"`
-	ReqID        string         `json:"req_id"`
-	URL          string         `json:"url"`
-	CheckType    string         `json:"check_type"`
-	Status       string         `json:"status"`
-	ReportID     string         `json:"report_id"`
-	CreatedAt    time.Time      `json:"created_at"`
-	FileName     string         `json:"file_name"`
-	Results      []store.Result `json:"results,omitempty"`
-	ScreenshotID string         `json:"screenshotId,omitempty"`
-	SSL          *store.SslInfo `json:"ssl,omitempty"`
-	About        string         `json:"about,omitempty"`
-	Country      string         `json:"country,omitempty"`
+	ID           string                   `json:"id"`
+	Email        string                   `json:"email,omitempty"`
+	ReqID        string                   `json:"req_id"`
+	URL          string                   `json:"url"`
+	CheckType    string                   `json:"check_type"`
+	Status       string                   `json:"status"`
+	ReportID     string                   `json:"report_id"`
+	CreatedAt    time.Time                `json:"created_at"`
+	FileName     string                   `json:"file_name"`
+	Results      []store.Result           `json:"results,omitempty"`
+	ScreenshotID string                   `json:"screenshotId,omitempty"`
+	SSL          *store.SslInfo           `json:"ssl,omitempty"`
+	About        string                   `json:"about,omitempty"`
+	Country      string                   `json:"country,omitempty"`
+	ScanProfile  entitlements.ScanProfile `json:"scan_profile"`
 }
 
 // SaveCheckHistory upserts a completed check independently from PDF generation.
 // For free users, sets expires_at = NOW() + 7 days. For paid users, expires_at remains NULL.
-func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, checkType, status string, payload store.ReportPayload) (*CheckHistory, error) {
+func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, checkType, status string, payload store.ReportPayload, profile entitlements.ScanProfile) (*CheckHistory, error) {
 	email = NormalizeEmail(email)
 	if email == "" {
 		return nil, nil
@@ -301,45 +298,44 @@ func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, c
 	if err != nil {
 		return nil, fmt.Errorf("marshal check results: %w", err)
 	}
-
-	// Get user plan
-	var plan string
-	err = s.db.QueryRowContext(ctx, `SELECT plan FROM auth_users WHERE email = $1`, email).Scan(&plan)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return nil, fmt.Errorf("query user plan: %w", err)
+	profileJSON, err := json.Marshal(profile)
+	if err != nil {
+		return nil, fmt.Errorf("marshal scan profile: %w", err)
 	}
 
-	// Set expires_at based on plan: free = 7 days, paid = NULL (no expiry)
-	isPaid := plan == "paid"
+	// Retention follows the immutable scan profile, not the user's current plan.
+	isPaid := profile.IsFull()
 
 	h := &CheckHistory{}
 	if isPaid {
 		err = s.db.QueryRowContext(ctx, `
-			INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, expires_at, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NULL, NOW())
+			INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, scan_profile, expires_at, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, NULL, NOW())
 			ON CONFLICT (req_id) DO UPDATE
 			SET email = EXCLUDED.email,
 				url = EXCLUDED.url,
 				check_type = EXCLUDED.check_type,
 				status = EXCLUDED.status,
 				results_json = EXCLUDED.results_json,
+				scan_profile = EXCLUDED.scan_profile,
 				expires_at = NULL
 			RETURNING id, email, req_id, url, check_type, status, COALESCE(report_id, ''), created_at
-		`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON)).
+		`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON), string(profileJSON)).
 			Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt)
 	} else {
 		err = s.db.QueryRowContext(ctx, `
-			INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, expires_at, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, NOW() + INTERVAL '7 days', NOW())
+			INSERT INTO check_history (id, email, req_id, url, check_type, status, results_json, scan_profile, expires_at, created_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, NOW() + INTERVAL '7 days', NOW())
 			ON CONFLICT (req_id) DO UPDATE
 			SET email = EXCLUDED.email,
 				url = EXCLUDED.url,
 				check_type = EXCLUDED.check_type,
 				status = EXCLUDED.status,
 				results_json = EXCLUDED.results_json,
+				scan_profile = EXCLUDED.scan_profile,
 				expires_at = NOW() + INTERVAL '7 days'
 			RETURNING id, email, req_id, url, check_type, status, COALESCE(report_id, ''), created_at
-		`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON)).
+		`, newID(), email, reqID, targetURL, checkType, status, string(resultsJSON), string(profileJSON)).
 			Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt)
 	}
 	if err != nil {
@@ -350,6 +346,7 @@ func (s *Store) SaveCheckHistory(ctx context.Context, email, reqID, targetURL, c
 	h.SSL = payload.SSL
 	h.About = payload.About
 	h.Country = payload.Country
+	h.ScanProfile = profile
 	if err := s.AttachImagesToCheckHistory(ctx, reqID, h.ID); err != nil {
 		return nil, err
 	}
@@ -376,10 +373,11 @@ func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckH
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT h.id, h.email, h.req_id, h.url, h.check_type, h.status,
 			COALESCE(h.report_id, ''), h.created_at, COALESCE(r.file_path, ''),
-			COALESCE(h.results_json, '[]'::jsonb)
+			COALESCE(h.results_json, '[]'::jsonb), h.scan_profile
 		FROM check_history h
 		LEFT JOIN pdf_reports r ON r.id = h.report_id
 		WHERE h.email = $1
+			AND (h.expires_at IS NULL OR h.expires_at > NOW())
 		ORDER BY h.created_at DESC
 	`, NormalizeEmail(email))
 	if err != nil {
@@ -392,8 +390,16 @@ func (s *Store) CheckHistoryByEmail(ctx context.Context, email string) ([]CheckH
 		var h CheckHistory
 		var filePath string
 		var rawResults []byte
-		if err := rows.Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt, &filePath, &rawResults); err != nil {
+		var rawProfile []byte
+		if err := rows.Scan(&h.ID, &h.Email, &h.ReqID, &h.URL, &h.CheckType, &h.Status, &h.ReportID, &h.CreatedAt, &filePath, &rawResults, &rawProfile); err != nil {
 			return nil, fmt.Errorf("scan check history: %w", err)
+		}
+		if len(rawProfile) > 0 {
+			if err := json.Unmarshal(rawProfile, &h.ScanProfile); err != nil {
+				return nil, fmt.Errorf("unmarshal scan profile: %w", err)
+			}
+		} else {
+			h.ScanProfile = entitlements.LegacyFullProfile()
 		}
 		if filePath != "" {
 			h.FileName = filepath.Base(filePath)
@@ -490,21 +496,22 @@ func (s *Store) UpdatePasswordHash(ctx context.Context, userID, passwordHash str
 	return nil
 }
 
-// ChangeUserPlan changes the user's plan and updates expires_at for all active checks.
-// When switching to 'free', all active checks get expires_at = NOW() + 7 days.
-// When switching to 'paid', sets plan_expires_at = NOW() + 10 minutes and expires_at = NULL.
-func (s *Store) ChangeUserPlan(ctx context.Context, userID, newPlan string) error {
+// ChangeUserPlan changes the account plan. Scan artifacts keep their scan-time retention.
+func (s *Store) ChangeUserPlan(ctx context.Context, userID, newPlan string, paidDuration time.Duration) error {
 	if newPlan != "free" && newPlan != "paid" {
 		return fmt.Errorf("invalid plan: %s", newPlan)
 	}
 
 	// Update user plan
 	if newPlan == "paid" {
+		if paidDuration <= 0 {
+			paidDuration = 10 * time.Minute
+		}
 		_, err := s.db.ExecContext(ctx, `
 			UPDATE auth_users
-			SET plan = $1, plan_expires_at = NOW() + INTERVAL '10 minutes'
+			SET plan = $1, plan_expires_at = NOW() + ($3 * INTERVAL '1 second')
 			WHERE id = $2
-		`, newPlan, userID)
+		`, newPlan, userID, int(paidDuration.Seconds()))
 		if err != nil {
 			return fmt.Errorf("update user plan: %w", err)
 		}
@@ -516,31 +523,6 @@ func (s *Store) ChangeUserPlan(ctx context.Context, userID, newPlan string) erro
 		`, newPlan, userID)
 		if err != nil {
 			return fmt.Errorf("update user plan: %w", err)
-		}
-	}
-
-	// Update expires_at for all active checks
-	if newPlan == "paid" {
-		// Paid users: no expiry
-		_, err := s.db.ExecContext(ctx, `
-			UPDATE check_history
-			SET expires_at = NULL
-			WHERE email = (SELECT email FROM auth_users WHERE id = $1)
-				AND expires_at > NOW()
-		`, userID)
-		if err != nil {
-			return fmt.Errorf("update check history expires_at: %w", err)
-		}
-	} else {
-		// Free users: 7 days
-		_, err := s.db.ExecContext(ctx, `
-			UPDATE check_history
-			SET expires_at = NOW() + INTERVAL '7 days'
-			WHERE email = (SELECT email FROM auth_users WHERE id = $1)
-				AND (expires_at IS NULL OR expires_at > NOW())
-		`, userID)
-		if err != nil {
-			return fmt.Errorf("update check history expires_at: %w", err)
 		}
 	}
 
@@ -710,6 +692,29 @@ func (s *Store) CleanupExpiredData(ctx context.Context) (int, int, error) {
 		imagePaths = append(imagePaths, orphanPaths...)
 	}
 
+	// Guest/free scans no longer create PDFs. Retire anonymous legacy files after seven days.
+	legacyRows, err := s.db.QueryContext(ctx, `
+		DELETE FROM pdf_reports
+		WHERE email = '' AND created_at <= NOW() - INTERVAL '7 days'
+		RETURNING file_path
+	`)
+	if err != nil {
+		return checksDeleted, imagesDeleted, fmt.Errorf("delete anonymous legacy pdf reports: %w", err)
+	}
+	for legacyRows.Next() {
+		var fp string
+		if err := legacyRows.Scan(&fp); err != nil {
+			legacyRows.Close()
+			return checksDeleted, imagesDeleted, fmt.Errorf("scan anonymous legacy pdf path: %w", err)
+		}
+		pdfPaths = append(pdfPaths, fp)
+	}
+	if err := legacyRows.Err(); err != nil {
+		legacyRows.Close()
+		return checksDeleted, imagesDeleted, fmt.Errorf("anonymous legacy pdf rows iteration: %w", err)
+	}
+	legacyRows.Close()
+
 	removeFiles(pdfPaths)
 	removeFiles(imagePaths)
 
@@ -868,6 +873,9 @@ func (s *Store) DeleteUser(ctx context.Context, userID, email string) error {
 	// Delete sessions — ON DELETE CASCADE should handle this, but delete explicitly for safety
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = $1`, userID); err != nil {
 		return fmt.Errorf("delete user sessions: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM scan_usage_events WHERE subject_key = $1`, "user:"+userID); err != nil {
+		return fmt.Errorf("delete user scan usage: %w", err)
 	}
 
 	// Delete the user
@@ -1116,48 +1124,127 @@ func (s *Store) DeleteSession(ctx context.Context, token string) error {
 	return err
 }
 
-func (s *Store) GuestStats(ctx context.Context, guestID string, limit int) (GuestStats, error) {
-	stats := GuestStats{Limit: limit, Remaining: limit}
-	if guestID == "" {
-		return stats, nil
+// ScanQuota returns usage in an exact rolling window for a pseudonymous subject key.
+func (s *Store) ScanQuota(ctx context.Context, subjectKey, tier string, limit, windowDays int) (entitlements.ScanQuota, error) {
+	quota := entitlements.ScanQuota{Tier: tier, Limited: true, Limit: limit, WindowDays: windowDays}
+	if subjectKey == "" || limit <= 0 || windowDays <= 0 {
+		quota.Remaining = limit
+		return quota, nil
 	}
 
+	var oldest sql.NullTime
 	err := s.db.QueryRowContext(ctx, `
-		SELECT used
-		FROM guest_usage
-		WHERE guest_id = $1
-	`, guestID).Scan(&stats.Used)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return stats, fmt.Errorf("get guest usage: %w", err)
+		SELECT COUNT(*), MIN(accepted_at)
+		FROM scan_usage_events
+		WHERE subject_key = $1
+			AND accepted_at > NOW() - ($2 * INTERVAL '1 day')
+	`, subjectKey, windowDays).Scan(&quota.Used, &oldest)
+	if err != nil {
+		return quota, fmt.Errorf("query scan quota: %w", err)
 	}
-	stats.Remaining = limit - stats.Used
-	if stats.Remaining < 0 {
-		stats.Remaining = 0
+	quota.Remaining = limit - quota.Used
+	if quota.Remaining < 0 {
+		quota.Remaining = 0
 	}
-	return stats, nil
+	if quota.Remaining == 0 && oldest.Valid {
+		next := oldest.Time.Add(time.Duration(windowDays) * 24 * time.Hour)
+		quota.NextAvailableAt = &next
+	}
+	return quota, nil
 }
 
-func (s *Store) ConsumeGuestAttempt(ctx context.Context, guestID string, limit int) (GuestStats, error) {
-	stats := GuestStats{Limit: limit}
-	err := s.db.QueryRowContext(ctx, `
-		INSERT INTO guest_usage (guest_id, used, created_at, updated_at)
-		VALUES ($1, 1, NOW(), NOW())
-		ON CONFLICT (guest_id) DO UPDATE
-		SET used = guest_usage.used + 1, updated_at = NOW()
-		WHERE guest_usage.used < $2
-		RETURNING used
-	`, guestID, limit).Scan(&stats.Used)
+// ConsumeScanAttempt atomically reserves one accepted scan in the rolling window.
+func (s *Store) ConsumeScanAttempt(ctx context.Context, subjectKey, tier string, limit, windowDays int) (entitlements.ScanQuota, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return GuestStats{Limit: limit, Used: limit, Remaining: 0}, ErrGuestLimit
+		return entitlements.ScanQuota{}, fmt.Errorf("begin scan quota transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, subjectKey); err != nil {
+		return entitlements.ScanQuota{}, fmt.Errorf("lock scan quota: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM scan_usage_events
+		WHERE subject_key = $1
+			AND accepted_at <= NOW() - ($2 * INTERVAL '1 day')
+	`, subjectKey, windowDays); err != nil {
+		return entitlements.ScanQuota{}, fmt.Errorf("delete expired scan usage: %w", err)
+	}
+
+	quota := entitlements.ScanQuota{Tier: tier, Limited: true, Limit: limit, WindowDays: windowDays}
+	var oldest sql.NullTime
+	if err := tx.QueryRowContext(ctx, `
+		SELECT COUNT(*), MIN(accepted_at)
+		FROM scan_usage_events
+		WHERE subject_key = $1
+	`, subjectKey).Scan(&quota.Used, &oldest); err != nil {
+		return entitlements.ScanQuota{}, fmt.Errorf("count scan usage: %w", err)
+	}
+	if quota.Used >= limit {
+		quota.Remaining = 0
+		if oldest.Valid {
+			next := oldest.Time.Add(time.Duration(windowDays) * 24 * time.Hour)
+			quota.NextAvailableAt = &next
 		}
-		return stats, fmt.Errorf("consume guest attempt: %w", err)
+		return quota, ErrScanLimit
 	}
-	stats.Remaining = limit - stats.Used
-	if stats.Remaining < 0 {
-		stats.Remaining = 0
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO scan_usage_events (id, subject_key, accepted_at)
+		VALUES ($1, $2, NOW())
+	`, newID(), subjectKey); err != nil {
+		return entitlements.ScanQuota{}, fmt.Errorf("insert scan usage: %w", err)
 	}
-	return stats, nil
+	quota.Used++
+	quota.Remaining = limit - quota.Used
+	if err := tx.Commit(); err != nil {
+		return entitlements.ScanQuota{}, fmt.Errorf("commit scan quota: %w", err)
+	}
+	return quota, nil
+}
+
+// TransferScanUsage moves current guest usage to the authenticated account.
+func (s *Store) TransferScanUsage(ctx context.Context, fromSubject, toSubject string) error {
+	if fromSubject == "" || toSubject == "" || fromSubject == toSubject {
+		return nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin scan usage transfer: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	first, second := fromSubject, toSubject
+	if second < first {
+		first, second = second, first
+	}
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, first); err != nil {
+		return fmt.Errorf("lock source scan usage: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, second); err != nil {
+		return fmt.Errorf("lock destination scan usage: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE scan_usage_events SET subject_key = $2 WHERE subject_key = $1`, fromSubject, toSubject); err != nil {
+		return fmt.Errorf("transfer scan usage: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit scan usage transfer: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) CleanupScanUsage(ctx context.Context, windowDays int) error {
+	if windowDays <= 0 {
+		windowDays = 30
+	}
+	_, err := s.db.ExecContext(ctx, `
+		DELETE FROM scan_usage_events
+		WHERE accepted_at <= NOW() - ($1 * INTERVAL '1 day')
+	`, windowDays)
+	if err != nil {
+		return fmt.Errorf("cleanup scan usage: %w", err)
+	}
+	return nil
 }
 
 // ImageRecord represents a stored check image.
@@ -1295,6 +1382,24 @@ func (s *Store) GetImage(ctx context.Context, imageID string) (*ImageRecord, err
 		r.ExpiresAt = expiresAt.Time
 	}
 	return &r, nil
+}
+
+func (s *Store) ImageBelongsToEmail(ctx context.Context, imageID, email string) (bool, error) {
+	var allowed bool
+	err := s.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM check_images i
+			JOIN check_history h ON h.req_id = i.req_id
+			WHERE i.id = $1
+				AND h.email = $2
+				AND (i.expires_at IS NULL OR i.expires_at > NOW())
+		)
+	`, imageID, NormalizeEmail(email)).Scan(&allowed)
+	if err != nil {
+		return false, fmt.Errorf("check image ownership: %w", err)
+	}
+	return allowed, nil
 }
 
 // MarkImagesForDeletion sets expires_at = NOW() for all images associated with the given reqID.

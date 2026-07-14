@@ -1,6 +1,6 @@
 # PDn-control
 
-PDn-control is a legal-tech website checker for risks related to Russian personal-data law, especially Federal Law No. 152. It crawls a submitted website, collects technical and page evidence, classifies compliance risks, shows a user-facing report, and can generate a PDF report for follow-up review.
+PDn-control is a legal-tech website checker for risks related to Russian personal-data law, especially Federal Law No. 152. It crawls a submitted website, classifies compliance risks, and shows a user-facing report. Guest and free accounts receive three summary scans in a rolling 30-day window; paid-origin scans use a deeper exploration budget and can generate PDF and screenshot evidence.
 
 ## Current Access
 

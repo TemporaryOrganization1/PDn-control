@@ -4,7 +4,7 @@ import { getDomain, getMainDomain } from "./url.js";
 
 export type WorkerCheck = {
     id: string;
-    result: 'fail'|'ok'|'warn';
+    result: 'fail'|'ok'|'warn'|'unknown';
     data?: Record<string, unknown>;
     pages?: string[];
     about?: string;
@@ -35,6 +35,7 @@ type SubsType = {
 
 export class Data {
     constructor (browser: Browser, page: Page, baseUrl: string, domain: string, uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>,
+            captureImages: boolean,
             onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>) {
         this.mainDomain = getMainDomain (domain) ?? domain;
         this.isSsl = this.isSslUrl(baseUrl);
@@ -66,6 +67,7 @@ export class Data {
             }
         });
         this.uploadImage = uploadImage;
+        this.captureImages = captureImages;
 
         console.log ('domain', domain, 'baseUrl', baseUrl);
     }
@@ -130,6 +132,7 @@ export class Data {
     public result: WorkerReportPayload
     public maxLinks: number
     public uploadImage: (image: Uint8Array<ArrayBufferLike>) => Promise <{"image_id": string}|null>
+    public captureImages: boolean
     public onProgress: (progress: number, status: string, completed: string[], errors: string[], resultData?: any) => Promise<void>
 
     public genPath (path: string): string {

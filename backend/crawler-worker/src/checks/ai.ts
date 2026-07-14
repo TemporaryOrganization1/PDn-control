@@ -4,6 +4,7 @@ import type { Data } from '../data.js';
 import { resolveOpenRouterSettings } from '../openrouter-config.js';
 import { Agent } from 'node:https';
 import fetch from 'node-fetch';
+import { coverageFallbacks, ExplorationBudget } from '../scan-policy.js';
 
 const config = JSON.parse(readFileSync('./config.json', 'utf-8'));
 
@@ -206,11 +207,14 @@ const customFetcher: Fetcher = async (input: RequestInfo | URL, init?: any) => {
     }
 };
 
-export async function checkAi(sr: Data) {
+export async function checkAi(sr: Data, requestedIterations = 3, detailLevel: 'summary' | 'full' = 'summary') {
     const openrouterSettings = resolveOpenRouterSettings(config.openrouter, process.env);
     const key = openrouterSettings.apiKey;
-    const b = prompt + sr.baseUrl;
-    const tries = 10;
+    const tries = Math.max(1, Math.min(10, Math.trunc(requestedIterations)));
+    const detailInstruction = detailLevel === 'full'
+        ? '\nReturn complete evidence, affected URLs and detailed Russian explanations.\n'
+        : '\nReturn concise Russian conclusions. Do not spend requests collecting screenshots or verbose evidence.\n';
+    const b = prompt + sr.baseUrl + detailInstruction;
     const model = openrouterSettings.model;
     const maxTextSize = config.worker.maxTextSize || 500000;
 
@@ -226,8 +230,11 @@ export async function checkAi(sr: Data) {
         timeoutMs: 60 * 1000 * 10
     });
     let foundChecks: {[key: string]: boolean} = {};
+    const checkedChecks = new Set<string>();
+    const explorationBudget = new ExplorationBudget(tries);
+    const maxRounds = tries + 5;
 
-    for (let i = 0; i < tries + 5; i++) {
+    for (let i = 0; i < maxRounds; i++) {
         try {
             const stream = await openrouter.chat.send({
             "chatRequest": {
@@ -350,9 +357,17 @@ export async function checkAi(sr: Data) {
                                 "about": {
                                     "type": "string",
                                     "description": "About the website, debug information. Use selected language. So in clear Russian"
+                                },
+                                "checkedIds": {
+                                    "type": "array",
+                                    "description": "IDs of checks actually evaluated during this run, including checks with no violations",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": ["sep-consent", "foreign-words", "privacy-policy", "cookie-banner", "consent-forms", "email-pdn", "ad-marking", "minors-data", "special-categ"]
+                                    }
                                 }
                             },
-                            "required": ["about"]
+                            "required": ["about", "checkedIds"]
                         }
                     }
                 }
@@ -373,12 +388,16 @@ export async function checkAi(sr: Data) {
                     if (toolCall && toolCall.type == "function") {
                     const func = toolCall.function;
 
-                    if (i < tries) {
+                    if (func.name == "open" || func.name == "eval_js") {
+                        if (!explorationBudget.consume()) {
+                            messages.push({ 'role': 'assistant', 'content': func.arguments });
+                            messages.push({ 'role': 'user', 'content': 'Exploration budget exhausted. Finish with reportError and finishReport.' });
+                        } else {
                         if (func.name == "open") {
                             messages.push({ 'role': 'assistant', 'content': func.arguments });
 
                             const args = JSON.parse(func.arguments) as { url: string; };
-                            let content = `=== REQUEST URL ===\nurl:${args.url}\n` + prompt_tries + String(tries - i);
+                            let content = `=== REQUEST URL ===\nurl:${args.url}\n` + prompt_tries + String(explorationBudget.remaining());
 
                             console.log(`Visit ${args.url}`);
 
@@ -394,7 +413,7 @@ export async function checkAi(sr: Data) {
 
                             messages.push({ 'role': 'user', 'content': content });
 
-                        } else if (func.name == "eval_js") {
+                        } else {
                             messages.push({ 'role': 'assistant', 'content': func.arguments });
 
                             const args = JSON.parse(func.arguments) as { code: string };
@@ -408,9 +427,7 @@ export async function checkAi(sr: Data) {
                             }
                             messages.push({ 'role': 'user', content: ' === JS EVAL RESULT ===\n' + result + '\n === END ===' });
                         }
-                    }
-                    else {
-                        messages.push({ 'role': 'assistant', 'content': 'Not available. Call a "reportError" and finish with "finishReport"' });
+                        }
                     }
 
                     if (func.name == "reportError") {
@@ -420,7 +437,8 @@ export async function checkAi(sr: Data) {
                         try {
                             for ( const p of args.checks) {
                                 let imagesIds: string[] = [];
-                                for (const cssSelector of p.images) {
+                                checkedChecks.add(p.id);
+                                for (const cssSelector of sr.captureImages ? p.images : []) {
                                     try {
                                         await sr.open (cssSelector.url);
                                         const elm = await sr.page.$(cssSelector.selector);
@@ -449,16 +467,19 @@ export async function checkAi(sr: Data) {
                             console.error (e);
                         }
                         finally {
-                            await sr.open (previousURL);
+                            if (sr.captureImages && sr.page.url() !== previousURL) {
+                                await sr.open (previousURL);
+                            }
                         }
                         messages.push({ 'role': 'user', 'content': `${func.arguments}\n\n=== RESULT ===\nACCEPTED` });
                     }
 
                     if (func.name == "finishReport") {
                         console.log(func.arguments);
-                        i = tries + 100;
-                        const args = JSON.parse(func.arguments) as {"about": string};
+                        i = maxRounds + 100;
+                        const args = JSON.parse(func.arguments) as {"about": string, "checkedIds"?: string[]};
                         sr.result.about = args.about;
+                        for (const id of args.checkedIds ?? []) checkedChecks.add(id);
                     }
                     }
                 }
@@ -472,17 +493,5 @@ export async function checkAi(sr: Data) {
         }
     }
 
-    const checks = ["sep-consent", "foreign-words", "privacy-policy",
-        "cookie-banner", "consent-forms", "email-pdn", "ad-marking",
-        "minors-data", "special-categ"];
-
-    for (const p of checks) {
-        if (p in foundChecks)
-            continue;
-        sr.result.checks.push ({
-            'id': p,
-            'result': 'ok',
-            'images': []
-        });
-    }
+    sr.result.checks.push(...coverageFallbacks(new Set(Object.keys(foundChecks)), checkedChecks));
 }

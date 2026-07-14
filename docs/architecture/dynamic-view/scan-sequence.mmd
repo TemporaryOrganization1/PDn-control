@@ -13,14 +13,15 @@ sequenceDiagram
   User->>Browser: Submit URL and check type
   Browser->>Frontend: POST /api/check
   Frontend->>API: Proxy request
-  API->>Store: Validate user or guest quota
   API->>Pool: Reserve available worker
+  API->>Store: Snapshot free/paid scan profile
+  API->>Store: Atomically consume rolling quota
   API->>Store: Create queued task
-  API-->>Frontend: Accepted with req-id
+  API-->>Frontend: Accepted with req-id, profile, quota
   Frontend-->>Browser: Navigate to progress page
   API->>Worker: POST /check with URL, req-id, callback, secret
   Worker-->>API: Accepted
-  Worker->>Target: Load page and collect evidence
+  Worker->>Target: Load page within 3/10 exploration budget
   Worker->>GeoIP: Resolve hosting / resource country
   Worker->>AI: Analyze privacy-policy evidence when needed
   Worker->>API: POST /api/progress intermediate updates
@@ -28,7 +29,7 @@ sequenceDiagram
   Frontend->>API: Proxy progress poll
   API-->>Frontend: Current progress and status
   Worker->>API: POST /api/progress completed results
-  API->>Store: Save results, history, and PDF report metadata
+  API->>Store: Sanitize by profile; save history and paid artifacts
   Browser->>Frontend: Open result page
   Frontend->>API: GET /api/progress/{req-id}
   API-->>Frontend: Completed task with results and report id

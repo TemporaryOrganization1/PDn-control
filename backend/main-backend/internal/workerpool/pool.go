@@ -75,7 +75,7 @@ func (p *Pool) GetAvailableCount() int {
 	return count
 }
 
-func (p *Pool) SendTask(workerURL string, task map[string]string) (map[string]any, error) {
+func (p *Pool) SendTask(workerURL string, task any) (map[string]any, error) {
 	body, err := json.Marshal(task)
 	if err != nil {
 		return nil, fmt.Errorf("marshal task: %w", err)

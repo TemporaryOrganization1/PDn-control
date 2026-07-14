@@ -16,7 +16,7 @@ export function FinalCTA() {
             <AddressCheckForm />
           </div>
           <p className="mt-5 text-xs text-muted-foreground">
-            Бесплатно: гостевые проверки доступны без регистрации
+            Бесплатно: 3 проверки за 30 дней без регистрации
           </p>
         </div>
     </SectionShell>

@@ -1,9 +1,15 @@
 package api
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/labstack/echo/v4"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/entitlements"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/models"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 )
 
 func TestValidEmail(t *testing.T) {
@@ -24,6 +30,59 @@ func TestValidEmail(t *testing.T) {
 		if got := validEmail(tt.email); got != tt.want {
 			t.Fatalf("validEmail(%q) = %v, want %v", tt.email, got, tt.want)
 		}
+	}
+}
+
+func TestSubscriptionChangeRequiresAuthentication(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/subscription/change", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	s := &Server{}
+	if err := s.handleSubscriptionChange(c); err != nil {
+		t.Fatalf("handle subscription change: %v", err)
+	}
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestSelfServicePaidDurationMatchesMonthlyPlan(t *testing.T) {
+	if selfServicePaidDuration != 30*24*time.Hour {
+		t.Fatalf("paid duration = %s, want 30 days", selfServicePaidDuration)
+	}
+}
+
+func TestSanitizeReportPayloadRemovesPaidEvidenceFromFreeScan(t *testing.T) {
+	payload := store.ReportPayload{
+		Checks: []store.Result{{
+			ID: "privacy-policy", Result: "fail", About: "Краткий вывод", Pages: []string{"https://example.com/policy"},
+			Images: []string{"img-1"}, Data: map[string]any{"secret_detail": "value"},
+		}},
+		ScreenshotID: "img-top",
+		SSL:          &store.SslInfo{Issuer: "Example CA"},
+		About:        "Описание сайта",
+		Country:      "ru",
+	}
+
+	got := sanitizeReportPayload(payload, entitlements.FreeProfile(entitlements.TierFree, 3))
+	if got.ScreenshotID != "" || got.SSL != nil || got.Country != "" {
+		t.Fatalf("free payload leaked top-level evidence: %#v", got)
+	}
+	if len(got.Checks) != 1 || len(got.Checks[0].Pages) != 0 || len(got.Checks[0].Images) != 0 || got.Checks[0].Data != nil {
+		t.Fatalf("free payload leaked check evidence: %#v", got.Checks)
+	}
+	if got.Checks[0].ID != "privacy-policy" || got.Checks[0].Result != "fail" || got.Checks[0].About == "" {
+		t.Fatalf("free payload lost summary fields: %#v", got.Checks[0])
+	}
+}
+
+func TestSanitizeReportPayloadUsesUnknownForUnexpectedStatus(t *testing.T) {
+	payload := store.ReportPayload{Checks: []store.Result{{ID: "privacy-policy", Result: "unexpected"}}}
+	got := sanitizeReportPayload(payload, entitlements.FreeProfile(entitlements.TierGuest, 3))
+	if got.Checks[0].Result != "unknown" {
+		t.Fatalf("status = %q, want unknown", got.Checks[0].Result)
 	}
 }
 

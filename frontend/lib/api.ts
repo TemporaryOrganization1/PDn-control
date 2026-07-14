@@ -20,6 +20,24 @@ export interface MeResponse {
   guest?: GuestInfo;
 }
 
+export interface ScanProfile {
+  tier: "guest" | "free" | "paid" | "legacy_full";
+  detail_level: "summary" | "full";
+  ai_iterations: number;
+  pdf_enabled: boolean;
+  screenshots_enabled: boolean;
+}
+
+export interface ScanQuota {
+  tier: "guest" | "free" | "paid";
+  limited: boolean;
+  limit?: number;
+  used?: number;
+  remaining?: number;
+  window_days?: number;
+  next_available_at?: string;
+}
+
 export interface RegisterResponse {
   status: string;
   message: string;
@@ -38,13 +56,15 @@ export interface CheckResponse {
     status?: string;
     "req-id"?: string;
     guest?: GuestInfo;
+    scan_profile?: ScanProfile;
+    quota?: ScanQuota;
   };
   msg?: string;
 }
 
 export interface BackendCheckResult {
   id: string;
-  result: "ok" | "warn" | "fail" | string;
+  result: "ok" | "warn" | "fail" | "unknown" | string;
   pages?: string[];
   about?: string;
   images?: string[];
@@ -75,6 +95,7 @@ export interface TaskState {
   errors?: string[];
   report_id?: string;
   created_at?: string;
+  scan_profile?: ScanProfile;
 }
 
 export interface CheckHistoryItem {
@@ -92,6 +113,7 @@ export interface CheckHistoryItem {
   ssl?: BackendSslInfo | null;
   about?: string | null;
   country?: string | null;
+  scan_profile?: ScanProfile;
 }
 
 export class ApiError extends Error {
@@ -110,6 +132,7 @@ const API_ERROR_MESSAGES: Record<string, string> = {
   ERR_INVALID_URL: "Введите корректный адрес сайта",
   ERR_INVALID_TYPE: "Некорректный тип проверки",
   ERR_GUEST_LIMIT: "Гостевой лимит проверок исчерпан. Войдите или зарегистрируйтесь, чтобы продолжить.",
+  ERR_SCAN_LIMIT: "Лимит бесплатных проверок исчерпан. Следующая попытка станет доступна после окончания 30-дневного окна.",
   ERR_WORKER_UNAVAILABLE: "Сейчас нет свободных обработчиков. Попробуйте еще раз чуть позже.",
   ERR_INVALID_CREDENTIALS: "Неверная почта или пароль",
   ERR_EMAIL_EXISTS: "Пользователь с такой почтой уже существует",
@@ -280,6 +303,13 @@ export async function downloadReport(reportId: string): Promise<void> {
   anchor.click();
   window.URL.revokeObjectURL(url);
   anchor.remove();
+}
+
+export async function getUsage(): Promise<ScanQuota> {
+  const response = await fetch("/api/usage", {
+    credentials: "include",
+  });
+  return parseJsonResponse<ScanQuota>(response);
 }
 
 export async function deleteReport(reportId: string): Promise<void> {

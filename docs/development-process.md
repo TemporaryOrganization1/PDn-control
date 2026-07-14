@@ -55,7 +55,7 @@ Important configuration sources:
 | `.env.example` | Sanitized list of expected environment variables. | Public, committed. |
 | `.env` | Local or server-specific secrets and overrides. | Private, ignored. |
 | `docker-compose.yml` | Service topology, container environment wiring, volumes, and ports. | Public, committed. |
-| `backend/main-backend/config.json` | Default main-backend config, worker list, guest limits, and local defaults. | Public, committed, no real secrets. |
+| `backend/main-backend/config.json` | Default main-backend config, worker list, Free/Paid scan entitlements, rolling quota, and local defaults. | Public, committed, no real secrets. |
 | `backend/crawler-worker/config.json` | Worker defaults for crawler checks, OpenRouter model, and GeoIP service URL. | Public, committed, no real API key. |
 | GitHub Actions workflow files | CI jobs, quality gates, and link checking. | Public, committed. |
 

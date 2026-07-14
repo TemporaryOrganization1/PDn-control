@@ -181,4 +181,49 @@ The message with error appears and the start of the check is prevented
 
 The customer approved the test
 
+## UAT-008: Free scan restrictions and rolling quota
+
+**Preconditions**
+
+- The website is running with the default production entitlement configuration.
+- The user is a guest or has a Free account.
+
+**Steps**
+
+1. Run a website check and open its result.
+2. Confirm the result contains statuses, scores, and short conclusions.
+3. Confirm no PDF or screenshot is created or exposed.
+4. Complete three accepted checks within 30 days and attempt a fourth.
+5. Open `GET /api/usage` through the product session.
+
+**Expected Result**
+
+The first three scans use the summary profile with a three-step AI exploration budget. The fourth scan is rejected with the free quota error; `/api/usage` reports the exhausted quota and next-availability time.
+
+**Actual Result**
+
+TODO: execute after deployment. No customer or production evidence is claimed yet.
+
+## UAT-009: Paid scan artifacts survive plan expiry
+
+**Preconditions**
+
+- The user is authenticated and can activate the temporary 30-day Paid plan from the profile.
+- The user is authenticated.
+
+**Steps**
+
+1. Start and complete a Paid scan.
+2. Open its full evidence, screenshot, and PDF.
+3. Allow the account plan to return to Free.
+4. Reopen the same history item.
+
+**Expected Result**
+
+The paid-origin scan remains full and its PDF/images remain accessible to the owner. A new Free scan does not create those artifacts.
+
+**Actual Result**
+
+TODO: execute after deployment. No customer or production evidence is claimed yet.
+
 

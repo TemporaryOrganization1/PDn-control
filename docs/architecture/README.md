@@ -4,7 +4,7 @@ This document is the maintained architecture index for PDn-control. It describes
 
 ## Overview
 
-PDn-control is a Docker Compose web product for checking websites against FL-152-related compliance concerns. The customer-facing path is a browser talking to an nginx-served exported Next.js frontend. The frontend proxies API requests to a Go/Echo main backend. The backend coordinates authentication, guest limits, scan progress, report history, PDF report storage, and crawler dispatch. Node/Puppeteer crawler workers perform website evidence collection and call the GeoIP service and OpenRouter where needed. PostgreSQL stores auth/session/history/report metadata and GeoIP update metadata.
+PDn-control is a Docker Compose web product for checking websites against FL-152-related compliance concerns. The customer-facing path is a browser talking to an nginx-served exported Next.js frontend. The frontend proxies API requests to a Go/Echo main backend. The backend coordinates authentication, rolling free quotas, immutable scan entitlements, scan progress, report history, paid PDF/image storage, and crawler dispatch. Node/Puppeteer crawler workers perform website evidence collection within the server-provided profile and call the GeoIP service and OpenRouter where needed. PostgreSQL stores auth/session/history/quota/report metadata and GeoIP update metadata.
 
 Maintained view sources:
 
@@ -21,9 +21,10 @@ flowchart LR
   nginx["Frontend container\nNginx static hosting + /api proxy"]
   next["Next.js frontend\nStatic export"]
   api["Main backend\nGo + Echo API"]
-  memory["In-memory task state\nscan progress"]
-  authdb["PostgreSQL\nusers, sessions, history, GeoIP metadata"]
+  memory["In-memory task state\nprogress + immutable ScanProfile"]
+  authdb["PostgreSQL\nusers, sessions, history, quota events, GeoIP metadata"]
   reports["PDF report volume"]
+  images["Evidence image volume"]
   pool["Worker pool\ncapacity selection"]
   worker1["Crawler worker 1\nNode + Puppeteer"]
   worker2["Crawler worker 2\nNode + Puppeteer"]
@@ -41,6 +42,7 @@ flowchart LR
   api --> memory
   api --> authdb
   api --> reports
+  api --> images
   api --> pool
   api -->|"verification email"| smtp
   pool -->|"POST /check"| worker1
@@ -86,14 +88,15 @@ sequenceDiagram
   User->>Browser: Submit URL and check type
   Browser->>Frontend: POST /api/check
   Frontend->>API: Proxy request
-  API->>Store: Validate user or guest quota
   API->>Pool: Reserve available worker
+  API->>Store: Snapshot free/paid scan profile
+  API->>Store: Atomically consume rolling quota
   API->>Store: Create queued task
-  API-->>Frontend: Accepted with req-id
+  API-->>Frontend: Accepted with req-id, profile, quota
   Frontend-->>Browser: Navigate to progress page
   API->>Worker: POST /check with URL, req-id, callback, secret
   Worker-->>API: Accepted
-  Worker->>Target: Load page and collect evidence
+  Worker->>Target: Load page within 3/10 exploration budget
   Worker->>GeoIP: Resolve hosting / resource country
   Worker->>AI: Analyze privacy-policy evidence when needed
   Worker->>API: POST /api/progress intermediate updates
@@ -101,7 +104,7 @@ sequenceDiagram
   Frontend->>API: Proxy progress poll
   API-->>Frontend: Current progress and status
   Worker->>API: POST /api/progress completed results
-  API->>Store: Save results, history, and PDF report metadata
+  API->>Store: Sanitize by profile; save history and paid artifacts
   Browser->>Frontend: Open result page
   Frontend->>API: GET /api/progress/{req-id}
   API-->>Frontend: Completed task with results and report id
@@ -129,6 +132,7 @@ flowchart TB
     geoip["geoip-service\nGo API :8080 internal"]
     postgres["postgres\nPostgreSQL volume pgdata"]
     reports["backend-reports volume\nPDF files"]
+    images["backend-images volume\npaid evidence only"]
     mmdb["geoip-mmdb volume\nGeoLite2-Country.mmdb"]
     env["server-side .env\nsecrets and runtime overrides"]
   end
@@ -144,6 +148,7 @@ flowchart TB
   frontend -->|"/api/* internal proxy"| backend
   backend --> postgres
   backend --> reports
+  backend --> images
   backend --> env
   backend -->|"POST /check"| worker1
   backend -->|"POST /check"| worker2
@@ -174,5 +179,6 @@ Relevant ADR: [ADR-001](adr/ADR-001-docker-compose-service-boundaries.md).
 - [ADR-001: Docker Compose Service Boundaries](adr/ADR-001-docker-compose-service-boundaries.md)
 - [ADR-002: Asynchronous Crawler Workers](adr/ADR-002-asynchronous-crawler-workers.md)
 - [ADR-003: Mermaid Maintained Architecture Diagrams](adr/ADR-003-mermaid-maintained-architecture-diagrams.md)
+- [ADR-004: Server-Side Scan Entitlements](adr/ADR-004-server-side-scan-entitlements.md)
 
 Together, the ADRs explain why PDn-control keeps explicit service boundaries, why crawler work is asynchronous, and why architecture diagrams are maintained as repository text. These decisions connect the codebase to the maintained quality requirements and make later product changes easier to reason about in PR review.

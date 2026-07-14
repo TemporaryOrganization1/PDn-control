@@ -24,6 +24,7 @@ import {
 
 interface ExpandedCheckCardProps {
   item: CheckItem;
+  compact?: boolean;
 }
 
 const STATUS_META = {
@@ -157,9 +158,10 @@ function EvidenceLightbox({
   );
 }
 
-export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
-  const meta = STATUS_META[item.status];
+export function ExpandedCheckCard({ item, compact = false }: ExpandedCheckCardProps) {
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  if (item.status === "unknown") return null;
+  const meta = STATUS_META[item.status];
 
   return (
     <DashboardCard className={`report-glow ${meta.glow}`}>
@@ -177,7 +179,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         </div>
       </div>
 
-      {item.lawExcerpts.length > 0 ? (
+      {!compact && item.lawExcerpts.length > 0 ? (
         <div className="mt-5">
           <p className="mb-2 text-xs font-medium text-foreground/70">Выдержки из закона</p>
           <div className="space-y-2">
@@ -193,7 +195,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         </div>
       ) : null}
 
-      {item.foundUrls.length > 0 ? (
+      {!compact && item.foundUrls.length > 0 ? (
         <div className="mt-5">
           <p className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground/70">
             <ExternalLink className="h-3.5 w-3.5" />
@@ -212,7 +214,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         </div>
       ) : null}
 
-      {item.domainsIps.length > 0 ? (
+      {!compact && item.domainsIps.length > 0 ? (
         <div className="mt-5">
           <p className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground/70">
             <Globe className="h-3.5 w-3.5" />
@@ -222,7 +224,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         </div>
       ) : null}
 
-      {item.details.length > 0 ? (
+      {!compact && item.details.length > 0 ? (
         <div className="mt-5">
           <p className="mb-2 text-xs font-medium text-foreground/70">Технические детали</p>
           <ul className="space-y-2">
@@ -245,7 +247,7 @@ export function ExpandedCheckCard({ item }: ExpandedCheckCardProps) {
         </div>
       ) : null}
 
-      {item.images.length > 0 ? (
+      {!compact && item.images.length > 0 ? (
         <div className="mt-5">
           <p className="mb-2 flex items-center gap-2 text-xs font-medium text-foreground/70">
             <ImageIcon className="h-3.5 w-3.5" />

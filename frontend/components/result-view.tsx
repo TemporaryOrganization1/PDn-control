@@ -18,6 +18,7 @@ import {
   Scale,
   Server,
   ShieldAlert,
+  LockKeyhole,
   X,
   XCircle,
 } from "lucide-react";
@@ -398,15 +399,16 @@ export default function ResultView() {
 
   const statusMeta = STATUS_META[result.overallStatus] || STATUS_META.non_compliant;
   const StatusIcon = statusMeta.icon;
+  const isFull = result.scanProfile.detail_level === "full";
 
   return (
     <DashboardPage>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <BackButton />
-        <PdfDownloadButton result={result} />
+        {result.scanProfile.pdf_enabled && result.reportId ? <PdfDownloadButton result={result} /> : null}
       </div>
 
-      <DashboardPanel className="mb-6">
+      {result.scanProfile.screenshots_enabled ? <DashboardPanel className="mb-6">
         <div className="min-w-0">
           <div className="min-w-0">
             <div className="mb-4 flex items-center gap-3">
@@ -438,12 +440,31 @@ export default function ResultView() {
             )}
           </div>
         </div>
-      </DashboardPanel>
+      </DashboardPanel> : (
+        <DashboardPanel className="mb-6">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <DashboardIcon icon={LockKeyhole} />
+              <div>
+                <p className="font-semibold text-foreground">Визуальные доказательства и PDF доступны в Paid</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Бесплатная проверка показывает статусы и краткие выводы. Скриншоты, затронутые URL и полный PDF создаются только для нового paid-скана.
+                </p>
+              </div>
+            </div>
+            <Link className="premium-cta inline-flex h-10 shrink-0 items-center justify-center px-5 text-sm font-semibold" href="/pricing">
+              Сравнить тарифы
+            </Link>
+          </div>
+        </DashboardPanel>
+      )}
 
       <DashboardHeader
         eyebrow="Отчет о соответствии"
-        title="Отчет о проверке сайта"
-        description="Сводка рисков, возможных штрафов и технических доказательств по результатам проверки бэкендом."
+        title={isFull ? "Полный отчет о проверке сайта" : "Краткий отчет о проверке сайта"}
+        description={isFull
+          ? "Сводка рисков, возможных штрафов и технических доказательств по результатам проверки."
+          : "Сводка рисков, возможных штрафов и коротких выводов без скрытых технических доказательств."}
       />
 
       <div className="space-y-6">
@@ -452,7 +473,7 @@ export default function ResultView() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
                 <DashboardStatusPill>Тип: {checkTypeLabel(task.type)}</DashboardStatusPill>
-                <DashboardStatusPill>Доказательства отчета</DashboardStatusPill>
+                <DashboardStatusPill>{isFull ? "Полный отчет" : "Краткий free-отчет"}</DashboardStatusPill>
               </div>
 
               <div className="mt-6 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-stretch">
@@ -494,7 +515,7 @@ export default function ResultView() {
                 <p className="text-xs uppercase text-muted-foreground">Ключевой вывод</p>
                 <p className="mt-2 text-lg font-semibold leading-7 text-foreground">{statusMeta.summary}</p>
               </div>
-              <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="mt-6 grid grid-cols-3 gap-2">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-center">
                   <p className="text-xl font-semibold text-foreground">{result.failedCount}</p>
                   <p className="mt-1 text-[10px] uppercase text-muted-foreground">нарушения</p>
@@ -565,7 +586,7 @@ export default function ResultView() {
           </DashboardCard>
         </div>
 
-        <DashboardPanel>
+        {isFull ? <DashboardPanel>
           <DashboardSectionTitle
             icon={Server}
             title="Технические доказательства"
@@ -646,20 +667,22 @@ export default function ResultView() {
               </div>
             </DashboardCard>
           </div>
-        </DashboardPanel>
+        </DashboardPanel> : null}
 
-        <DashboardPanel>
+        {detailItems.length > 0 ? <DashboardPanel>
           <DashboardSectionTitle
             icon={FileText}
-            title="Детальная проверка"
-            description="Каждый блок ниже построен из данных бэкенда и отсортирован по приоритету: нарушения, предупреждения, затем пройденные проверки."
+            title={isFull ? "Детальная проверка" : "Краткие карточки категорий"}
+            description={isFull
+              ? "Каждый блок ниже построен из данных бэкенда и отсортирован по приоритету: нарушения, предупреждения, затем пройденные проверки."
+              : "Free-результат показывает статус и короткий вывод; URL, инфраструктура, правовые пояснения и evidence не сохраняются."}
           />
           <div className="space-y-4">
             {detailItems.map((item) => (
-              <ExpandedCheckCard key={item.label} item={item} />
+              <ExpandedCheckCard key={item.label} item={item} compact={!isFull} />
             ))}
           </div>
-        </DashboardPanel>
+        </DashboardPanel> : null}
       </div>
 
       {activeImage ? (

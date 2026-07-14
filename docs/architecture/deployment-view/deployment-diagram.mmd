@@ -13,6 +13,7 @@ flowchart TB
     geoip["geoip-service\nGo API :8080 internal"]
     postgres["postgres\nPostgreSQL volume pgdata"]
     reports["backend-reports volume\nPDF files"]
+    images["backend-images volume\npaid evidence only"]
     mmdb["geoip-mmdb volume\nGeoLite2-Country.mmdb"]
     env["server-side .env\nsecrets and runtime overrides"]
   end
@@ -28,6 +29,7 @@ flowchart TB
   frontend -->|"/api/* internal proxy"| backend
   backend --> postgres
   backend --> reports
+  backend --> images
   backend --> env
   backend -->|"POST /check"| worker1
   backend -->|"POST /check"| worker2

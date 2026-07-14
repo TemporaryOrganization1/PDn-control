@@ -7,6 +7,7 @@ Starting in Assignment 5, each relevant quality requirement also links to archit
 - [QR-001: Scan dispatch responsiveness](#qr-001-scan-dispatch-responsiveness)
 - [QR-002: Type-check feedback for crawler changes](#qr-002-type-check-feedback-for-crawler-changes)
 - [QR-003: Invalid input protection](#qr-003-invalid-input-protection)
+- [QR-004: Server-enforced scan entitlements](#qr-004-server-enforced-scan-entitlements)
 
 ## QR-001: Scan dispatch responsiveness
 
@@ -43,3 +44,15 @@ Starting in Assignment 5, each relevant quality requirement also links to archit
 **Linked quality requirement tests:** [QRT-003](quality-requirement-tests.md#qrt-003-invalid-input-protection)
 
 **Related architecture decisions:** [ADR-001](architecture/adr/ADR-001-docker-compose-service-boundaries.md), [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md)
+
+## QR-004: Server-enforced scan entitlements
+
+**ISO/IEC 25010 sub-characteristic:** Integrity
+
+**Scenario:** When a Guest or Free scan is accepted, backend and crawler-worker shall enforce the immutable summary profile even if the legacy client check type or an invalid worker payload requests broader capabilities; the stored result shall contain no PDF/image evidence and unexamined AI categories shall remain `unknown`.
+
+**Why this matters:** Subscription boundaries must not depend on editable browser state, and a shallow scan must not claim compliance for categories it did not examine.
+
+**Linked quality requirement tests:** [QRT-004](quality-requirement-tests.md#qrt-004-scan-entitlement-enforcement)
+
+**Related architecture decisions:** [ADR-002](architecture/adr/ADR-002-asynchronous-crawler-workers.md), [ADR-004](architecture/adr/ADR-004-server-side-scan-entitlements.md)

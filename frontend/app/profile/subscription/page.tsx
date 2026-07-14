@@ -19,7 +19,7 @@ import {
 
 export default function SubscriptionPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isDowngrading, setIsDowngrading] = useState(false);
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -28,8 +28,8 @@ export default function SubscriptionPage() {
 
   useEffect(() => {
     if (!user?.planExpiresAt) {
-      setTimeLeft("");
-      return;
+      const resetTimer = setTimeout(() => setTimeLeft(""), 0);
+      return () => clearTimeout(resetTimer);
     }
 
     const updateTimer = () => {
@@ -42,14 +42,18 @@ export default function SubscriptionPage() {
         return;
       }
 
-      const minutes = Math.floor(diff / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setTimeLeft(`${minutes} мин ${seconds} с`);
+      const days = Math.floor(diff / 86400000);
+      const hours = Math.floor((diff % 86400000) / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      setTimeLeft(`${days} д ${hours} ч ${minutes} мин`);
     };
 
-    updateTimer();
+    const initialTimer = setTimeout(updateTimer, 0);
     const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [user?.planExpiresAt]);
 
   const switchPlan = async (plan: "free" | "paid") => {
@@ -65,14 +69,15 @@ export default function SubscriptionPage() {
       const res = await fetch("/api/subscription/change", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ plan }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.message || "Не удалось изменить тариф");
+        setError(data.message || data.msg || "Не удалось изменить тариф");
       } else {
         setSuccess(data.message || "Тариф обновлен");
-        router.refresh();
+        await refresh();
       }
     } catch {
       setError("Сетевая ошибка");
@@ -103,7 +108,7 @@ export default function SubscriptionPage() {
           <DashboardSectionTitle
             icon={CreditCard}
             title="Планы аккаунта"
-            description="Бэкенд тарифов и платежей пока не реализован полностью, поэтому интерфейс использует текущую тестовую точку API."
+            description="До подключения платежной системы Paid активируется прямо в личном кабинете и действует 30 дней."
           />
 
           <div className="grid gap-5 lg:grid-cols-2">
@@ -124,11 +129,11 @@ export default function SubscriptionPage() {
               <ul className="mt-6 space-y-3">
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
-                  Гостевой лимит контролируется бэкендом.
+                  3 проверки за скользящие 30 дней.
                 </li>
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
-                  PDF-отчет после завершения проверки.
+                  Краткий результат без PDF и скриншотов, 3 AI-перехода.
                 </li>
               </ul>
               <div className="mt-7">
@@ -136,7 +141,7 @@ export default function SubscriptionPage() {
                   variant="outline"
                   className="w-full"
                   disabled={isDowngrading || user?.plan === "free"}
-                  onClick={() => switchPlan("free")}
+                  onClick={() => void switchPlan("free")}
                 >
                   {user?.plan === "free"
                     ? "Бесплатный активен"
@@ -164,15 +169,15 @@ export default function SubscriptionPage() {
               <ul className="mt-6 space-y-3">
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
-                  Без гостевого лимита.
+                  Проверки без лимита и 10 AI-переходов.
                 </li>
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
-                  Без ограничения срока хранения.
+                  Полные evidence и история paid-сканов без срока.
                 </li>
                 <li className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
                   <Check className="mt-1 h-4 w-4 shrink-0 text-foreground/80" />
-                  PDF-отчет после завершения проверки.
+                  PDF и скриншоты для каждого нового paid-скана.
                 </li>
               </ul>
 
@@ -194,13 +199,13 @@ export default function SubscriptionPage() {
                 <AnimatedButton
                   className="w-full"
                   disabled={isUpgrading || user?.plan === "paid"}
-                  onClick={() => switchPlan("paid")}
+                  onClick={() => void switchPlan("paid")}
                 >
                   {user?.plan === "paid"
                     ? "План активен"
                     : isUpgrading
                       ? "Активируем..."
-                      : "Перейти на платный"}
+                      : "Активировать подписку"}
                 </AnimatedButton>
               </div>
             </DashboardCard>

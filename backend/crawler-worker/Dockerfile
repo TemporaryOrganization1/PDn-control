@@ -1,20 +1,19 @@
-FROM node:22
+FROM ghcr.io/puppeteer/puppeteer:25.3.0
 
-RUN apt-get update && apt-get install -y \
-    chromium \
-    --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_SKIP_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
-
+USER root
 WORKDIR /app
+RUN chown pptruser:pptruser /app
 
-COPY package.json package-lock.json* ./
+COPY --chown=pptruser:pptruser package.json package-lock.json* ./
+USER pptruser
 RUN npm ci --no-audit --no-fund
 
-COPY . .
+USER root
+COPY --chown=pptruser:pptruser . .
+USER pptruser
+
+ENV XDG_CONFIG_HOME=/tmp/chromium-config
+ENV XDG_CACHE_HOME=/tmp/chromium-cache
 
 EXPOSE 3000
 

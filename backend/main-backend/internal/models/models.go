@@ -1,5 +1,7 @@
 package models
 
+import "github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/entitlements"
+
 type CheckRequest struct {
 	URL      string `json:"url"`
 	Type     string `json:"type"`
@@ -73,18 +75,19 @@ type ReportPayload struct {
 }
 
 type TaskState struct {
-	ReqID        string        `json:"req-id"`
-	URL          string        `json:"url"`
-	Type         string        `json:"type"`
-	Status       string        `json:"status"`
-	Worker       string        `json:"worker,omitempty"`
-	Progress     int           `json:"progress"`
-	Results      []CheckResult `json:"results"`
-	ScreenshotID string        `json:"screenshotId,omitempty"`
-	SSL          *SslInfo      `json:"ssl,omitempty"`
-	About        string        `json:"about,omitempty"`
-	Country      string        `json:"country,omitempty"`
-	Errors       []string      `json:"errors"`
+	ReqID        string                   `json:"req-id"`
+	URL          string                   `json:"url"`
+	Type         string                   `json:"type"`
+	Status       string                   `json:"status"`
+	Worker       string                   `json:"worker,omitempty"`
+	Progress     int                      `json:"progress"`
+	Results      []CheckResult            `json:"results"`
+	ScreenshotID string                   `json:"screenshotId,omitempty"`
+	SSL          *SslInfo                 `json:"ssl,omitempty"`
+	About        string                   `json:"about,omitempty"`
+	Country      string                   `json:"country,omitempty"`
+	Errors       []string                 `json:"errors"`
+	ScanProfile  entitlements.ScanProfile `json:"scan_profile"`
 }
 
 type CheckResult struct {
@@ -104,6 +107,7 @@ var ErrorCodes = map[string]string{
 	"ERR_UNAUTHORIZED":        "unauthorized",
 	"ERR_FORBIDDEN":           "forbidden",
 	"ERR_GUEST_LIMIT":         "guest check limit reached",
+	"ERR_SCAN_LIMIT":          "free scan limit reached",
 	"ERR_INVALID_CREDENTIALS": "invalid credentials",
 	"ERR_EMAIL_EXISTS":        "email already exists",
 	"ERR_WEAK_PASSWORD":       "password is too weak",

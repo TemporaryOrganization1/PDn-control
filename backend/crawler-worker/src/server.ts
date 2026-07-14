@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { readFileSync } from 'node:fs';
-import { runCheck, initBrowser } from './runner.js';
+import { runCheck, initBrowser, type ScanOptions } from './runner.js';
+import { normalizeScanOptions } from './scan-policy.js';
 
 interface Config {
   port: number;
@@ -48,6 +49,8 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
     return;
   }
 
+  const options: ScanOptions = normalizeScanOptions(parsed);
+
   // Accept the task immediately
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(makeResponse(errorCodes.ERR_OK, reqId, { status: 'accepted' })));
@@ -87,6 +90,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
   };
 
   const uploadImage = async (image: Uint8Array<ArrayBufferLike>) => {
+    if (!options.captureImages) return null;
     try {
       const fd = new FormData();
       fd.append('file', new Blob ([Buffer.from(image)], { 'type': 'image/png' }), 'screenshot.png');
@@ -119,7 +123,7 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
     try {
       await reportProgress(20, 'data_collection');
 
-      const results = await runCheck(browser, url, type, config, reportProgress, uploadImage);
+      const results = await runCheck(browser, url, type, config, reportProgress, uploadImage, options);
 
       await reportProgress(100, 'completed', results.checks.map((r: any) => r.id), [], results);
     } finally {
@@ -132,7 +136,8 @@ async function handleCheck(req: http.IncomingMessage, res: http.ServerResponse) 
 }
 
 async function main() {
-  await initBrowser();
+  const startupBrowser = await initBrowser();
+  await startupBrowser.close();
 
   const server = http.createServer(async (req, res) => {
     if (req.method === 'POST' && req.url === '/check') {
@@ -151,4 +156,7 @@ async function main() {
   });
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

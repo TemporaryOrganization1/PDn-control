@@ -147,7 +147,7 @@ export default function HistoryPage() {
         <DashboardHeader
           eyebrow="Архив отчетов"
           title="История проверок"
-          description="Архив завершенных отчетов с датой, статусом, краткой сводкой риска и быстрым скачиванием PDF."
+          description="Free-проверки хранятся 7 дней; PDF и изображения доступны только у сканов, запущенных во время Paid."
         />
 
         <DashboardPanel>
@@ -229,15 +229,18 @@ export default function HistoryPage() {
                           <Eye className="h-4 w-4" />
                           Открыть
                         </button>
-                        <button
+                        {item.scan_profile?.pdf_enabled && item.report_id ? <button
                           type="button"
                           className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-55"
-                          disabled={!item.report_id}
                           onClick={() => handleDownloadPDF(item.report_id)}
                         >
                           <Download className="h-4 w-4" />
                           PDF отчет
-                        </button>
+                        </button> : (
+                          <span className="inline-flex h-10 items-center rounded-2xl border border-white/10 bg-white/[0.025] px-4 text-xs text-muted-foreground">
+                            Краткий отчет без PDF
+                          </span>
+                        )}
                         <button
                           type="button"
                           className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.035] px-4 text-xs font-semibold text-foreground transition hover:border-white/20 hover:bg-white/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 disabled:cursor-not-allowed disabled:opacity-55"
