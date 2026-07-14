@@ -1,4 +1,4 @@
-import type { BackendCheckResult, BackendSslInfo, CheckHistoryItem, TaskState } from "@/lib/api";
+import type { BackendCheckResult, BackendSslInfo, CheckHistoryItem, ScanProfile, TaskState } from "@/lib/api";
 import { countryCodeToDisplayName, countryCodeToFlagUrl } from "@/lib/country";
 import type { CheckItem, CheckResult, ServerGeoItem } from "@/lib/data";
 import { calculateFineEstimate } from "@/lib/fines";
@@ -24,9 +24,18 @@ const CHECK_LABELS: Record<string, string> = {
   ai: "AI-анализ документов",
 };
 
+const LEGACY_PROFILE: ScanProfile = {
+  tier: "legacy_full",
+  detail_level: "full",
+  ai_iterations: 10,
+  pdf_enabled: true,
+  screenshots_enabled: true,
+};
+
 function toUiStatus(result: string): UiStatus {
   if (result === "ok") return "pass";
   if (result === "warn") return "warning";
+  if (result === "unknown") return "unknown";
   return "fail";
 }
 
@@ -62,6 +71,7 @@ function normalizeCheckResult(check: BackendCheckResult): BackendCheckResult {
 function titleFor(status: UiStatus): CheckItem["title"] {
   if (status === "pass") return "отлично";
   if (status === "warning") return "предупреждение";
+  if (status === "unknown") return "";
   return "нарушение";
 }
 
@@ -73,6 +83,7 @@ function descriptionFor(check: BackendCheckResult, status: UiStatus): string {
   const label = CHECK_LABELS[check.id] || check.id;
   if (status === "pass") return `${label}: нарушений не обнаружено.`;
   if (status === "warning") return `${label}: обнаружены предупреждения, рекомендуется проверить вручную.`;
+  if (status === "unknown") return "";
   return `${label}: обнаружено нарушение или существенный риск.`;
 }
 
@@ -206,7 +217,7 @@ function toCheckItem(check: BackendCheckResult): CheckItem {
     label,
     description: descriptionFor(check, status),
     details: dataDetails,
-    lawExcerpts: status === "pass" ? [] : ["Проверьте соответствие требованиям 152-ФЗ и связанным нормативным актам."],
+    lawExcerpts: status === "pass" || status === "unknown" ? [] : ["Проверьте соответствие требованиям 152-ФЗ и связанным нормативным актам."],
     foundUrls: pages,
     domainsIps: domainsFor(check),
     images,
@@ -218,7 +229,8 @@ function sortChecksBySeverity(checks: CheckItem[]): CheckItem[] {
   const priority: Record<UiStatus, number> = {
     fail: 0,
     warning: 1,
-    pass: 2,
+    unknown: 2,
+    pass: 3,
   };
 
   return checks
@@ -258,9 +270,9 @@ function formatDate(value?: string): string {
   });
 }
 
-function statusFromCounts(failedCount: number, warningCount: number): CheckResult["overallStatus"] {
+function statusFromCounts(failedCount: number, warningCount: number, unknownCount: number): CheckResult["overallStatus"] {
   if (failedCount > 0) return "non_compliant";
-  if (warningCount > 0) return "partial";
+  if (warningCount > 0 || unknownCount > 0) return "partial";
   return "compliant";
 }
 
@@ -324,13 +336,15 @@ function normalizedCountryCode(value?: string | null): string | undefined {
 
 export function taskToCheckResult(task: TaskState): CheckResult {
   const results = (task.results || []).map(normalizeCheckResult);
+  const evaluatedResults = results.filter((item) => item.result !== "unknown");
   const passedCount = results.filter((item) => item.result === "ok").length;
   const warningCount = results.filter((item) => item.result === "warn").length;
   const failedCount = results.filter((item) => item.result === "fail").length;
-  const totalCount = results.length;
-  const overallStatus = statusFromCounts(failedCount, warningCount);
+  const unknownCount = results.filter((item) => item.result === "unknown").length;
+  const totalCount = evaluatedResults.length;
+  const overallStatus = statusFromCounts(failedCount, warningCount, unknownCount);
   const score = completionScore(results);
-  const checks = sortChecksBySeverity(results.map(toCheckItem));
+  const checks = sortChecksBySeverity(evaluatedResults.map(toCheckItem));
   const fineEstimate = calculateFineEstimate(results);
   const countryCode = normalizedCountryCode(task.country);
   const ssl = task.ssl;
@@ -348,17 +362,18 @@ export function taskToCheckResult(task: TaskState): CheckResult {
     maxFineLegalEntity: fineEstimate.legalEntity,
     maxFineIndividual: fineEstimate.physicalPerson,
     riskScore: legacyRiskScoreFromCompletion(score),
-    checkType: "free",
+    checkType: (task.scan_profile || LEGACY_PROFILE).tier,
     passedCount,
     failedCount,
     warningCount,
+    unknownCount,
     totalCount,
     siteIps: domainsFor(results.find((item) => ["ips", "country"].includes(item.id)) || { id: "", result: "ok" }),
     siteCountry: countryCodeToDisplayName(task.country),
     siteCountryCode: countryCode,
     siteCountryFlag: countryCodeToFlagUrl(task.country) || "",
     serverGeo: serverGeoFor(results),
-    siteAiDescription: task.about || results.find((item) => item.about && item.about !== "<nil>")?.about || "Описание сайта не передано бэкендом.",
+    siteAiDescription: task.about || evaluatedResults.find((item) => item.about && item.about !== "<nil>")?.about || "Описание сайта не передано бэкендом.",
     screenshotId: task.screenshotId ?? null,
     sslIssuer: ssl?.issuer || "Не определено",
     sslProtocol: ssl?.protocol || "Не определено",
@@ -368,6 +383,7 @@ export function taskToCheckResult(task: TaskState): CheckResult {
     sslValidTo: formatSslDate(ssl?.validTo),
     sslIsExpired: sslIsExpired(ssl) || results.some((item) => item.id === "ssl/tls" && item.result === "fail"),
     reportId: task.report_id,
+    scanProfile: task.scan_profile || LEGACY_PROFILE,
   };
 }
 
@@ -386,5 +402,6 @@ export function historyItemToTask(item: CheckHistoryItem): TaskState {
     errors: [],
     report_id: item.report_id,
     created_at: item.created_at,
+    scan_profile: item.scan_profile || LEGACY_PROFILE,
   };
 }

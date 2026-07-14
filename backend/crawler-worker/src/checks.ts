@@ -7,6 +7,7 @@ import { checkCountry, prepareCountryChecks } from "./checks/country.js";
 import { prepareCookieChecks } from "./checks/cookies.js";
 import { checkAi } from "./checks/ai.js";
 import { checkScreenshot } from "./checks/screenshot.js";
+import type { ScanOptions } from "./runner.js";
 
 const prepares = [
     prepareHttpsConnection,
@@ -21,13 +22,13 @@ export async function prepare (sr: Data) {
     }
 }
 
-export async function check (sr: Data, type: string) {
-    await checkScreenshot(sr);
+export async function check (sr: Data, _type: string, options: ScanOptions) {
+    if (options.captureImages) {
+        await checkScreenshot(sr);
+    }
     await checkSslConnection(sr);
     await checkCountry(sr);
-    // Run AI check only for "detail" mode
-    if (type === "detail") {
-        await sr.onProgress (40, "check_ai", [], [], undefined);
-        await checkAi(sr);
-    }
+    // The legacy fast/detail field cannot change the category matrix or entitlements.
+    await sr.onProgress (40, "check_ai", [], [], undefined);
+    await checkAi(sr, options.aiIterations, options.detailLevel);
 }

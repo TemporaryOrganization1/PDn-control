@@ -6,11 +6,11 @@ import { Shield, Sparkles, RefreshCw } from "lucide-react";
 const HINTS = [
   {
     icon: Shield,
-    text: "Результат будет всегда доступен в виде PDF в личном кабинете",
+    text: "PDF и визуальные доказательства создаются только для paid-проверок",
   },
   {
     icon: Sparkles,
-    text: "В платном плане доступны расширенные проверки и приоритетная поддержка",
+    text: "Free использует 3 AI-перехода, Paid — 10 и полный evidence",
   },
   {
     icon: RefreshCw,

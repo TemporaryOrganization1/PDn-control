@@ -39,7 +39,7 @@ This document describes the current public handover state of PDn-control. It is 
 
 ## What The Product Provides
 
-PDn-control lets a user submit a public website URL, runs crawler-based checks, evaluates technical and content evidence related to personal-data risk, and presents a structured report with risk status and PDF output. The current product is an initial compliance-risk checker; it does not replace a legal opinion.
+PDn-control lets a user submit a public website URL, runs crawler-based checks, evaluates technical and content evidence related to personal-data risk, and presents a structured report. Guest and Free users receive three summary scans in a rolling 30-day window without PDF or screenshots. Paid-origin scans receive the full evidence view, screenshots, and PDF output. The product remains an initial compliance-risk checker; it does not replace a legal opinion.
 
 Main user-facing flow:
 
@@ -63,6 +63,8 @@ Use the sanitized [.env.example](../.env.example) as the public checklist of req
 | `SERVER_NAME`, `ENABLE_HTTPS`, `COOKIE_SECURE`, `LETSENCRYPT_DIR` | Domain, TLS, and cookie security settings. | Must match the deployment and certificate arrangement. |
 | `DATABASE_URL` | PostgreSQL connection override. | Defaults to the bundled Compose `postgres` service unless overridden. |
 | `SMTP_*` | Optional email verification delivery. | Required only when registration email verification must send real mail. |
+| `FREE_SCAN_LIMIT`, `FREE_SCAN_WINDOW_DAYS` | Free/guest rolling launch quota. | Production defaults are 3 accepted scans in 30 days; `GUEST_LIMIT` is only a deprecated fallback. |
+| `FREE_AI_ITERATIONS`, `PAID_AI_ITERATIONS` | Worker exploration budgets captured in each scan profile. | Defaults are 3 and 10; keep values within the worker's supported 1–10 range. |
 
 ## Setup Or Redeployment Steps
 
@@ -93,10 +95,11 @@ Use these checks after deployment, redeployment, or handover:
 2. Open `https://pdn2.neurolife.tech/api/health` and expect `{"status":"ok"}`.
 3. Run one sanitized public test scan, for example against `https://example.com`.
 4. Confirm the progress page reaches a final status and the result page shows findings or passed checks.
-5. Confirm PDF/report access works when a report is generated.
-6. Open the hosted documentation site and confirm deployment, architecture, testing, and handover pages are readable.
-7. If SMTP is enabled, run the diagnostics in [deployment.md](deployment.md#smtp-verification-diagnostics) from inside `main-backend`.
-8. If OpenRouter is proxied, run the proxy checks in [deployment.md](deployment.md#openrouter-nginx-proxy).
+5. Confirm a Free scan has no PDF or image artifacts and reports incomplete categories as `unknown`.
+6. From an authenticated profile, activate Paid for 30 days and confirm a new Paid scan provides its PDF and evidence images. This self-service transition is temporary until payment-provider integration.
+7. Open the hosted documentation site and confirm deployment, architecture, testing, and handover pages are readable.
+8. If SMTP is enabled, run the diagnostics in [deployment.md](deployment.md#smtp-verification-diagnostics) from inside `main-backend`.
+9. If OpenRouter is proxied, run the proxy checks in [deployment.md](deployment.md#openrouter-nginx-proxy).
 
 ## Recovery Notes
 

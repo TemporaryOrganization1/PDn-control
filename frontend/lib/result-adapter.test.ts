@@ -83,6 +83,39 @@ describe("result adapter", () => {
     ]);
   });
 
+  it("keeps unknown categories from implying compliance but hides them from visible results", () => {
+    const task: TaskState = {
+      "req-id": "req-free",
+      url: "https://example.com",
+      type: "detail",
+      status: "completed",
+      progress: 100,
+      scan_profile: {
+        tier: "free",
+        detail_level: "summary",
+        ai_iterations: 3,
+        pdf_enabled: false,
+        screenshots_enabled: false,
+      },
+      results: [
+        { id: "https", result: "ok", about: "HTTPS доступен" },
+        { id: "privacy-policy", result: "unknown", about: "Проверено не полностью" },
+      ],
+    };
+
+    const result = taskToCheckResult(task);
+
+    expect(result.overallStatus).toBe("partial");
+    expect(result.complianceScore).toBe(50);
+    expect(result.unknownCount).toBe(1);
+    expect(result.totalCount).toBe(1);
+    expect(result.checkType).toBe("free");
+    expect(result.scanProfile.pdf_enabled).toBe(false);
+    expect(result.checks).toHaveLength(1);
+    expect(result.checks.some((check) => check.status === "unknown")).toBe(false);
+    expect(result.checks.some((check) => check.label === "Политика конфиденциальности")).toBe(false);
+  });
+
   it("does not duplicate endpoint-only details already shown as domains", () => {
     const task: TaskState = {
       "req-id": "req-1",
@@ -250,6 +283,29 @@ describe("result adapter", () => {
       about: "History about",
       country: "us",
     });
+  });
+
+  it("keeps the scan-time paid profile when history is reopened", () => {
+    const task = historyItemToTask({
+      id: "history-paid",
+      req_id: "req-paid",
+      url: "https://example.org",
+      check_type: "detail",
+      status: "completed",
+      report_id: "report-paid",
+      created_at: "2026-07-01T11:00:00Z",
+      scan_profile: {
+        tier: "paid",
+        detail_level: "full",
+        ai_iterations: 10,
+        pdf_enabled: true,
+        screenshots_enabled: true,
+      },
+    });
+
+    expect(task.scan_profile?.tier).toBe("paid");
+    expect(task.scan_profile?.pdf_enabled).toBe(true);
+    expect(task.report_id).toBe("report-paid");
   });
 
   it("calculates fines from the catalog only for failed and warning checks", () => {

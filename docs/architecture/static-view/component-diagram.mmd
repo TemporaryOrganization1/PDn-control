@@ -4,9 +4,10 @@ flowchart LR
   nginx["Frontend container\nNginx static hosting + /api proxy"]
   next["Next.js frontend\nStatic export"]
   api["Main backend\nGo + Echo API"]
-  memory["In-memory task state\nscan progress"]
-  authdb["PostgreSQL\nusers, sessions, history, GeoIP metadata"]
+  memory["In-memory task state\nprogress + immutable ScanProfile"]
+  authdb["PostgreSQL\nusers, sessions, history, quota events, GeoIP metadata"]
   reports["PDF report volume"]
+  images["Evidence image volume"]
   pool["Worker pool\ncapacity selection"]
   worker1["Crawler worker 1\nNode + Puppeteer"]
   worker2["Crawler worker 2\nNode + Puppeteer"]
@@ -24,6 +25,7 @@ flowchart LR
   api --> memory
   api --> authdb
   api --> reports
+  api --> images
   api --> pool
   api -->|"verification email"| smtp
   pool -->|"POST /check"| worker1

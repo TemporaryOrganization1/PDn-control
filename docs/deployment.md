@@ -19,6 +19,8 @@ Create a server-side `.env` file from the sanitized root [`.env.example`](../.en
 - `COOKIE_SECURE`: set to `true` when the public site is served through HTTPS. Set to `false` for plain HTTP/local deployments.
 - `CORS_ALLOWED_ORIGINS`: comma-separated list of allowed frontend origins for direct backend access during development or custom deployments.
 - `DATABASE_URL`: optional override for the main backend PostgreSQL connection. The default Compose value points to the bundled `postgres` service.
+- `FREE_SCAN_LIMIT`, `FREE_SCAN_WINDOW_DAYS`: accepted guest/free scans and exact rolling-window length. Defaults are `3` and `30`.
+- `FREE_AI_ITERATIONS`, `PAID_AI_ITERATIONS`: worker exploration budgets. Defaults are `3` and `10`.
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: optional SMTP settings used by email verification. For Yandex STARTTLS use `SMTP_HOST=smtp.yandex.ru`, `SMTP_PORT=587`, `SMTP_USER`/`SMTP_FROM` as the mailbox address, and an app password in `SMTP_PASSWORD`.
 - `SMTP_SERVER_NAME`: optional TLS/AUTH server name. Leave blank for direct SMTP. Set to `smtp.yandex.ru` when `SMTP_HOST` points to a local proxy.
 - `SMTP_NETWORK`: optional dial network: `tcp`, `tcp4`, or `tcp6`. Leave blank for `tcp`.
@@ -184,8 +186,8 @@ Use `SSL_CERTIFICATE` and `SSL_CERTIFICATE_KEY` if your certificate files live e
 ## Services
 
 - `frontend`: public nginx reverse proxy on ports `80` and `443`; serves the exported Next.js frontend and proxies `/api/` to `main-backend`.
-- `main-backend`: Go API for authentication, guest limits, scan orchestration, and progress/results.
-- `crawler-worker-1..3`: Node/Chromium workers that perform website checks.
+- `main-backend`: Go API for authentication, rolling free quotas, scan entitlement snapshots, orchestration, and progress/results.
+- `crawler-worker-1..3`: Node/Puppeteer workers that perform website checks. Their image pins Puppeteer and the matching Chrome for Testing release; Compose enables an init process to reap browser child processes.
 - `geoip-service`: GeoIP data updater and lookup service.
 - `postgres`: persistent database for auth, guest usage, and GeoIP data.
 

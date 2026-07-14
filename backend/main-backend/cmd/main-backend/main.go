@@ -60,6 +60,29 @@ func main() {
 	if limit := os.Getenv("GUEST_LIMIT"); limit != "" {
 		if parsed, err := strconv.Atoi(limit); err == nil {
 			mainCfg.Server.GuestLimit = parsed
+			if os.Getenv("FREE_SCAN_LIMIT") == "" {
+				mainCfg.Server.FreeScanLimit = parsed
+			}
+		}
+	}
+	if limit := os.Getenv("FREE_SCAN_LIMIT"); limit != "" {
+		if parsed, err := strconv.Atoi(limit); err == nil {
+			mainCfg.Server.FreeScanLimit = parsed
+		}
+	}
+	if days := os.Getenv("FREE_SCAN_WINDOW_DAYS"); days != "" {
+		if parsed, err := strconv.Atoi(days); err == nil {
+			mainCfg.Server.FreeScanWindowDays = parsed
+		}
+	}
+	if iterations := os.Getenv("FREE_AI_ITERATIONS"); iterations != "" {
+		if parsed, err := strconv.Atoi(iterations); err == nil {
+			mainCfg.Server.FreeAIIterations = parsed
+		}
+	}
+	if iterations := os.Getenv("PAID_AI_ITERATIONS"); iterations != "" {
+		if parsed, err := strconv.Atoi(iterations); err == nil {
+			mainCfg.Server.PaidAIIterations = parsed
 		}
 	}
 	if reportsDir := os.Getenv("REPORTS_DIR"); reportsDir != "" {

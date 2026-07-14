@@ -213,7 +213,7 @@ export default function ProfilePage() {
                 </div>
                 <p className="mt-5 text-sm font-semibold text-foreground">Отчеты и доказательства</p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Сохраненные проверки доступны в истории. PDF скачивается только для завершенных отчетов.
+                  Free-проверки хранятся 7 дней. PDF и скриншоты создаются только для новых paid-проверок.
                 </p>
                 <div className="mt-5 flex justify-end">
                   <AnimatedButton
@@ -256,7 +256,7 @@ export default function ProfilePage() {
               <ProfileActionCard
                 icon={Download}
                 title="История проверок"
-                description="Список проверок и скачивание PDF-отчетов."
+                description="История проверок; paid-сканы включают PDF и визуальные доказательства."
                 tone="warning"
                 onClick={() => router.push("/profile/history")}
               />

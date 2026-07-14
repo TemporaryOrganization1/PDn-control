@@ -12,7 +12,7 @@ export const siteConfig = {
 };
 
 export interface CheckItem {
-  status: "pass" | "warning" | "fail";
+  status: "pass" | "warning" | "fail" | "unknown";
   label: string;
   description: string;
   details: string[];
@@ -42,10 +42,11 @@ export interface CheckResult {
   maxFineLegalEntity: number;
   maxFineIndividual: number;
   riskScore: number;
-  checkType: "free" | "paid";
+  checkType: "guest" | "free" | "paid" | "legacy_full";
   passedCount: number;
   failedCount: number;
   warningCount: number;
+  unknownCount: number;
   totalCount: number;
   siteIps: string[];
   siteCountry: string;
@@ -62,4 +63,5 @@ export interface CheckResult {
   sslValidTo: string;
   sslIsExpired: boolean;
   reportId?: string;
+  scanProfile: import("@/lib/api").ScanProfile;
 }

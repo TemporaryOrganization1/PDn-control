@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +24,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/auth"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/email"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/entitlements"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/models"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/store"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/workerpool"
@@ -37,8 +39,10 @@ type Config struct {
 	CookieSecure             bool     `json:"cookieSecure"`
 	SessionTTLHours          int      `json:"sessionTtlHours"`
 	GuestLimit               int      `json:"guestLimit"`
-	GuestCacheMaxItems       int      `json:"guestCacheMaxItems"`
-	GuestCacheTTLMinutes     int      `json:"guestCacheTTLMinutes"`
+	FreeScanLimit            int      `json:"freeScanLimit"`
+	FreeScanWindowDays       int      `json:"freeScanWindowDays"`
+	FreeAIIterations         int      `json:"freeAiIterations"`
+	PaidAIIterations         int      `json:"paidAiIterations"`
 	WorkerSecret             string   `json:"workerSecret"`
 	ImageSecret              string   `json:"imageSecret"`
 	CleanupIntervalMinutes   int      `json:"cleanupIntervalMinutes"`
@@ -63,7 +67,9 @@ type Server struct {
 }
 
 const (
-	sessionCookieName = "pdn_session"
+	sessionCookieName       = "pdn_session"
+	guestCookieName         = "pdn_guest"
+	selfServicePaidDuration = 30 * 24 * time.Hour
 )
 
 func NewServer(cfg Config) (*Server, error) {
@@ -73,11 +79,17 @@ func NewServer(cfg Config) (*Server, error) {
 	if cfg.GuestLimit <= 0 {
 		cfg.GuestLimit = 3
 	}
-	if cfg.GuestCacheMaxItems <= 0 {
-		cfg.GuestCacheMaxItems = 10000
+	if cfg.FreeScanLimit <= 0 {
+		cfg.FreeScanLimit = cfg.GuestLimit
 	}
-	if cfg.GuestCacheTTLMinutes <= 0 {
-		cfg.GuestCacheTTLMinutes = 1440
+	if cfg.FreeScanWindowDays <= 0 {
+		cfg.FreeScanWindowDays = 30
+	}
+	if cfg.FreeAIIterations <= 0 || cfg.FreeAIIterations > 10 {
+		cfg.FreeAIIterations = 3
+	}
+	if cfg.PaidAIIterations <= 0 || cfg.PaidAIIterations > 10 {
+		cfg.PaidAIIterations = 10
 	}
 	if cfg.DatabaseURL == "" {
 		cfg.DatabaseURL = "postgres://geoip:geoip_secret@postgres:5432/geoip?sslmode=disable"
@@ -113,7 +125,7 @@ func NewServer(cfg Config) (*Server, error) {
 
 	s := &Server{
 		echo:      echo.New(),
-		store:     store.NewWithGuestConfig(cfg.GuestCacheMaxItems, cfg.GuestCacheTTLMinutes),
+		store:     store.New(),
 		authStore: authStore,
 		emailSvc:  emailSvc,
 		pool:      workerpool.NewPool(workerDefs),
@@ -158,6 +170,7 @@ func (s *Server) registerRoutes() {
 	s.echo.GET("/api/workers", s.handleWorkerStatus)
 	s.echo.GET("/api/health", s.handleHealth)
 	s.echo.GET("/api/guest/remaining", s.handleGuestRemaining)
+	s.echo.GET("/api/usage", s.handleUsage)
 	s.echo.POST("/api/img/upload", s.handleImageUpload)
 	s.echo.GET("/api/img/:id", s.handleImageGet)
 	s.echo.POST("/api/subscription/change", s.handleSubscriptionChange)
@@ -378,38 +391,37 @@ func (s *Server) handleCheck(c echo.Context) error {
 	}
 
 	user := s.currentUser(c)
-	var guestStats *models.GuestInfo
+	profile := s.scanProfile(user)
+	ownerSubject, err := s.subjectForRequest(c, user)
+	if err != nil {
+		s.pool.ReleaseWorker(worker)
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", req.ReqID, "failed to identify scan quota")
+	}
 
-	if user == nil {
-		clientIP := getClientIP(c)
-		remaining, err := s.store.IncrementGuestCheck(clientIP, s.config.GuestLimit)
+	var quota entitlements.ScanQuota
+	if profile.Tier == entitlements.TierPaid {
+		quota = entitlements.ScanQuota{Tier: entitlements.TierPaid, Limited: false}
+	} else {
+		quota, err = s.authStore.ConsumeScanAttempt(c.Request().Context(), ownerSubject, profile.Tier, s.config.FreeScanLimit, s.config.FreeScanWindowDays)
 		if err != nil {
 			s.pool.ReleaseWorker(worker)
-			if errors.Is(err, store.ErrGuestLimit) {
-				return s.errResponse(c, http.StatusForbidden, "ERR_GUEST_LIMIT", req.ReqID, "guest check limit reached")
+			if errors.Is(err, auth.ErrScanLimit) {
+				return s.errResponse(c, http.StatusForbidden, "ERR_SCAN_LIMIT", req.ReqID, "free scan limit reached")
 			}
 			return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", req.ReqID, err.Error())
 		}
-		used := s.config.GuestLimit - remaining
-		if used < 0 {
-			used = s.config.GuestLimit
-		}
-		guestStats = &models.GuestInfo{
-			Limit:     s.config.GuestLimit,
-			Used:      used,
-			Remaining: remaining,
-		}
 	}
 
-	s.store.Create(req.ReqID, req.URL, req.Type)
+	ownerEmail := ""
+	if user != nil {
+		ownerEmail = user.Email
+	}
+	s.store.Create(req.ReqID, req.URL, req.Type, ownerSubject, ownerEmail, profile)
 	s.store.UpdateProgress(req.ReqID, 0, "queued", nil, nil)
 
 	go s.dispatchTask(user, req, worker)
 
-	data := map[string]any{"status": "accepted", "req-id": req.ReqID}
-	if guestStats != nil {
-		data["guest"] = guestStats
-	}
+	data := map[string]any{"status": "accepted", "req-id": req.ReqID, "scan_profile": profile, "quota": quota}
 
 	return c.JSON(http.StatusOK, models.CheckResponse{
 		Code:  "ERR_OK",
@@ -435,6 +447,9 @@ func (s *Server) handleListReports(c echo.Context) error {
 
 func (s *Server) handleDownloadReport(c echo.Context) error {
 	user := s.currentUser(c)
+	if user == nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
+	}
 
 	reportID := c.Param("reportId")
 	report, err := s.authStore.ReportByID(c.Request().Context(), reportID)
@@ -449,21 +464,9 @@ func (s *Server) handleDownloadReport(c echo.Context) error {
 	log.Printf("[API] Download attempt: user=%v, report_email=%s, report_id=%s",
 		user != nil, report.Email, reportID)
 
-	// Check authorization:
-	// - Authenticated users can download their own reports or guest reports (empty email)
-	// - Guest users (not logged in) can only download guest reports (empty email)
-	if user != nil {
-		// Authenticated user: allow if report belongs to them OR is a guest report
-		if report.Email != "" && report.Email != user.Email {
-			log.Printf("[API] Access denied: report belongs to %s, user is %s", report.Email, user.Email)
-			return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", "", "access denied")
-		}
-	} else {
-		// Guest user: only allow guest reports
-		if report.Email != "" {
-			log.Printf("[API] Access denied: guest trying to access user report")
-			return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
-		}
+	if report.Email == "" || report.Email != user.Email {
+		log.Printf("[API] Access denied: report belongs to %s, user is %s", report.Email, user.Email)
+		return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", "", "access denied")
 	}
 
 	log.Printf("[API] Access granted for report %s", reportID)
@@ -505,18 +508,37 @@ func (s *Server) handleDeleteReport(c echo.Context) error {
 }
 
 func (s *Server) handleGuestRemaining(c echo.Context) error {
-	clientIP := getClientIP(c)
-	remaining := s.store.GetGuestRemaining(clientIP, s.config.GuestLimit)
-	used := s.config.GuestLimit - remaining
-	if used < 0 {
-		used = s.config.GuestLimit
+	user := s.currentUser(c)
+	profile := s.scanProfile(user)
+	if profile.Tier == entitlements.TierPaid {
+		return c.JSON(http.StatusOK, models.GuestInfo{})
 	}
+	subject, err := s.subjectForRequest(c, user)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	quota, err := s.authStore.ScanQuota(c.Request().Context(), subject, profile.Tier, s.config.FreeScanLimit, s.config.FreeScanWindowDays)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	return c.JSON(http.StatusOK, models.GuestInfo{Limit: quota.Limit, Used: quota.Used, Remaining: quota.Remaining})
+}
 
-	return c.JSON(http.StatusOK, models.GuestInfo{
-		Limit:     s.config.GuestLimit,
-		Used:      used,
-		Remaining: remaining,
-	})
+func (s *Server) handleUsage(c echo.Context) error {
+	user := s.currentUser(c)
+	profile := s.scanProfile(user)
+	if profile.Tier == entitlements.TierPaid {
+		return c.JSON(http.StatusOK, entitlements.ScanQuota{Tier: entitlements.TierPaid, Limited: false})
+	}
+	subject, err := s.subjectForRequest(c, user)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	quota, err := s.authStore.ScanQuota(c.Request().Context(), subject, profile.Tier, s.config.FreeScanLimit, s.config.FreeScanWindowDays)
+	if err != nil {
+		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+	}
+	return c.JSON(http.StatusOK, quota)
 }
 
 func (s *Server) dispatchTask(user *auth.User, req models.CheckRequest, worker *workerpool.Worker) {
@@ -531,7 +553,12 @@ func (s *Server) dispatchTask(user *auth.User, req models.CheckRequest, worker *
 		userEmail = user.Email
 	}
 
-	task := map[string]string{
+	profile := entitlements.FreeProfile(entitlements.TierGuest, s.config.FreeAIIterations)
+	if current := s.store.Get(req.ReqID); current != nil {
+		profile = current.ScanProfile
+	}
+
+	task := map[string]any{
 		"url":             req.URL,
 		"type":            req.Type,
 		"req-id":          req.ReqID,
@@ -539,6 +566,9 @@ func (s *Server) dispatchTask(user *auth.User, req models.CheckRequest, worker *
 		"progress-secret": s.config.WorkerSecret,
 		"user-email":      userEmail,
 		"image-secret":    s.config.ImageSecret,
+		"ai-iterations":   profile.AIIterations,
+		"capture-images":  profile.ScreenshotsEnabled,
+		"detail-level":    profile.DetailLevel,
 	}
 
 	result, err := s.pool.SendTask(worker.URL, task)
@@ -555,6 +585,10 @@ func (s *Server) handleProgress(c echo.Context) error {
 	t := s.store.Get(reqID)
 	if t == nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": "task not found"})
+	}
+	subject, err := s.subjectForRequest(c, s.currentUser(c))
+	if err != nil || subject != t.OwnerSubject {
+		return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", reqID, "access denied")
 	}
 	return c.JSON(http.StatusOK, t)
 }
@@ -576,13 +610,17 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 
 	s.store.UpdateProgress(update.ReqID, update.Progress, update.Status, update.Completed, update.Errors)
 
-	payload := normalizeReportPayload(update.Data)
+	task := s.store.Get(update.ReqID)
+	profile := entitlements.FreeProfile(entitlements.TierGuest, s.config.FreeAIIterations)
+	if task != nil {
+		profile = task.ScanProfile
+	}
+	payload := sanitizeReportPayload(normalizeReportPayload(update.Data), profile)
 	results := payload.Checks
 	if hasReportPayload(payload) {
 		s.store.SetReportPayload(update.ReqID, payload)
 	}
 	if isFinalProgress(update) && len(results) > 0 {
-		task := s.store.Get(update.ReqID)
 		targetURL := ""
 		checkType := ""
 		existingReportID := ""
@@ -594,10 +632,13 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 
 		s.store.SetReportPayload(update.ReqID, payload)
 
-		email := auth.NormalizeEmail(update.UserEmail)
+		email := ""
+		if task != nil {
+			email = auth.NormalizeEmail(task.OwnerEmail)
+		}
 		historyReportID := ""
 		if email != "" {
-			history, err := s.authStore.SaveCheckHistory(c.Request().Context(), email, update.ReqID, targetURL, checkType, update.Status, payload)
+			history, err := s.authStore.SaveCheckHistory(c.Request().Context(), email, update.ReqID, targetURL, checkType, update.Status, payload, profile)
 			if err != nil {
 				log.Printf("[API] Failed to save check history for %s: %v", update.ReqID, err)
 			} else if history != nil {
@@ -609,7 +650,7 @@ func (s *Server) handleProgressUpdate(c echo.Context) error {
 			}
 		}
 
-		if existingReportID == "" && historyReportID == "" {
+		if profile.PDFEnabled && existingReportID == "" && historyReportID == "" {
 			log.Printf("[API] Saving PDF report: req=%s, email=%s, results=%d", update.ReqID, email, len(results))
 			reportID, err := s.authStore.SaveReport(c.Request().Context(), email, targetURL, update.ReqID, payload)
 			if err != nil {
@@ -686,20 +727,21 @@ func (s *Server) handleSubscriptionChange(c echo.Context) error {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_PLAN", "", "plan must be 'free' or 'paid'")
 	}
 
-	// Prevent downgrade from paid to free if plan_expires_at is in the future
-	if req.Plan == "free" && user.Plan == "paid" && !user.PlanExpiresAt.IsZero() && user.PlanExpiresAt.After(time.Now()) {
-		return s.errResponse(c, http.StatusBadRequest, "ERR_INVALID_PLAN", "", "cannot downgrade while paid plan is active")
-	}
-
-	if err := s.authStore.ChangeUserPlan(c.Request().Context(), user.ID, req.Plan); err != nil {
+	// Temporary self-service activation until a payment provider owns this transition.
+	// The paid plan mirrors the advertised monthly billing period.
+	if err := s.authStore.ChangeUserPlan(c.Request().Context(), user.ID, req.Plan, selfServicePaidDuration); err != nil {
 		log.Printf("[API] Failed to change plan for user %s: %v", user.ID, err)
 		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to change plan")
 	}
 
 	log.Printf("[API] Plan changed for user %s (%s) to %s", user.ID, user.Email, req.Plan)
+	message := "Бесплатный тариф активирован"
+	if req.Plan == "paid" {
+		message = "Платный тариф активирован на 30 дней"
+	}
 	return c.JSON(http.StatusOK, map[string]string{
 		"status":  "ok",
-		"message": fmt.Sprintf("Plan changed to %s", req.Plan),
+		"message": message,
 	})
 }
 
@@ -732,6 +774,10 @@ func (s *Server) handleImageUpload(c echo.Context) error {
 	reqID := c.FormValue("req-id")
 	if reqID == "" {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "req-id is required")
+	}
+	task := s.store.Get(reqID)
+	if task == nil || !task.ScanProfile.ScreenshotsEnabled {
+		return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", reqID, "images are disabled for this scan")
 	}
 
 	// Validate MIME type
@@ -789,6 +835,10 @@ func (s *Server) handleImageUpload(c echo.Context) error {
 }
 
 func (s *Server) handleImageGet(c echo.Context) error {
+	user := s.currentUser(c)
+	if user == nil {
+		return s.errResponse(c, http.StatusUnauthorized, "ERR_UNAUTHORIZED", "", "unauthorized")
+	}
 	imageID := c.Param("id")
 	if imageID == "" {
 		return s.errResponse(c, http.StatusBadRequest, "ERR_INTERNAL", "", "image id is required")
@@ -800,6 +850,19 @@ func (s *Server) handleImageGet(c echo.Context) error {
 	}
 	if record == nil {
 		return s.errResponse(c, http.StatusNotFound, "ERR_NOT_FOUND", "", "image not found or expired")
+	}
+	allowed := false
+	if task := s.store.Get(record.ReqID); task != nil {
+		allowed = task.OwnerEmail != "" && auth.NormalizeEmail(task.OwnerEmail) == auth.NormalizeEmail(user.Email) && task.ScanProfile.ScreenshotsEnabled
+	}
+	if !allowed {
+		allowed, err = s.authStore.ImageBelongsToEmail(c.Request().Context(), imageID, user.Email)
+		if err != nil {
+			return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", err.Error())
+		}
+	}
+	if !allowed {
+		return s.errResponse(c, http.StatusForbidden, "ERR_FORBIDDEN", "", "access denied")
 	}
 
 	// Check file exists
@@ -846,6 +909,9 @@ func (s *Server) startCleanup(ctx context.Context) {
 			if checksDeleted > 0 || imagesDeleted > 0 {
 				log.Printf("[API] Cleanup completed: %d checks and %d images deleted", checksDeleted, imagesDeleted)
 			}
+			if err := s.authStore.CleanupScanUsage(ctx, s.config.FreeScanWindowDays); err != nil {
+				log.Printf("[API] Failed to cleanup scan usage: %v", err)
+			}
 		case <-planCheckTicker.C:
 			_, _, err := s.authStore.CleanupExpiredData(ctx)
 			if err != nil {
@@ -890,7 +956,55 @@ func (s *Server) issueSession(c echo.Context, userID string) error {
 		Secure:   s.config.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
+	if guestToken, err := c.Cookie(guestCookieName); err == nil && guestToken.Value != "" {
+		from := guestSubject(guestToken.Value)
+		to := "user:" + userID
+		if err := s.authStore.TransferScanUsage(c.Request().Context(), from, to); err != nil {
+			log.Printf("[API] Failed to transfer guest scan usage to user %s: %v", userID, err)
+		}
+	}
 	return nil
+}
+
+func (s *Server) scanProfile(user *auth.User) entitlements.ScanProfile {
+	if user != nil && user.Plan == entitlements.TierPaid && (user.PlanExpiresAt == nil || user.PlanExpiresAt.After(time.Now())) {
+		return entitlements.PaidProfile(s.config.PaidAIIterations)
+	}
+	if user != nil {
+		return entitlements.FreeProfile(entitlements.TierFree, s.config.FreeAIIterations)
+	}
+	return entitlements.FreeProfile(entitlements.TierGuest, s.config.FreeAIIterations)
+}
+
+func (s *Server) subjectForRequest(c echo.Context, user *auth.User) (string, error) {
+	if user != nil {
+		return "user:" + user.ID, nil
+	}
+	cookie, err := c.Cookie(guestCookieName)
+	if err == nil && cookie.Value != "" {
+		return guestSubject(cookie.Value), nil
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(buf)
+	maxAge := s.config.FreeScanWindowDays * 24 * 60 * 60
+	c.SetCookie(&http.Cookie{
+		Name:     guestCookieName,
+		Value:    token,
+		Path:     "/",
+		MaxAge:   maxAge,
+		HttpOnly: true,
+		Secure:   s.config.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+	})
+	return guestSubject(token), nil
+}
+
+func guestSubject(token string) string {
+	hash := sha256.Sum256([]byte(token))
+	return "guest:" + hex.EncodeToString(hash[:])
 }
 
 func (s *Server) clearCookie(c echo.Context, name string) {
@@ -903,18 +1017,6 @@ func (s *Server) clearCookie(c echo.Context, name string) {
 		Secure:   s.config.CookieSecure,
 		SameSite: http.SameSiteLaxMode,
 	})
-}
-
-func getClientIP(c echo.Context) string {
-	ip := c.RealIP()
-	if ip == "" {
-		ip = c.Request().RemoteAddr
-	}
-	// Strip port if present
-	if idx := strings.LastIndex(ip, ":"); idx != -1 {
-		ip = ip[:idx]
-	}
-	return ip
 }
 
 func toAuthUser(user *auth.User) *models.AuthUser {
@@ -1058,6 +1160,40 @@ func isFinalProgress(update models.ProgressUpdate) bool {
 
 func hasReportPayload(payload store.ReportPayload) bool {
 	return len(payload.Checks) > 0 || payload.ScreenshotID != "" || payload.SSL != nil || payload.About != "" || payload.Country != ""
+}
+
+func sanitizeReportPayload(payload store.ReportPayload, profile entitlements.ScanProfile) store.ReportPayload {
+	if profile.IsFull() {
+		return payload
+	}
+
+	checks := make([]store.Result, 0, len(payload.Checks))
+	for _, result := range payload.Checks {
+		status := result.Result
+		switch status {
+		case "ok", "warn", "fail", "unknown":
+		default:
+			status = "unknown"
+		}
+		checks = append(checks, store.Result{
+			ID:     result.ID,
+			Result: status,
+			About:  truncateRunes(result.About, 240),
+		})
+	}
+
+	return store.ReportPayload{
+		Checks: checks,
+		About:  truncateRunes(payload.About, 320),
+	}
+}
+
+func truncateRunes(value string, limit int) string {
+	runes := []rune(strings.TrimSpace(value))
+	if limit <= 0 || len(runes) <= limit {
+		return string(runes)
+	}
+	return strings.TrimSpace(string(runes[:limit])) + "…"
 }
 
 func normalizeReportPayload(data any) store.ReportPayload {

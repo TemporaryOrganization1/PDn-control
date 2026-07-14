@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: PDn-control API
   description: API for website compliance checks, user sessions, and guest request limits.
-  version: 1.1.0
+  version: 1.2.0
 servers:
   - url: http://localhost/api
     description: Docker Compose frontend proxy
@@ -89,7 +89,7 @@ paths:
   /check:
     post:
       summary: Initiate a compliance check task
-      description: Authenticated users are unlimited; guests are limited to 3 accepted checks per guest cookie.
+      description: The backend derives an immutable scan profile from the current plan. Guests and free accounts receive 3 accepted scans in an exact rolling 30-day window; paid accounts are unlimited.
       requestBody:
         required: true
         content:
@@ -106,7 +106,7 @@ paths:
         '400':
           description: Invalid URL or check type
         '403':
-          description: Guest limit reached
+          description: Rolling Free/guest scan limit reached
         '503':
           description: No workers available
 
@@ -126,6 +126,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TaskState'
+        '401':
+          description: Authentication is required for an account-owned task
+        '403':
+          description: Task belongs to a different browser or account
         '404':
           description: Task not found
 
@@ -216,12 +220,17 @@ paths:
               schema:
                 type: string
                 format: binary
+        '401':
+          description: Authentication required
+        '403':
+          description: Image does not belong to the current user or scan profile
         '404':
           description: Image not found or expired
 
   /guest/remaining:
     get:
-      summary: Get remaining guest checks for the current client
+      deprecated: true
+      summary: Get legacy-shaped remaining free checks for the current client
       responses:
         '200':
           description: Guest limit state
@@ -229,6 +238,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GuestInfo'
+
+  /usage:
+    get:
+      summary: Get the current plan and rolling scan quota
+      responses:
+        '200':
+          description: Current scan quota
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScanQuota'
+
+  /subscription/change:
+    post:
+      summary: Activate or deactivate the account Paid plan
+      description: Temporary authenticated self-service activation until a payment provider is integrated. Paid activation lasts 30 days.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan:
+                  type: string
+                  enum: [free, paid]
+      responses:
+        '200':
+          description: Plan changed and persisted
+        '401':
+          description: Unauthorized
 
   /workers:
     get:
@@ -281,6 +322,12 @@ components:
         created_at:
           type: string
           format: date-time
+        plan:
+          type: string
+          enum: [free, paid]
+        plan_expires_at:
+          type: string
+          format: date-time
 
     GuestInfo:
       type: object
@@ -305,6 +352,46 @@ components:
         guest:
           $ref: '#/components/schemas/GuestInfo'
 
+    ScanProfile:
+      type: object
+      required: [tier, detail_level, ai_iterations, pdf_enabled, screenshots_enabled]
+      properties:
+        tier:
+          type: string
+          enum: [guest, free, paid, legacy_full]
+        detail_level:
+          type: string
+          enum: [summary, full]
+        ai_iterations:
+          type: integer
+          minimum: 1
+          maximum: 10
+        pdf_enabled:
+          type: boolean
+        screenshots_enabled:
+          type: boolean
+
+    ScanQuota:
+      type: object
+      required: [tier, limited]
+      properties:
+        tier:
+          type: string
+          enum: [guest, free, paid]
+        limited:
+          type: boolean
+        limit:
+          type: integer
+        used:
+          type: integer
+        remaining:
+          type: integer
+        window_days:
+          type: integer
+        next_available_at:
+          type: string
+          format: date-time
+
     CheckRequest:
       type: object
       required: [url, type]
@@ -328,6 +415,15 @@ components:
           type: string
         data:
           type: object
+          properties:
+            status:
+              type: string
+            req-id:
+              type: string
+            scan_profile:
+              $ref: '#/components/schemas/ScanProfile'
+            quota:
+              $ref: '#/components/schemas/ScanQuota'
         msg:
           type: string
 
@@ -376,6 +472,8 @@ components:
         created_at:
           type: string
           format: date-time
+        scan_profile:
+          $ref: '#/components/schemas/ScanProfile'
 
     CheckResult:
       type: object
@@ -384,7 +482,7 @@ components:
           type: string
         result:
           type: string
-          enum: [ok, warn, fail]
+          enum: [ok, warn, fail, unknown]
         pages:
           type: array
           items:
@@ -481,3 +579,5 @@ components:
         country:
           type: string
           nullable: true
+        scan_profile:
+          $ref: '#/components/schemas/ScanProfile'

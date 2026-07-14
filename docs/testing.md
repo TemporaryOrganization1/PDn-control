@@ -16,13 +16,14 @@ Starting in Assignment 5, architecture documentation and ADR traceability are al
 
 | Critical module | Why critical | Required line coverage | Current line coverage | Evidence |
 |---|---|---:|---:|---|
-| `backend/main-backend/internal/store/store.go` | Tracks scan progress, results, report IDs, and guest request limits. | 30% | 73.3% | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/main-backend`; `go tool cover -func=coverage.out`. |
+| `backend/main-backend/internal/store/store.go` | Tracks scan progress, immutable scan profiles, results, and report IDs. | 30% | 73.3% | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/main-backend`; `go tool cover -func=coverage.out`. |
 | `backend/main-backend/internal/workerpool/pool.go` | Selects crawler workers, enforces worker capacity, and dispatches scan tasks. | 30% | 91.1% | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/main-backend`; `go tool cover -func=coverage.out`. |
 | `backend/geoip-service/internal/downloader/downloader.go` | Downloads and stores the GeoIP database used by jurisdiction checks. | 30% | 66.7% package coverage; `DownloadMMDB` 71.0%. | `go test ./... -covermode=atomic -coverprofile=coverage.out` in `backend/geoip-service`; `go tool cover -func=coverage.out`. |
 | `frontend/lib/api.ts` | Normalizes scan requests and handles API errors for the Next frontend. | 30% | Covered by Vitest unit tests. | `npm test -- --coverage` in `frontend`. |
 | `backend/crawler-worker/src/url.ts` | Normalizes target domains used by crawler checks. | 30% | 94.44% | `npm test -- --coverage` in `backend/crawler-worker`. |
 | `backend/crawler-worker/src/checks/https.ts` | Detects insecure HTTP endpoints during scans. | 30% | 100% | `npm test -- --coverage` in `backend/crawler-worker`. |
 | `backend/crawler-worker/src/checks/ssl.ts` | Detects self-signed or insecure SSL/TLS endpoints during scans. | 30% | 97.22% | `npm test -- --coverage` in `backend/crawler-worker`. |
+| `backend/crawler-worker/src/scan-policy.ts` | Enforces restrictive worker defaults, 3/10 exploration budgets, and honest unknown coverage. | 30% | Covered by `tests/scan-policy.test.ts`. | `npm test -- --coverage` in `backend/crawler-worker`. |
 
 Global repository coverage is lower because command entrypoints, DB-backed stores, PDF rendering, UI pages, and full browser crawler flows are not yet fully automated. The Assignment 4 threshold is enforced for the listed critical modules.
 
@@ -32,7 +33,8 @@ Global repository coverage is lower because command entrypoints, DB-backed store
 |---|---|---|---|---|
 | Unit tests | Guest quota, task state, URL parsing, worker payload shape, frontend API helpers, result scoring, fines, and country flag helpers. | `go test ./...`, `npm test -- --coverage`, `npm run check` | Backend tests plus Next lint/typecheck and Vitest frontend coverage. | [Quality Gates workflow](https://github.com/TemporaryOrganization1/PDn-control/actions/workflows/quality.yml). |
 | Integration tests | Worker pool HTTP dispatch with `httptest`; GeoIP MMDB download with `httptest`; crawler check subscriptions with fake request/response objects. | `go test ./...`, `npm test -- --coverage` | Passing in the latest protected-branch CI run. | [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28668920944). |
-| Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection. | `go test ./internal/workerpool -run TestQRTWorkerSelectionCompletesWithinThreshold -count=1`; `npm run typecheck`; `npm test -- --run tests/runner.test.ts`; `go test ./internal/api -run TestValidEmail -count=1` | Passing in the latest protected-branch CI run. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28668920944). |
+| Entitlement unit tests | Free payload sanitization, restrictive worker options, 3-call exploration exhaustion, and `unknown` fallback coverage. | `go test ./internal/api`; `npm test -- --run tests/scan-policy.test.ts` | Added locally; protected-branch CI evidence is pending merge. | Backend and crawler test sources in this repository. |
+| Automated QRTs | QRT-001 scan dispatch responsiveness, QRT-002 crawler type-check feedback, QRT-003 invalid input protection, QRT-004 scan entitlement enforcement. | Commands are maintained in [quality-requirement-tests.md](quality-requirement-tests.md). | QRT-001–003 pass in the latest protected-branch CI run; QRT-004 is verified locally and awaits protected-branch CI after merge. | [Quality requirement tests](quality-requirement-tests.md); [Quality Gates run on `main`](https://github.com/TemporaryOrganization1/PDn-control/actions/runs/28668920944). |
 
 ## CI and QA Check Status
 
@@ -86,4 +88,6 @@ docker run --rm -v "${PWD}:/work" -w /work/backend/main-backend golang:1.25 sh -
 docker run --rm -v "${PWD}:/work" -w /work/backend/geoip-service golang:1.25 sh -lc "/usr/local/go/bin/gofmt -w internal/downloader/downloader_test.go && /usr/local/go/bin/go test ./... -covermode=atomic -coverprofile=coverage.out && /usr/local/go/bin/go tool cover -func=coverage.out && /usr/local/go/bin/go run golang.org/x/vuln/cmd/govulncheck@latest ./..."
 docker run --rm -v "${PWD}:/work" -w /work/frontend node:24-alpine sh -lc "npm ci && npm run check && npm run build && npm test -- --coverage && npm audit --audit-level=high --omit=dev"
 docker run --rm -e PUPPETEER_SKIP_DOWNLOAD=true -v "${PWD}:/work" -w /work/backend/crawler-worker node:22 sh -lc "npm ci && npm run typecheck && npm test -- --coverage && npm audit --audit-level=high --omit=dev"
+docker compose build crawler-worker-1
+docker run --rm --entrypoint node pdn-control-crawler-worker-1 -e "(async()=>{const p=require('puppeteer');const b=await p.launch({headless:true,args:['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage']});console.log(await b.version());await b.close()})().catch(error=>{console.error(error);process.exit(1)})"
 ```

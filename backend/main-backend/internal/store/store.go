@@ -1,27 +1,31 @@
 package store
 
 import (
-	"errors"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/main-backend/internal/entitlements"
 )
 
 type Task struct {
-	ReqID        string    `json:"req-id"`
-	URL          string    `json:"url"`
-	Type         string    `json:"type"`
-	Status       string    `json:"status"`
-	Worker       string    `json:"worker,omitempty"`
-	Progress     int       `json:"progress"`
-	Results      []Result  `json:"results"`
-	ScreenshotID string    `json:"screenshotId,omitempty"`
-	SSL          *SslInfo  `json:"ssl,omitempty"`
-	About        string    `json:"about,omitempty"`
-	Country      string    `json:"country,omitempty"`
-	Errors       []string  `json:"errors"`
-	ReportID     string    `json:"report_id,omitempty"`
-	CreatedAt    time.Time `json:"created_at"`
+	ReqID        string                   `json:"req-id"`
+	URL          string                   `json:"url"`
+	Type         string                   `json:"type"`
+	Status       string                   `json:"status"`
+	Worker       string                   `json:"worker,omitempty"`
+	Progress     int                      `json:"progress"`
+	Results      []Result                 `json:"results"`
+	ScreenshotID string                   `json:"screenshotId,omitempty"`
+	SSL          *SslInfo                 `json:"ssl,omitempty"`
+	About        string                   `json:"about,omitempty"`
+	Country      string                   `json:"country,omitempty"`
+	Errors       []string                 `json:"errors"`
+	ReportID     string                   `json:"report_id,omitempty"`
+	CreatedAt    time.Time                `json:"created_at"`
+	ScanProfile  entitlements.ScanProfile `json:"scan_profile"`
+	OwnerSubject string                   `json:"-"`
+	OwnerEmail   string                   `json:"-"`
 }
 
 type Result struct {
@@ -54,145 +58,32 @@ func PayloadFromResults(results []Result) ReportPayload {
 	return ReportPayload{Checks: append([]Result(nil), results...)}
 }
 
-type guestEntry struct {
-	Count     int       `json:"count"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-var ErrGuestLimit = errors.New("guest check limit reached")
-
 type MemoryStore struct {
-	tasks      map[string]*Task
-	guestCache map[string]*guestEntry
-	guestOrder []string // FIFO order for eviction
-	maxItems   int
-	ttl        time.Duration
-	mu         sync.RWMutex
+	tasks map[string]*Task
+	mu    sync.RWMutex
 }
 
 func New() *MemoryStore {
 	return &MemoryStore{
-		tasks:      make(map[string]*Task),
-		guestCache: make(map[string]*guestEntry),
-		guestOrder: make([]string, 0),
-		maxItems:   0, // 0 means unlimited
-		ttl:        24 * time.Hour,
+		tasks: make(map[string]*Task),
 	}
 }
 
-func NewWithGuestConfig(maxItems int, ttlMinutes int) *MemoryStore {
-	ttl := time.Duration(ttlMinutes) * time.Minute
-	if ttl <= 0 {
-		ttl = 24 * time.Hour
-	}
-	return &MemoryStore{
-		tasks:      make(map[string]*Task),
-		guestCache: make(map[string]*guestEntry),
-		guestOrder: make([]string, 0),
-		maxItems:   maxItems,
-		ttl:        ttl,
-	}
-}
-
-// evictExpired removes all expired guest entries.
-func (s *MemoryStore) evictExpired() {
-	now := time.Now()
-	remaining := make([]string, 0, len(s.guestOrder))
-	for _, ip := range s.guestOrder {
-		entry, exists := s.guestCache[ip]
-		if !exists || now.After(entry.UpdatedAt.Add(s.ttl)) {
-			delete(s.guestCache, ip)
-		} else {
-			remaining = append(remaining, ip)
-		}
-	}
-	s.guestOrder = remaining
-}
-
-// evictIfNeeded removes the oldest guest entries if maxItems is exceeded.
-func (s *MemoryStore) evictIfNeeded() {
-	if s.maxItems <= 0 {
-		return
-	}
-	for len(s.guestOrder) > s.maxItems {
-		oldest := s.guestOrder[0]
-		s.guestOrder = s.guestOrder[1:]
-		delete(s.guestCache, oldest)
-	}
-}
-
-// GetGuestRemaining returns the number of remaining attempts for an IP.
-func (s *MemoryStore) GetGuestRemaining(ip string, limit int) int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	entry, exists := s.guestCache[ip]
-	if !exists {
-		return limit
-	}
-
-	// Check if entry is expired
-	if time.Now().After(entry.UpdatedAt.Add(s.ttl)) {
-		return limit
-	}
-
-	remaining := limit - entry.Count
-	if remaining < 0 {
-		remaining = 0
-	}
-	return remaining
-}
-
-// IncrementGuestCheck increments the check count for an IP. Returns remaining attempts or error if limit reached.
-func (s *MemoryStore) IncrementGuestCheck(ip string, limit int) (int, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Expire old entries first
-	s.evictExpired()
-
-	entry, exists := s.guestCache[ip]
-	if !exists {
-		// New IP — track in FIFO order
-		s.guestOrder = append(s.guestOrder, ip)
-		entry = &guestEntry{Count: 0, UpdatedAt: time.Now()}
-		s.guestCache[ip] = entry
-	}
-
-	// Check if entry is expired (shouldn't happen after evictExpired, but safety check)
-	if time.Now().After(entry.UpdatedAt.Add(s.ttl)) {
-		entry.Count = 0
-	}
-
-	if entry.Count >= limit {
-		return 0, ErrGuestLimit
-	}
-
-	entry.Count++
-	entry.UpdatedAt = time.Now()
-
-	// Evict if cache is too large
-	s.evictIfNeeded()
-
-	remaining := limit - entry.Count
-	if remaining < 0 {
-		remaining = 0
-	}
-	return remaining, nil
-}
-
-func (s *MemoryStore) Create(reqID, url, taskType string) *Task {
+func (s *MemoryStore) Create(reqID, url, taskType, ownerSubject, ownerEmail string, profile entitlements.ScanProfile) *Task {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	t := &Task{
-		ReqID:     reqID,
-		URL:       url,
-		Type:      taskType,
-		Status:    "queued",
-		Progress:  0,
-		Results:   []Result{},
-		Errors:    []string{},
-		CreatedAt: time.Now(),
+		ReqID:        reqID,
+		URL:          url,
+		Type:         taskType,
+		Status:       "queued",
+		Progress:     0,
+		Results:      []Result{},
+		Errors:       []string{},
+		CreatedAt:    time.Now(),
+		ScanProfile:  profile,
+		OwnerSubject: ownerSubject,
+		OwnerEmail:   ownerEmail,
 	}
 	s.tasks[reqID] = t
 	return t
