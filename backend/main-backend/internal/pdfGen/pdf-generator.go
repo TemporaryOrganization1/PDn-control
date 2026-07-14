@@ -342,9 +342,27 @@ func (d *reportDoc) statusPill(x, y float64, label string, accent rgb) float64 {
 func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStats, complianceScore int, payload store.ReportPayload) {
 	pdf := d.pdf
 	accent, scoreLabel := scoreTone(complianceScore)
-	h := 64.0
+
 	x := marginX
 	y := d.y
+
+	heroCopy := "Индекс прохождения проверок, возможные штрафы и техническое evidence по результатам backend-проверки."
+	if strings.TrimSpace(payload.About) != "" {
+		heroCopy = payload.About
+	}
+
+	setFont(pdf, "", 9.5)
+	wrappedLines := pdf.SplitLines([]byte(heroCopy), 108)
+	copyHeight := float64(len(wrappedLines)) * 4.8
+
+	h := 39.0 + copyHeight + 14.0
+	if h < 64.0 {
+		h = 64.0
+	}
+
+	d.ensureSpace(h + 8)
+	y = d.y
+
 	d.roundedPanel(x, y, usableW, h)
 
 	setFill(pdf, rgb{28, 33, 45})
@@ -367,34 +385,40 @@ func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStat
 	setText(pdf, pdfMuted)
 	setFont(pdf, "", 9.5)
 	pdf.SetXY(x+6, y+39)
-	heroCopy := "Индекс прохождения проверок, возможные штрафы и техническое evidence по результатам backend-проверки."
-	if strings.TrimSpace(payload.About) != "" {
-		heroCopy = payload.About
-	}
 	pdf.MultiCell(108, 4.8, heroCopy, "", "L", false)
+
+	cardH := h - 34.0
+	if cardH < 30.0 {
+		cardH = 30.0
+	}
 
 	setFill(pdf, rgb{10, 12, 18})
 	setDraw(pdf, rgb{58, 65, 80})
-	roundedRect(pdf, x+118, y+22, 58, 30, 4, "FD")
+	roundedRect(pdf, x+118, y+22, 58, cardH, 4, "FD")
+
 	setText(pdf, pdfDim)
 	setFont(pdf, "", 7.2)
 	pdf.SetXY(x+123, y+27)
 	pdf.CellFormat(0, 4, "Проверенный сайт", "", 0, "L", false, 0, "")
+
 	setText(pdf, pdfText)
 	setFont(pdf, "B", 10)
 	pdf.SetXY(x+123, y+33)
 	pdf.CellFormat(48, 5, hostname, "", 0, "L", false, 0, "")
+
 	setText(pdf, pdfDim)
 	setFont(pdf, "", 7.2)
 	pdf.SetXY(x+123, y+41)
 	pdf.CellFormat(48, 4, targetURL, "", 0, "L", false, 0, "")
 
+	bottomY := y + h - 8.5
+
 	setText(pdf, pdfDim)
 	setFont(pdf, "", 7.2)
-	pdf.SetXY(x+6, y+55.5)
+	pdf.SetXY(x+6, bottomY)
 	pdf.CellFormat(0, 4, fmt.Sprintf("Дата формирования: %s", time.Now().Format("02.01.2006 15:04")), "", 0, "L", false, 0, "")
-	setText(pdf, pdfDim)
-	pdf.SetXY(x+120, y+55.5)
+
+	pdf.SetXY(x+120, bottomY)
 	pdf.CellFormat(0, 4, fmt.Sprintf("Индекс: %d/100 / проверок: %d", complianceScore, stats.total), "", 0, "L", false, 0, "")
 
 	d.y += h + 8
@@ -402,22 +426,36 @@ func (d *reportDoc) drawHero(targetURL string, hostname string, stats reportStat
 
 func (d *reportDoc) drawMetricCard(x, y, w float64, label, value, caption string, accent rgb) {
 	pdf := d.pdf
+
+	cardHeight := 35.0
 	setFill(pdf, pdfSurface)
 	setDraw(pdf, pdfBorder)
-	roundedRect(pdf, x, y, w, 32, 4, "FD")
+	roundedRect(pdf, x, y, w, cardHeight, 4, "FD")
+
 	setFill(pdf, accent)
-	roundedRect(pdf, x+5, y+5, 1.4, 22, 0.6, "F")
+	roundedRect(pdf, x+5, y+5, 1.4, cardHeight-10, 0.6, "F")
+
 	setText(pdf, pdfDim)
 	setFont(pdf, "", 5)
-	pdf.SetXY(x+10, y+6)
+	pdf.SetXY(x+10, y+5.5)
 	pdf.CellFormat(w-14, 4, label, "", 0, "L", false, 0, "")
+
 	setText(pdf, pdfText)
-	setFont(pdf, "B", 9)
-	pdf.SetXY(x+10, y+13)
-	pdf.CellFormat(w-14, 7, value, "", 0, "L", false, 0, "")
+	fontSize := 9.0
+	setFont(pdf, "B", fontSize)
+	maxWidth := w - 14
+
+	for pdf.GetStringWidth(value) > maxWidth && fontSize > 6.0 {
+		fontSize -= 0.5
+		setFont(pdf, "B", fontSize)
+	}
+
+	pdf.SetXY(x+10, y+14)
+	pdf.CellFormat(maxWidth, 7, value, "", 0, "L", false, 0, "")
+
 	setText(pdf, pdfMuted)
 	setFont(pdf, "", 5)
-	pdf.SetXY(x+10, y+23)
+	pdf.SetXY(x+10, y+25)
 	pdf.CellFormat(w-14, 4, caption, "", 0, "L", false, 0, "")
 }
 
@@ -436,15 +474,19 @@ func rubLabel(value int) string {
 }
 
 func (d *reportDoc) drawSummary(stats reportStats, complianceScore int, estimate compliance.FineEstimate) {
+	d.ensureSpace(35 + 7)
+
 	scoreAccent, scoreLabel := scoreTone(complianceScore)
 	y := d.y
 	gap := 3.0
 	w := (usableW - gap*3) / 4
+
 	d.drawMetricCard(marginX, y, w, "Индекс прохождения", fmt.Sprintf("%d/100", complianceScore), "чем выше, тем лучше", scoreAccent)
 	d.drawMetricCard(marginX+w+gap, y, w, "Физическое лицо", rubLabel(estimate.PhysicalPerson), "возможный максимум", pdfWarning)
 	d.drawMetricCard(marginX+(w+gap)*2, y, w, "Юридическое лицо", rubLabel(estimate.LegalEntity), "возможный максимум", pdfWarning)
 	d.drawMetricCard(marginX+(w+gap)*3, y, w, "Результат", scoreLabel, fmt.Sprintf("fail %d / warn %d", stats.failed, stats.warnings), scoreAccent)
-	d.y += 39
+
+	d.y += 42
 }
 
 func (d *reportDoc) drawExecutiveSummary(stats reportStats, complianceScore int) {
@@ -541,16 +583,39 @@ func (d *reportDoc) drawScreenshot(payload store.ReportPayload, options ReportOp
 	}
 
 	d.sectionTitle("Скриншот сайта", "Верхний screenshot из crawler-worker evidence.")
-	d.ensureSpace(78)
+
+	info := d.pdf.RegisterImageOptions(filePath, gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true})
+
+	maxWidth := usableW - 12
+	imgW := maxWidth
+	imgH := 62.0
+
+	if info != nil && info.Width() > 0 {
+		aspect := info.Height() / info.Width()
+		imgH = imgW * aspect
+		if imgH > 95.0 {
+			imgH = 95.0
+			imgW = imgH / aspect
+		}
+	}
+
+	blockHeight := imgH + 15.0
+	d.ensureSpace(blockHeight + 8)
 	x, y := marginX, d.y
-	d.roundedPanel(x, y, usableW, 76)
+
+	d.roundedPanel(x, y, usableW, blockHeight)
+
+	offsetX := 6.0 + (maxWidth-imgW)/2.0
+
 	opts := gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true}
-	d.pdf.ImageOptions(filePath, x+6, y+7, usableW-12, 62, false, opts, 0, "")
+	d.pdf.ImageOptions(filePath, x+offsetX, y+7, imgW, imgH, false, opts, 0, "")
+
 	setText(d.pdf, pdfDim)
 	setFont(d.pdf, "", 7.2)
-	d.pdf.SetXY(x+6, y+70)
+	d.pdf.SetXY(x+6, y+blockHeight-6.5)
 	d.pdf.CellFormat(0, 4, "image id: "+payload.ScreenshotID, "", 0, "L", false, 0, "")
-	d.y += 84
+
+	d.y += blockHeight + 8
 }
 
 func (d *reportDoc) drawSiteInfo(payload store.ReportPayload) {
@@ -680,7 +745,7 @@ func (d *reportDoc) drawImageEvidence(title string, imageIDs []string, options R
 	if len(imageIDs) == 0 {
 		return
 	}
-	d.sectionTitle("Evidence images: "+title, "Прикрепленные изображения из /api/img/upload. Если файл недоступен, ниже указан image id.")
+	d.sectionTitle("Фото-доказательство: "+title, "Прикрепленные изображения из /api/img/upload. Если файл недоступен, ниже указан image id.")
 	for index, imageID := range imageIDs {
 		if index >= 4 {
 			d.ensureSpace(9)
@@ -706,35 +771,42 @@ func (d *reportDoc) drawImageEvidence(title string, imageIDs []string, options R
 		}
 
 		info := d.pdf.RegisterImageOptions(filePath, gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true})
-		imgW := 70.0
-		imgH := 0.0
+
+		imgW := 75.0
+		imgH := 45.0
+
 		if info != nil && info.Width() > 0 {
-			imgH = (imgW * info.Height()) / info.Width()
-		}
-		if imgH == 0 || imgH > 70 {
-			imgH = 36.0
+			aspect := info.Height() / info.Width()
+			imgH = imgW * aspect
+
+			if imgH > 110.0 {
+				imgH = 110.0
+				imgW = imgH / aspect
+			}
 		}
 
-		blockHeight := imgH + 12
-		if blockHeight < 48 {
-			blockHeight = 48
+		blockHeight := imgH + 14.0
+		if blockHeight < 60 {
+			blockHeight = 60
 		}
 
-		d.ensureSpace(blockHeight + 6)
+		d.ensureSpace(blockHeight + 8)
 		x, y := marginX, d.y
 		d.roundedPanel(x, y, usableW, blockHeight)
 
 		opts := gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true}
-		d.pdf.ImageOptions(filePath, x+6, y+6, imgW, imgH, false, opts, 0, "")
+		d.pdf.ImageOptions(filePath, x+6, y+7, imgW, imgH, false, opts, 0, "")
 
 		setText(d.pdf, pdfDim)
 		setFont(d.pdf, "", 7.2)
-		d.pdf.SetXY(x+82, y+12)
 
-		textWidth := usableW - 88
+		textX := x + imgW + 12.0
+		textWidth := usableW - (imgW + 18.0)
+
+		d.pdf.SetXY(textX, y+14)
 		d.pdf.MultiCell(textWidth, 4.2, "image id: "+imageID, "", "L", false)
 
-		d.y += blockHeight + 6
+		d.y += blockHeight + 8
 	}
 }
 
