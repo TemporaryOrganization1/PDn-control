@@ -730,14 +730,13 @@ func (d *reportDoc) drawImageEvidence(title string, imageIDs []string, options R
 		setText(d.pdf, pdfDim)
 		setFont(d.pdf, "", 7.2)
 		d.pdf.SetXY(x+82, y+12)
-		
+
 		textWidth := usableW - 88
 		d.pdf.MultiCell(textWidth, 4.2, "image id: "+imageID, "", "L", false)
 
 		d.y += blockHeight + 6
 	}
 }
-
 
 func (d *reportDoc) sectionTitle(title, subtitle string) {
 	pdf := d.pdf
