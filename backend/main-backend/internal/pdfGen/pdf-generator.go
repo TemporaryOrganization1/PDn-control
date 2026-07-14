@@ -554,47 +554,69 @@ func (d *reportDoc) drawScreenshot(payload store.ReportPayload, options ReportOp
 }
 
 func (d *reportDoc) drawSiteInfo(payload store.ReportPayload) {
-	d.ensureSpace(48)
-	x, y := marginX, d.y
-	d.roundedPanel(x, y, usableW, 40)
-	setText(d.pdf, pdfText)
-	setFont(d.pdf, "B", 11)
-	d.pdf.SetXY(x+7, y+8)
-	d.pdf.CellFormat(0, 5, "Информация о сайте", "", 0, "L", false, 0, "")
-	setText(d.pdf, pdfMuted)
-	setFont(d.pdf, "", 8.2)
 	country := countryName(payload.Country)
 	code := strings.ToUpper(strings.TrimSpace(payload.Country))
 	if code == "" || strings.EqualFold(code, "unknown") || strings.EqualFold(code, "localhost") {
 		code = "—"
 	}
-	d.pdf.SetXY(x+7, y+18)
-	d.pdf.CellFormat(0, 4.5, fmt.Sprintf("Страна: %s / ISO: %s", country, code), "", 0, "L", false, 0, "")
+
 	about := strings.TrimSpace(payload.About)
 	if about == "" {
 		about = "Краткое описание сайта не передано worker."
 	}
-	d.pdf.SetXY(x+7, y+25)
-	d.pdf.MultiCell(usableW-14, 4.5, about, "", "L", false)
-	d.y += 47
-}
 
-func (d *reportDoc) drawSSLBlock(info *store.SslInfo) {
-	d.ensureSpace(54)
+	setFont(d.pdf, "", 8.2)
+	textWidth := usableW - 14
+	wrappedLines := d.pdf.SplitLines([]byte(about), textWidth)
+	aboutHeight := float64(len(wrappedLines)) * 4.5
+
+	paddingTop := 25.0
+	paddingBottom := 8.0
+	blockHeight := paddingTop + aboutHeight + paddingBottom
+
+	if blockHeight < 40 {
+		blockHeight = 40
+	}
+
+	d.ensureSpace(blockHeight + 8)
 	x, y := marginX, d.y
-	d.roundedPanel(x, y, usableW, 54)
+
+	d.roundedPanel(x, y, usableW, blockHeight)
+
 	setText(d.pdf, pdfText)
 	setFont(d.pdf, "B", 11)
 	d.pdf.SetXY(x+7, y+8)
-	d.pdf.CellFormat(0, 5, "SSL/TLS", "", 0, "L", false, 0, "")
+	d.pdf.CellFormat(0, 5, "Информация о сайте", "", 0, "L", false, 0, "")
+
 	setText(d.pdf, pdfMuted)
 	setFont(d.pdf, "", 8.2)
+	d.pdf.SetXY(x+7, y+18)
+	d.pdf.CellFormat(0, 4.5, fmt.Sprintf("Страна: %s / ISO: %s", country, code), "", 0, "L", false, 0, "")
+
+	d.pdf.SetXY(x+7, y+paddingTop)
+	d.pdf.MultiCell(textWidth, 4.5, about, "", "L", false)
+
+	d.y += blockHeight + 7
+}
+
+func (d *reportDoc) drawSSLBlock(info *store.SslInfo) {
 	if info == nil {
+		d.ensureSpace(54)
+		x, y := marginX, d.y
+		d.roundedPanel(x, y, usableW, 35)
+		setText(d.pdf, pdfText)
+		setFont(d.pdf, "B", 11)
+		d.pdf.SetXY(x+7, y+8)
+		d.pdf.CellFormat(0, 5, "SSL/TLS", "", 0, "L", false, 0, "")
+
+		setText(d.pdf, pdfMuted)
+		setFont(d.pdf, "", 8.2)
 		d.pdf.SetXY(x+7, y+19)
-		d.pdf.CellFormat(0, 4.5, "Worker не передал верхний SSL-блок.", "", 0, "L", false, 0, "")
-		d.y += 55
+		d.pdf.CellFormat(0, 4.5, "Worker не передал upper SSL-блок.", "", 0, "L", false, 0, "")
+		d.y += 45
 		return
 	}
+
 	status := "не истек"
 	if info.ValidTo > 0 {
 		ts := info.ValidTo
@@ -605,6 +627,7 @@ func (d *reportDoc) drawSSLBlock(info *store.SslInfo) {
 			status = "истек"
 		}
 	}
+
 	lines := []string{
 		"issuer: " + emptyDash(info.Issuer),
 		"protocol: " + emptyDash(info.Protocol),
@@ -613,9 +636,37 @@ func (d *reportDoc) drawSSLBlock(info *store.SslInfo) {
 		"validTo: " + formatUnixTime(info.ValidTo) + " (" + status + ")",
 		"SAN: " + emptyDash(strings.Join(info.SubjectAlternativeNames, ", ")),
 	}
-	d.pdf.SetXY(x+7, y+18)
-	d.pdf.MultiCell(usableW-14, 4.2, strings.Join(lines, "\n"), "", "L", false)
-	d.y += 55
+
+	setFont(d.pdf, "", 8.2)
+	textWidth := usableW - 14
+
+	totalLinesCount := 0
+	for _, line := range lines {
+		wrappedLines := d.pdf.SplitLines([]byte(line), textWidth)
+		totalLinesCount += len(wrappedLines)
+	}
+
+	totalTextHeight := float64(totalLinesCount) * 4.2
+	paddingTop := 18.0
+	paddingBottom := 8.0
+	blockHeight := paddingTop + totalTextHeight + paddingBottom
+
+	d.ensureSpace(blockHeight + 10)
+	x, y := marginX, d.y
+
+	d.roundedPanel(x, y, usableW, blockHeight)
+
+	setText(d.pdf, pdfText)
+	setFont(d.pdf, "B", 11)
+	d.pdf.SetXY(x+7, y+8)
+	d.pdf.CellFormat(0, 5, "SSL/TLS", "", 0, "L", false, 0, "")
+
+	setText(d.pdf, pdfMuted)
+	setFont(d.pdf, "", 8.2)
+	d.pdf.SetXY(x+7, y+paddingTop)
+	d.pdf.MultiCell(textWidth, 4.2, strings.Join(lines, "\n"), "", "L", false)
+
+	d.y += blockHeight + 6
 }
 
 func emptyDash(value string) string {
@@ -653,16 +704,37 @@ func (d *reportDoc) drawImageEvidence(title string, imageIDs []string, options R
 			d.y += blockH + 4
 			continue
 		}
-		d.ensureSpace(54)
+
+		info := d.pdf.RegisterImageOptions(filePath, gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true})
+		imgW := 70.0
+		imgH := 0.0
+		if info != nil && info.Width() > 0 {
+			imgH = (imgW * info.Height()) / info.Width()
+		}
+		if imgH == 0 || imgH > 70 {
+			imgH = 36.0
+		}
+
+		blockHeight := imgH + 12
+		if blockHeight < 48 {
+			blockHeight = 48
+		}
+
+		d.ensureSpace(blockHeight + 6)
 		x, y := marginX, d.y
-		d.roundedPanel(x, y, usableW, 48)
+		d.roundedPanel(x, y, usableW, blockHeight)
+
 		opts := gofpdf.ImageOptions{ImageType: imageType(filePath), ReadDpi: true}
-		d.pdf.ImageOptions(filePath, x+6, y+6, 70, 36, false, opts, 0, "")
+		d.pdf.ImageOptions(filePath, x+6, y+6, imgW, imgH, false, opts, 0, "")
+
 		setText(d.pdf, pdfDim)
 		setFont(d.pdf, "", 7.2)
 		d.pdf.SetXY(x+82, y+12)
-		d.pdf.MultiCell(90, 4.2, "image id: "+imageID, "", "L", false)
-		d.y += 54
+
+		textWidth := usableW - 88
+		d.pdf.MultiCell(textWidth, 4.2, "image id: "+imageID, "", "L", false)
+
+		d.y += blockHeight + 6
 	}
 }
 
