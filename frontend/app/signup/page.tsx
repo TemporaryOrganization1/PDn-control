@@ -9,6 +9,10 @@ import { useAuth } from "@/components/auth-provider";
 import { AnimatedButton } from "@/components/animated-button";
 import { BrandMark } from "@/components/brand-mark";
 import { Input } from "@/components/ui/input";
+import {
+  readPostAuthRedirect,
+  rememberPostAuthRedirect,
+} from "@/lib/navigation";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -18,12 +22,13 @@ export default function SignupPage() {
   const [showVerificationMessage, setShowVerificationMessage] = useState(false);
   const { signup, isLoggedIn, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const redirectTarget = readPostAuthRedirect();
 
   useEffect(() => {
     if (!authLoading && isLoggedIn) {
-      router.push("/profile");
+      router.replace(redirectTarget);
     }
-  }, [isLoggedIn, authLoading, router]);
+  }, [isLoggedIn, authLoading, redirectTarget, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,16 +52,19 @@ export default function SignupPage() {
 
       const result = await signup(email, password);
       if (result.status === "pending_verification") {
+        rememberPostAuthRedirect(redirectTarget);
         toast.success("Аккаунт создан! Проверьте почту для подтверждения.", {
           duration: 5000,
         });
         setShowVerificationMessage(true);
       } else {
         toast.success("Аккаунт создан!");
-        router.push("/profile");
+        router.replace(redirectTarget);
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Не удалось создать аккаунт");
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось создать аккаунт",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -81,12 +89,16 @@ export default function SignupPage() {
           <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_14px_34px_rgba(0,0,0,0.22)]">
             <Mail className="h-7 w-7 text-foreground" />
           </div>
-          <h1 className="text-3xl font-semibold tracking-tight">Почта отправлена</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Почта отправлена
+          </h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-muted-foreground">
-            Отправили письмо с подтверждением на {email}. Перейдите по ссылке в письме, чтобы активировать аккаунт.
+            Отправили письмо с подтверждением на {email}. Перейдите по ссылке в
+            письме, чтобы активировать аккаунт.
           </p>
           <Link
             href="/login"
+            onClick={() => rememberPostAuthRedirect(redirectTarget)}
             className="premium-cta mt-8 inline-flex h-11 w-full items-center justify-center px-6 text-sm font-semibold"
           >
             Перейти к входу
@@ -101,15 +113,24 @@ export default function SignupPage() {
       <div className="mx-auto flex w-full max-w-[560px] flex-col justify-center">
         <div className="text-center">
           <div className="mb-6 flex justify-center">
-            <BrandMark className="h-12 w-12 rounded-2xl" markClassName="h-7 w-7" />
+            <BrandMark
+              className="h-12 w-12 rounded-2xl"
+              markClassName="h-7 w-7"
+            />
           </div>
           <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
             PDn Control
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">Создать аккаунт</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Создать аккаунт
+          </h1>
           <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
             Уже есть аккаунт?{" "}
-            <Link href="/login" className="font-medium text-foreground underline-offset-4 hover:underline">
+            <Link
+              href="/login"
+              onClick={() => rememberPostAuthRedirect(redirectTarget)}
+              className="font-medium text-foreground underline-offset-4 hover:underline"
+            >
               Войти
             </Link>
           </p>
@@ -117,7 +138,10 @@ export default function SignupPage() {
 
         <form onSubmit={handleSubmit} className="mt-10 space-y-5">
           <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium text-foreground/90">
+            <label
+              htmlFor="email"
+              className="text-sm font-medium text-foreground/90"
+            >
               Электронная почта
             </label>
             <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
@@ -137,7 +161,10 @@ export default function SignupPage() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="password" className="text-sm font-medium text-foreground/90">
+            <label
+              htmlFor="password"
+              className="text-sm font-medium text-foreground/90"
+            >
               Пароль
             </label>
             <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
@@ -157,7 +184,10 @@ export default function SignupPage() {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="text-sm font-medium text-foreground/90">
+            <label
+              htmlFor="confirmPassword"
+              className="text-sm font-medium text-foreground/90"
+            >
               Подтвердите пароль
             </label>
             <div className="auth-input-shell relative flex items-center gap-2 rounded-2xl p-1.5 transition-all duration-200">
@@ -176,13 +206,20 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <AnimatedButton type="submit" className="w-full" size="lg" isLoading={isLoading} loadingText="Создаем...">
+          <AnimatedButton
+            type="submit"
+            className="w-full"
+            size="lg"
+            isLoading={isLoading}
+            loadingText="Создаем..."
+          >
             Создать аккаунт
           </AnimatedButton>
         </form>
 
         <p className="mx-auto mt-8 max-w-md text-center text-xs leading-5 text-muted-foreground">
-          Продолжая, вы соглашаетесь с правилами сервиса и обработкой данных для работы аккаунта.
+          Продолжая, вы соглашаетесь с правилами сервиса и обработкой данных для
+          работы аккаунта.
         </p>
       </div>
     </div>

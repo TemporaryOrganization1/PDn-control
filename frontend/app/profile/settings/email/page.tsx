@@ -33,7 +33,9 @@ export default function EmailSettingsPage() {
       toast.success("Почта обновлена");
       router.push("/profile");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Не удалось обновить почту");
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось обновить почту",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -43,7 +45,7 @@ export default function EmailSettingsPage() {
     <AuthGuard>
       <DashboardPage>
         <div className="mb-6">
-          <BackButton />
+          <BackButton href="/profile" />
         </div>
         <DashboardHeader
           eyebrow="Настройки аккаунта"
@@ -56,11 +58,18 @@ export default function EmailSettingsPage() {
           <DashboardCard className="max-w-2xl">
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-foreground">
+                <label
+                  htmlFor="email"
+                  className="text-sm font-medium text-foreground"
+                >
                   Новая почта
                 </label>
                 <div className="auth-input-shell flex h-14 items-center gap-3 rounded-2xl px-4">
-                  <DashboardIcon icon={Mail} size="sm" className="h-8 w-8 rounded-xl" />
+                  <DashboardIcon
+                    icon={Mail}
+                    size="sm"
+                    className="h-8 w-8 rounded-xl"
+                  />
                   <Input
                     id="email"
                     type="email"
@@ -72,7 +81,11 @@ export default function EmailSettingsPage() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <AnimatedButton type="submit" isLoading={isLoading} loadingText="Сохранение...">
+                <AnimatedButton
+                  type="submit"
+                  isLoading={isLoading}
+                  loadingText="Сохранение..."
+                >
                   Сохранить
                 </AnimatedButton>
               </div>

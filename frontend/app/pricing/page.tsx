@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Check, CreditCard, FileText, Infinity, ShieldCheck } from "lucide-react";
+import { Check, Clock3, FileText, Infinity, ShieldCheck } from "lucide-react";
 import { AnimatedButton } from "@/components/animated-button";
+import { useAuth } from "@/components/auth-provider";
 import {
   DashboardCard,
   DashboardHeader,
@@ -12,12 +13,14 @@ import {
   DashboardSectionTitle,
   DashboardStatusPill,
 } from "@/components/profile-dashboard";
+import { hasActivePaidPlan } from "@/lib/plan";
 
 const plans = [
   {
-    name: "Бесплатный",
-    price: "0 ₽",
-    period: "/ месяц",
+    id: "free",
+    name: "Free",
+    access: "Бесплатно",
+    period: "без срока",
     description: "Для первичной проверки сайта и знакомства с форматом отчета.",
     features: [
       "3 проверки за 30 дней",
@@ -25,17 +28,17 @@ const plans = [
       "Краткие статусы и выводы",
       "Можно начать без регистрации",
     ],
-    cta: "Начать бесплатно",
-    href: "/",
     variant: "outline" as const,
     highlighted: false,
     icon: FileText,
   },
   {
-    name: "Платный",
-    price: "990 ₽",
-    period: "/ месяц",
-    description: "Для регулярного контроля, PDF-отчетов и истории проверок.",
+    id: "paid",
+    name: "Paid",
+    access: "30 дней",
+    period: "временный доступ",
+    description:
+      "Для расширенной проверки с полными доказательствами, PDF и скриншотами.",
     features: [
       "Неограниченные проверки",
       "10 AI-переходов по сайту",
@@ -43,21 +46,27 @@ const plans = [
       "URLs, домены/IP и правовые пояснения",
       "История paid-проверок без срока",
     ],
-    cta: "Купить подписку",
-    href: "/pricing/checkout",
     variant: "primary" as const,
     highlighted: true,
-    icon: CreditCard,
+    icon: ShieldCheck,
   },
 ];
 
 const comparisonRows = [
-  { feature: "Количество проверок", free: "3 за 30 дней", paid: "Неограниченно" },
+  {
+    feature: "Количество проверок",
+    free: "3 за 30 дней",
+    paid: "Неограниченно",
+  },
   { feature: "AI-переходы по сайту", free: "3", paid: "10" },
   { feature: "Детальность", free: "Краткая сводка", paid: "Полные evidence" },
   { feature: "PDF отчет", free: false, paid: true },
   { feature: "Скриншоты", free: false, paid: true },
-  { feature: "История проверок", free: "7 дней", paid: "Без ограничений" },
+  {
+    feature: "История проверок",
+    free: "7 дней в аккаунте",
+    paid: "Без срока для Paid-сканов",
+  },
 ];
 
 function FeatureValue({ value }: { value: string | boolean }) {
@@ -68,60 +77,89 @@ function FeatureValue({ value }: { value: string | boolean }) {
   if (value) {
     return (
       <span className="inline-flex items-center justify-center">
-        <Check className="h-4 w-4 text-foreground/80" />
+        <Check aria-hidden="true" className="h-4 w-4 text-foreground/80" />
+        <span className="sr-only">Да</span>
       </span>
     );
   }
 
-  return <span className="text-muted-foreground">—</span>;
+  return (
+    <span className="text-muted-foreground">
+      <span aria-hidden="true">—</span>
+      <span className="sr-only">Нет</span>
+    </span>
+  );
 }
 
 export default function PricingPage() {
   const router = useRouter();
+  const { user, isLoading } = useAuth();
+  const hasPaidAccess = hasActivePaidPlan(user?.plan, user?.planExpiresAt);
+
+  const paidHref = user
+    ? "/profile/subscription"
+    : "/login?redirectTo=%2Fprofile%2Fsubscription";
+
+  const paidCta = hasPaidAccess
+    ? "Управлять Paid-доступом"
+    : user
+      ? "Активировать Paid на 30 дней"
+      : "Войти и активировать Paid";
 
   return (
     <DashboardPage>
       <DashboardHeader
         eyebrow="Тарифы"
-        title="Тарифы и цены"
-        description="Выберите режим проверки под текущую задачу: первичная оценка рисков или регулярный контроль с расширенными отчетами."
+        title="Тарифные планы"
+        description="Сравните бесплатную первичную проверку и временный расширенный доступ с полными доказательствами."
       />
 
       <div className="space-y-6">
         <DashboardPanel>
           <DashboardSectionTitle
             icon={ShieldCheck}
-            title="Планы"
-            description="Платный план выделен не цветом, а светлой рамкой, верхней подсветкой и основной кнопкой действия."
+            title="Два режима проверки"
+            description="Free доступен сразу, а Paid включается на 30 дней в личном кабинете."
           />
 
           <div className="grid gap-5 lg:grid-cols-2">
             {plans.map((plan) => (
               <DashboardCard
                 key={plan.name}
-                className={plan.highlighted ? "report-glow report-glow-success" : ""}
+                className={plan.highlighted ? "report-glow" : ""}
               >
                 <div className="flex items-start justify-between gap-4">
-                  <DashboardIcon icon={plan.icon} tone={plan.highlighted ? "success" : "neutral"} />
+                  <DashboardIcon icon={plan.icon} />
                   {plan.highlighted ? (
-                    <DashboardStatusPill tone="success">Рекомендуемый</DashboardStatusPill>
+                    <DashboardStatusPill>Расширенный</DashboardStatusPill>
                   ) : (
                     <DashboardStatusPill>Стартовый</DashboardStatusPill>
                   )}
                 </div>
 
                 <div className="mt-7">
-                  <h2 className="text-2xl font-semibold tracking-tight text-foreground">{plan.name}</h2>
+                  <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                    {plan.name}
+                  </h2>
                   <div className="mt-4 flex items-end gap-2">
-                    <span className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{plan.price}</span>
-                    <span className="pb-2 text-sm text-muted-foreground">{plan.period}</span>
+                    <span className="text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+                      {plan.access}
+                    </span>
+                    <span className="pb-2 text-sm text-muted-foreground">
+                      {plan.period}
+                    </span>
                   </div>
-                  <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">{plan.description}</p>
+                  <p className="mt-4 max-w-xl text-sm leading-6 text-muted-foreground">
+                    {plan.description}
+                  </p>
                 </div>
 
                 <ul className="mt-7 space-y-3">
                   {plan.features.map((feature) => (
-                    <li key={feature} className="flex items-start gap-3 text-sm leading-6 text-muted-foreground">
+                    <li
+                      key={feature}
+                      className="flex items-start gap-3 text-sm leading-6 text-muted-foreground"
+                    >
                       <span className="mt-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.035]">
                         <Check className="h-3 w-3 text-foreground/80" />
                       </span>
@@ -133,20 +171,40 @@ export default function PricingPage() {
                 <AnimatedButton
                   variant={plan.variant}
                   className="mt-8 w-full"
-                  onClick={() => router.push(plan.href)}
+                  disabled={plan.id === "paid" && isLoading}
+                  onClick={() =>
+                    router.push(plan.id === "paid" ? paidHref : "/#product")
+                  }
                 >
-                  {plan.cta}
+                  {plan.id === "paid" ? paidCta : "Начать бесплатно"}
                 </AnimatedButton>
               </DashboardCard>
             ))}
           </div>
+
+          <DashboardCard className="mt-5">
+            <div className="flex items-start gap-4">
+              <DashboardIcon icon={Clock3} />
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Paid активируется без оплаты
+                </p>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  В текущей версии нет платежей и автоматического продления.
+                  Авторизованный пользователь может включить Paid на 30 дней,
+                  после чего аккаунт вернется на Free. Ранее созданные
+                  Paid-отчеты останутся доступны в истории.
+                </p>
+              </div>
+            </div>
+          </DashboardCard>
         </DashboardPanel>
 
         <DashboardPanel>
           <DashboardSectionTitle
             icon={Infinity}
             title="Сравнение тарифов"
-            description="Таблица компактная на настольных экранах и остается читаемой на узких экранах через горизонтальную прокрутку."
+            description="Возможности соответствуют текущим серверным лимитам и профилям проверки."
           />
           <DashboardCard className="overflow-hidden p-0">
             <div className="overflow-x-auto">
@@ -157,17 +215,22 @@ export default function PricingPage() {
                       Возможность
                     </th>
                     <th className="px-5 py-4 text-center text-xs font-medium uppercase text-muted-foreground">
-                      Бесплатный
+                      Free
                     </th>
                     <th className="px-5 py-4 text-center text-xs font-medium uppercase text-muted-foreground">
-                      Платный
+                      Paid
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {comparisonRows.map((row) => (
-                    <tr key={row.feature} className="border-b border-white/10 last:border-b-0 hover:bg-white/[0.025]">
-                      <td className="px-5 py-4 text-sm text-foreground">{row.feature}</td>
+                    <tr
+                      key={row.feature}
+                      className="border-b border-white/10 last:border-b-0 hover:bg-white/[0.025]"
+                    >
+                      <td className="px-5 py-4 text-sm text-foreground">
+                        {row.feature}
+                      </td>
                       <td className="px-5 py-4 text-center">
                         <FeatureValue value={row.free} />
                       </td>

@@ -17,7 +17,11 @@ All notable changes to this project will be documented in this file.
 - Free results now expose a concise summary without URLs, infrastructure details, images, or PDF artifacts
 - Categories that were not evaluated are omitted from visible result counters and check cards while remaining non-successful internally
 - Paid-origin history and artifacts retain their scan-time entitlement after later plan changes
-- Authenticated users can temporarily activate a server-persisted Paid plan for 30 days from the profile until payment-provider integration is completed
+- Authenticated users can temporarily activate a server-persisted Paid plan for 30 days from the profile; payment processing is not part of the current MVP
+- Pricing and account plan pages now describe the actual 30-day Paid activation without unsupported prices, checkout, or automatic renewal
+- Public navigation now exposes the pricing page, and login, registration, and email verification preserve the user's intended protected destination
+- Email verification now refreshes the authenticated session before continuing to the intended account page
+- Dashboard and result icons now use a layered tone glow, light sweep, and settled SVG hover/focus motion instead of the previous bounce
 - Result score now represents check completion quality instead of fine probability
 - PDF reports include the new payload data, possible fines, SSL/site info, and evidence image references
 - Public repository entry points now include current product access, hosted documentation, customer handover, contributor, and AI-agent guidance
@@ -33,6 +37,7 @@ All notable changes to this project will be documented in this file.
 
 ### Removed
 - In-memory/IP-based quota as the authoritative scan-limit mechanism
+- Placeholder checkout and purchase-history pages that had no payment backend
 
 ## [1.0.0] - 2026-06-21
 

@@ -728,7 +728,7 @@ func (s *Server) handleSubscriptionChange(c echo.Context) error {
 	}
 
 	// Temporary self-service activation until a payment provider owns this transition.
-	// The paid plan mirrors the advertised monthly billing period.
+	// The current MVP grants a fixed 30-day access window without processing a payment.
 	if err := s.authStore.ChangeUserPlan(c.Request().Context(), user.ID, req.Plan, selfServicePaidDuration); err != nil {
 		log.Printf("[API] Failed to change plan for user %s: %v", user.ID, err)
 		return s.errResponse(c, http.StatusInternalServerError, "ERR_INTERNAL", "", "failed to change plan")

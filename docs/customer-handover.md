@@ -39,7 +39,7 @@ This document describes the current public handover state of PDn-control. It is 
 
 ## What The Product Provides
 
-PDn-control lets a user submit a public website URL, runs crawler-based checks, evaluates technical and content evidence related to personal-data risk, and presents a structured report. Guest and Free users receive three summary scans in a rolling 30-day window without PDF or screenshots. Paid-origin scans receive the full evidence view, screenshots, and PDF output. The product remains an initial compliance-risk checker; it does not replace a legal opinion.
+PDn-control lets a user submit a public website URL, runs crawler-based checks, evaluates technical and content evidence related to personal-data risk, and presents a structured report. Guest and Free users receive three summary scans in a rolling 30-day window without PDF or screenshots. Paid-origin scans receive the full evidence view, screenshots, and PDF output. In the current MVP, authenticated users activate Paid for 30 days directly from the profile without payment or automatic renewal. The product remains an initial compliance-risk checker; it does not replace a legal opinion.
 
 Main user-facing flow:
 
@@ -96,7 +96,7 @@ Use these checks after deployment, redeployment, or handover:
 3. Run one sanitized public test scan, for example against `https://example.com`.
 4. Confirm the progress page reaches a final status and the result page shows findings or passed checks.
 5. Confirm a Free scan has no PDF or image artifacts and reports incomplete categories as `unknown`.
-6. From an authenticated profile, activate Paid for 30 days and confirm a new Paid scan provides its PDF and evidence images. This self-service transition is temporary until payment-provider integration.
+6. Open the pricing comparison, continue to the authenticated profile, activate Paid for 30 days, and confirm a new Paid scan provides its PDF and evidence images. The current MVP does not request payment or renew the plan automatically.
 7. Open the hosted documentation site and confirm deployment, architecture, testing, and handover pages are readable.
 8. If SMTP is enabled, run the diagnostics in [deployment.md](deployment.md#smtp-verification-diagnostics) from inside `main-backend`.
 9. If OpenRouter is proxied, run the proxy checks in [deployment.md](deployment.md#openrouter-nginx-proxy).
@@ -126,6 +126,7 @@ Use these checks after deployment, redeployment, or handover:
 ## Known Limitations And Support Still Needed
 
 - The current public repository does not contain private customer acceptance evidence, private access instructions, or production credentials.
+- Payment processing, invoices, transaction history, and automatic renewal are not implemented; the profile exposes only the temporary 30-day self-service Paid activation used by the current MVP.
 - The current public handover state does not prove customer-side deployment or operation. That requires Week 6/Week 7 transition evidence.
 - The hosted documentation site is reachable, but it must be refreshed from the repository state that includes this file before `docs/customer-handover.md` is browsable there.
 - The team must still confirm with the customer whether this document is sufficient for the reached handover level.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, CreditCard, Timer } from "lucide-react";
+import { Check, ShieldCheck, Timer } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/auth-guard";
 import { useAuth } from "@/components/auth-provider";
@@ -16,45 +16,29 @@ import {
   DashboardSectionTitle,
   DashboardStatusPill,
 } from "@/components/profile-dashboard";
+import { changePlan } from "@/lib/api";
+import { formatPlanTimeLeft, hasActivePaidPlan } from "@/lib/plan";
 
 export default function SubscriptionPage() {
   const router = useRouter();
   const { user, refresh } = useAuth();
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isDowngrading, setIsDowngrading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<string>("");
+  const [now, setNow] = useState(() => Date.now());
   const [error, setError] = useState<string>("");
   const [success, setSuccess] = useState<string>("");
 
   useEffect(() => {
-    if (!user?.planExpiresAt) {
-      const resetTimer = setTimeout(() => setTimeLeft(""), 0);
-      return () => clearTimeout(resetTimer);
-    }
+    if (!user?.planExpiresAt) return;
 
-    const updateTimer = () => {
-      const expires = new Date(user.planExpiresAt!).getTime();
-      const now = Date.now();
-      const diff = expires - now;
-
-      if (diff <= 0) {
-        setTimeLeft("Истек");
-        return;
-      }
-
-      const days = Math.floor(diff / 86400000);
-      const hours = Math.floor((diff % 86400000) / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      setTimeLeft(`${days} д ${hours} ч ${minutes} мин`);
-    };
-
-    const initialTimer = setTimeout(updateTimer, 0);
-    const interval = setInterval(updateTimer, 1000);
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
-    };
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(interval);
   }, [user?.planExpiresAt]);
+
+  const isPaid = hasActivePaidPlan(user?.plan, user?.planExpiresAt, now);
+  const timeLeft = user?.planExpiresAt
+    ? formatPlanTimeLeft(user.planExpiresAt, now)
+    : "";
 
   const switchPlan = async (plan: "free" | "paid") => {
     setError("");
@@ -66,21 +50,16 @@ export default function SubscriptionPage() {
     }
 
     try {
-      const res = await fetch("/api/subscription/change", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ plan }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.message || data.msg || "Не удалось изменить тариф");
-      } else {
-        setSuccess(data.message || "Тариф обновлен");
-        await refresh();
-      }
-    } catch {
-      setError("Сетевая ошибка");
+      const data = await changePlan(plan);
+      setSuccess(data.message || "Тариф обновлен");
+      await refresh();
+      setNow(Date.now());
+    } catch (planError) {
+      setError(
+        planError instanceof Error
+          ? planError.message
+          : "Не удалось изменить тариф",
+      );
     } finally {
       setIsUpgrading(false);
       setIsDowngrading(false);
@@ -91,14 +70,17 @@ export default function SubscriptionPage() {
     <AuthGuard>
       <DashboardPage>
         <div className="mb-6">
-          <BackButton />
+          <BackButton href="/profile" />
         </div>
         <DashboardHeader
-          eyebrow="План и лимиты"
-          title="Управление подпиской"
-          description="Тарифы оформлены как рабочие опции кабинета: текущий план подсвечен нейтрально, основные действия остаются рядом с описанием."
+          eyebrow="Тариф и лимиты"
+          title="Управление тарифом"
+          description="Включите временный Paid-доступ или вернитесь на Free. Оплата и автоматическое продление в текущей версии не используются."
           action={
-            <AnimatedButton variant="outline" onClick={() => router.push("/pricing")}>
+            <AnimatedButton
+              variant="outline"
+              onClick={() => router.push("/pricing")}
+            >
               Смотреть тарифы
             </AnimatedButton>
           }
@@ -106,24 +88,28 @@ export default function SubscriptionPage() {
 
         <DashboardPanel>
           <DashboardSectionTitle
-            icon={CreditCard}
+            icon={ShieldCheck}
             title="Планы аккаунта"
-            description="До подключения платежной системы Paid активируется прямо в личном кабинете и действует 30 дней."
+            description="Paid активируется прямо в личном кабинете на 30 дней без платежной формы."
           />
 
           <div className="grid gap-5 lg:grid-cols-2">
-            <DashboardCard className={user?.plan === "free" ? "report-glow report-glow-success" : ""}>
+            <DashboardCard className={!isPaid ? "report-glow" : ""}>
               <div className="flex items-start justify-between gap-4">
-                <DashboardIcon icon={CreditCard} tone={user?.plan === "free" ? "success" : "neutral"} />
-                {user?.plan === "free" ? (
-                  <DashboardStatusPill tone="success">Текущий план</DashboardStatusPill>
+                <DashboardIcon icon={ShieldCheck} />
+                {!isPaid ? (
+                  <DashboardStatusPill>Текущий план</DashboardStatusPill>
                 ) : null}
               </div>
               <div className="mt-6">
-                <h2 className="text-xl font-semibold text-foreground">Бесплатный</h2>
+                <h2 className="text-xl font-semibold text-foreground">Free</h2>
                 <div className="mt-4 flex items-end gap-2">
-                  <span className="text-4xl font-semibold tracking-tight text-foreground">0 ₽</span>
-                  <span className="pb-1 text-sm text-muted-foreground">/ месяц</span>
+                  <span className="text-4xl font-semibold tracking-tight text-foreground">
+                    Бесплатно
+                  </span>
+                  <span className="pb-1 text-sm text-muted-foreground">
+                    без срока
+                  </span>
                 </div>
               </div>
               <ul className="mt-6 space-y-3">
@@ -140,30 +126,34 @@ export default function SubscriptionPage() {
                 <AnimatedButton
                   variant="outline"
                   className="w-full"
-                  disabled={isDowngrading || user?.plan === "free"}
+                  disabled={isDowngrading || !isPaid}
                   onClick={() => void switchPlan("free")}
                 >
-                  {user?.plan === "free"
-                    ? "Бесплатный активен"
+                  {!isPaid
+                    ? "Free активен"
                     : isDowngrading
                       ? "Переключаем..."
-                      : "Перейти на бесплатный"}
+                      : "Перейти на Free"}
                 </AnimatedButton>
               </div>
             </DashboardCard>
 
-            <DashboardCard className={user?.plan === "paid" ? "report-glow report-glow-success" : ""}>
+            <DashboardCard className={isPaid ? "report-glow" : ""}>
               <div className="flex items-start justify-between gap-4">
-                <DashboardIcon icon={CreditCard} tone={user?.plan === "paid" ? "success" : "neutral"} />
-                {user?.plan === "paid" ? (
-                  <DashboardStatusPill tone="success">Текущий план</DashboardStatusPill>
+                <DashboardIcon icon={ShieldCheck} />
+                {isPaid ? (
+                  <DashboardStatusPill>Текущий план</DashboardStatusPill>
                 ) : null}
               </div>
               <div className="mt-6">
-                <h2 className="text-xl font-semibold text-foreground">Платный</h2>
+                <h2 className="text-xl font-semibold text-foreground">Paid</h2>
                 <div className="mt-4 flex items-end gap-2">
-                  <span className="text-4xl font-semibold tracking-tight text-foreground">990 ₽</span>
-                  <span className="pb-1 text-sm text-muted-foreground">/ месяц</span>
+                  <span className="text-4xl font-semibold tracking-tight text-foreground">
+                    30 дней
+                  </span>
+                  <span className="pb-1 text-sm text-muted-foreground">
+                    временный доступ
+                  </span>
                 </div>
               </div>
               <ul className="mt-6 space-y-3">
@@ -181,14 +171,18 @@ export default function SubscriptionPage() {
                 </li>
               </ul>
 
-              {user?.plan === "paid" && user?.planExpiresAt ? (
+              {isPaid && user?.planExpiresAt ? (
                 <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.035] p-4">
                   <div className="flex items-center gap-3">
                     <DashboardIcon icon={Timer} size="sm" />
                     <div>
-                      <p className="text-sm font-semibold text-foreground">Платный план активен</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        Платный план активен
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {timeLeft ? `До окончания: ${timeLeft}` : "Загрузка времени..."}
+                        {timeLeft
+                          ? `До окончания: ${timeLeft}`
+                          : "Загрузка времени..."}
                       </p>
                     </div>
                   </div>
@@ -198,14 +192,14 @@ export default function SubscriptionPage() {
               <div className="mt-7">
                 <AnimatedButton
                   className="w-full"
-                  disabled={isUpgrading || user?.plan === "paid"}
+                  disabled={isUpgrading || isPaid}
                   onClick={() => void switchPlan("paid")}
                 >
-                  {user?.plan === "paid"
+                  {isPaid
                     ? "План активен"
                     : isUpgrading
                       ? "Активируем..."
-                      : "Активировать подписку"}
+                      : "Активировать Paid на 30 дней"}
                 </AnimatedButton>
               </div>
             </DashboardCard>

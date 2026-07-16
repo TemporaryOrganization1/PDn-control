@@ -55,7 +55,7 @@ export function Navbar() {
         isHomePage ? "fixed" : "sticky",
         isScrolled
           ? "border-white/[0.08] bg-background/35 shadow-none backdrop-blur-xl"
-          : "border-transparent bg-transparent shadow-none backdrop-blur-0"
+          : "border-transparent bg-transparent shadow-none backdrop-blur-0",
       )}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:px-8 lg:px-10">
@@ -74,10 +74,13 @@ export function Navbar() {
             </Link>
           ))}
           <Link
-            href="/result"
-            className={cn(linkBase, pathname === "/result" && "bg-white/[0.07] text-foreground")}
+            href="/pricing"
+            className={cn(
+              linkBase,
+              pathname === "/pricing" && "bg-white/[0.07] text-foreground",
+            )}
           >
-            Результаты
+            Тарифы
           </Link>
         </nav>
 
@@ -86,7 +89,11 @@ export function Navbar() {
             <>
               <Link
                 href="/profile"
-                className={cn(linkBase, pathname.startsWith("/profile") && "bg-white/[0.07] text-foreground")}
+                className={cn(
+                  linkBase,
+                  pathname.startsWith("/profile") &&
+                    "bg-white/[0.07] text-foreground",
+                )}
               >
                 <User className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Личный кабинет</span>

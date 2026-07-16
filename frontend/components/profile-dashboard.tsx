@@ -146,7 +146,14 @@ export function DashboardIcon({
         className
       )}
     >
-      <Icon className={cn(size === "sm" ? "h-4 w-4" : "h-5 w-5")} />
+      <Icon
+        aria-hidden="true"
+        focusable="false"
+        className={cn(
+          "dashboard-action-icon-glyph",
+          size === "sm" ? "h-4 w-4" : "h-5 w-5"
+        )}
+      />
     </span>
   );
 }

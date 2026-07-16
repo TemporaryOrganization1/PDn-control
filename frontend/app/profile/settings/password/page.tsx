@@ -50,7 +50,9 @@ export default function PasswordSettingsPage() {
       toast.success("Пароль обновлен");
       router.push("/profile");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Не удалось обновить пароль");
+      toast.error(
+        error instanceof Error ? error.message : "Не удалось обновить пароль",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -81,7 +83,7 @@ export default function PasswordSettingsPage() {
     <AuthGuard>
       <DashboardPage>
         <div className="mb-6">
-          <BackButton />
+          <BackButton href="/profile" />
         </div>
         <DashboardHeader
           eyebrow="Безопасность аккаунта"
@@ -95,11 +97,18 @@ export default function PasswordSettingsPage() {
             <form onSubmit={handleSubmit} className="space-y-5">
               {fields.map((field) => (
                 <div key={field.id} className="space-y-2">
-                  <label htmlFor={field.id} className="text-sm font-medium text-foreground">
+                  <label
+                    htmlFor={field.id}
+                    className="text-sm font-medium text-foreground"
+                  >
                     {field.label}
                   </label>
                   <div className="auth-input-shell flex h-14 items-center gap-3 rounded-2xl px-4">
-                    <DashboardIcon icon={Lock} size="sm" className="h-8 w-8 rounded-xl" />
+                    <DashboardIcon
+                      icon={Lock}
+                      size="sm"
+                      className="h-8 w-8 rounded-xl"
+                    />
                     <Input
                       id={field.id}
                       type="password"
@@ -112,7 +121,11 @@ export default function PasswordSettingsPage() {
                 </div>
               ))}
               <div className="flex justify-end pt-1">
-                <AnimatedButton type="submit" isLoading={isLoading} loadingText="Сохраняем...">
+                <AnimatedButton
+                  type="submit"
+                  isLoading={isLoading}
+                  loadingText="Сохраняем..."
+                >
                   Сохранить
                 </AnimatedButton>
               </div>
@@ -123,4 +136,3 @@ export default function PasswordSettingsPage() {
     </AuthGuard>
   );
 }
-

@@ -209,7 +209,6 @@ TODO: execute after deployment. No customer or production evidence is claimed ye
 **Preconditions**
 
 - The user is authenticated and can activate the temporary 30-day Paid plan from the profile.
-- The user is authenticated.
 
 **Steps**
 
@@ -221,6 +220,38 @@ TODO: execute after deployment. No customer or production evidence is claimed ye
 **Expected Result**
 
 The paid-origin scan remains full and its PDF/images remain accessible to the owner. A new Free scan does not create those artifacts.
+
+**Actual Result**
+
+TODO: execute after deployment. No customer or production evidence is claimed yet.
+
+## UAT-010: Activate temporary Paid access from pricing
+
+**Status**
+
+Active
+
+**Goal**
+
+Verify that the public pricing comparison leads to the working account plan control without showing an unsupported checkout flow.
+
+**Preconditions**
+
+- The website is running.
+- A verified Free account is available.
+- The user is signed out and opens the pricing page.
+
+**Steps**
+
+1. Compare the Free and Paid capabilities on the pricing page.
+2. Select the Paid action.
+3. Sign in with the verified Free account.
+4. Confirm that the product returns to the account plan page.
+5. Activate Paid for 30 days.
+
+**Expected Result**
+
+The pricing page does not request payment or claim automatic renewal. After authentication, the user reaches the working plan control, activates Paid, and sees the active 30-day access window.
 
 **Actual Result**
 

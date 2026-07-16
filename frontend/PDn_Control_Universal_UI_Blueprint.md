@@ -794,7 +794,7 @@ premium submit
 secondary actions as subtle outline/ghost
 ```
 
-### Subscription page
+### Страница тарифа и доступа
 
 Plans:
 
@@ -802,6 +802,15 @@ Plans:
 do not use bright blue highlighted plan
 highlight with subtle white border/top lamp/gloss
 primary plan action uses premium CTA
+```
+
+Current product state:
+
+```text
+Free и Paid сравниваются по фактическим возможностям проверки
+Paid временно активируется на 30 дней из защищенного личного кабинета
+не показывать цену, checkout, оплату, счета, покупки или автопродление, пока этих возможностей нет в backend
+публичный CTA ведет в управление тарифом через login redirect для гостя
 ```
 
 Paid/free labels:
@@ -951,6 +960,9 @@ Motion should be restrained:
 - no large animated gradients;
 - no framer-motion unless necessary;
 - no distracting looping animations in operational pages.
+- dashboard SVG icons may use a one-shot tone glow and light sweep on hover/focus;
+- icon glyph transforms stay centered, avoid bounce-like Y movement, and settle while the interaction remains active;
+- icon motion must be disabled by `prefers-reduced-motion`, leaving only a static emphasis state.
 
 ---
 
@@ -1113,8 +1125,9 @@ Don't:
 ```text
 Apply PDn Control Universal UX/UI Blueprint v2.
 
-Change only UI, styling, layout, component structure, visual states and copy.
-Do not change backend logic, API contracts, auth behavior, validation behavior, scan flow or routing.
+For a purely visual task, change only UI, styling, layout, component structure, visual states and copy.
+Do not change backend logic, API contracts, authentication/session semantics, validation behavior or scan flow for design reasons.
+When a product task explicitly authorizes navigation cleanup, dead frontend routes and links may be removed or redirected while authentication semantics remain unchanged.
 
 Visual direction:
 - premium dark legal-tech / cybersecurity SaaS
@@ -1160,7 +1173,7 @@ Design work is done when:
 11. Personal cabinet is operational, dense, and calm.
 12. Status is never communicated by color alone.
 13. Mobile layout is stable.
-14. Backend/API/auth/scan flow is untouched.
+14. Backend/API/authentication semantics/scan flow are untouched unless a product task explicitly authorizes a compatible API or navigation correction.
 15. lint/typecheck/build pass or known unrelated warnings are documented.
 ```
 
