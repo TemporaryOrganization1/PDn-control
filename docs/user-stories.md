@@ -7,7 +7,7 @@
 | US-005 | Query history | Must Have | [#22](https://github.com/TemporaryOrganization1/PDn-control/issues/22) | Active | To Do | — |
 | US-007 | Risk-scoring display | Must Have | [#24](https://github.com/TemporaryOrganization1/PDn-control/issues/24) | Active | To Do | — |
 | US-011 | Web interface (not CLI) | Must Have | [#28](https://github.com/TemporaryOrganization1/PDn-control/issues/28) | Active | In progress | — |
-| US-012 | Paid subscription plan management | Must Have | [#29](https://github.com/TemporaryOrganization1/PDn-control/issues/29) | Active | To Do | — |
+| US-012 | Free/Paid plan management | Must Have | [#29](https://github.com/TemporaryOrganization1/PDn-control/issues/29) | Active | To Do | — |
 | US-013 | Account deletion | Should Have | [#30](https://github.com/TemporaryOrganization1/PDn-control/issues/30) | Active | To Do | — |
 | US-014 | Report sharing | Could Have | [#31](https://github.com/TemporaryOrganization1/PDn-control/issues/31) | Active | To Do | — |
 | US-003 | AI-powered verification | Must Have | [#20](https://github.com/TemporaryOrganization1/PDn-control/issues/20) | Removed | — | Sprint 1 |
@@ -24,7 +24,7 @@ The following stories were added from the Product Backlog after the initial Assi
 
 - **US-010 — Account creation** (Must Have): users must be able to create an account before using the service. MVP1 prerequisite.
 - **US-011 — Web interface (not CLI)** (Must Have): the system must expose a web UI rather than requiring CLI interaction. Enables all other web-dependent stories.
-- **US-012 — Paid subscription plan management** (Must Have): users need to choose among paid subscription tiers.
+- **US-012 — Free/Paid plan management** (Must Have): users need to understand the functional difference between Free and Paid and manage the current account plan. The repository currently implements temporary 30-day self-service Paid activation; real payments, renewal, and multiple paid tiers remain outside the implemented scope. The story remains `To Do` until its issue, UAT, and protected-branch evidence are updated.
 - **US-013 — Account deletion** (Should Have): users can delete their account and associated data.
 - **US-014 — Report sharing** (Could Have): users can generate a public link to share scan results without downloading the full PDF.
 

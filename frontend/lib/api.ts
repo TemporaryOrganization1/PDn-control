@@ -20,6 +20,11 @@ export interface MeResponse {
   guest?: GuestInfo;
 }
 
+export interface PlanChangeResponse {
+  status: string;
+  message?: string;
+}
+
 export interface ScanProfile {
   tier: "guest" | "free" | "paid" | "legacy_full";
   detail_level: "summary" | "full";
@@ -131,9 +136,12 @@ export class ApiError extends Error {
 const API_ERROR_MESSAGES: Record<string, string> = {
   ERR_INVALID_URL: "Введите корректный адрес сайта",
   ERR_INVALID_TYPE: "Некорректный тип проверки",
-  ERR_GUEST_LIMIT: "Гостевой лимит проверок исчерпан. Войдите или зарегистрируйтесь, чтобы продолжить.",
-  ERR_SCAN_LIMIT: "Лимит бесплатных проверок исчерпан. Следующая попытка станет доступна после окончания 30-дневного окна.",
-  ERR_WORKER_UNAVAILABLE: "Сейчас нет свободных обработчиков. Попробуйте еще раз чуть позже.",
+  ERR_GUEST_LIMIT:
+    "Гостевой лимит проверок исчерпан. Войдите или зарегистрируйтесь, чтобы продолжить.",
+  ERR_SCAN_LIMIT:
+    "Лимит бесплатных проверок исчерпан. Следующая попытка станет доступна после окончания 30-дневного окна.",
+  ERR_WORKER_UNAVAILABLE:
+    "Сейчас нет свободных обработчиков. Попробуйте еще раз чуть позже.",
   ERR_INVALID_CREDENTIALS: "Неверная почта или пароль",
   ERR_EMAIL_EXISTS: "Пользователь с такой почтой уже существует",
   ERR_WEAK_PASSWORD: "Пароль должен быть не короче 8 символов",
@@ -162,7 +170,7 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
     throw new ApiError(
       apiMessage(code, typeof data?.msg === "string" ? data.msg : undefined),
       code,
-      response.status
+      response.status,
     );
   }
 
@@ -176,7 +184,10 @@ export async function getMe(): Promise<MeResponse> {
   return parseJsonResponse<MeResponse>(response);
 }
 
-export async function login(email: string, password: string): Promise<MeResponse> {
+export async function login(
+  email: string,
+  password: string,
+): Promise<MeResponse> {
   const response = await fetch("/api/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -186,14 +197,17 @@ export async function login(email: string, password: string): Promise<MeResponse
   return parseJsonResponse<MeResponse>(response);
 }
 
-export async function register(email: string, password: string): Promise<RegisterResponse> {
-	const response = await fetch("/api/auth/register", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		credentials: "include",
-		body: JSON.stringify({ email, password }),
-	});
-	return parseJsonResponse<RegisterResponse>(response);
+export async function register(
+  email: string,
+  password: string,
+): Promise<RegisterResponse> {
+  const response = await fetch("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email, password }),
+  });
+  return parseJsonResponse<RegisterResponse>(response);
 }
 
 export async function logout(): Promise<void> {
@@ -204,24 +218,27 @@ export async function logout(): Promise<void> {
   await parseJsonResponse(response);
 }
 
-export async function changePassword(currentPassword: string, newPassword: string): Promise<MeResponse> {
-	const response = await fetch("/api/auth/change-password", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		credentials: "include",
-		body: JSON.stringify({ currentPassword, newPassword }),
-	});
-	return parseJsonResponse<MeResponse>(response);
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<MeResponse> {
+  const response = await fetch("/api/auth/change-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  return parseJsonResponse<MeResponse>(response);
 }
 
 export async function changeEmail(email: string): Promise<MeResponse> {
-	const response = await fetch("/api/auth/change-email", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		credentials: "include",
-		body: JSON.stringify({ email }),
-	});
-	return parseJsonResponse<MeResponse>(response);
+  const response = await fetch("/api/auth/change-email", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ email }),
+  });
+  return parseJsonResponse<MeResponse>(response);
 }
 
 export async function getGuestRemaining(): Promise<GuestInfo> {
@@ -231,7 +248,10 @@ export async function getGuestRemaining(): Promise<GuestInfo> {
   return parseJsonResponse<GuestInfo>(response);
 }
 
-export async function startCheck(url: string, type: "fast" | "detail" = "detail"): Promise<CheckResponse> {
+export async function startCheck(
+  url: string,
+  type: "fast" | "detail" = "detail",
+): Promise<CheckResponse> {
   const response = await fetch("/api/check", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -266,14 +286,20 @@ export async function deleteAccount(): Promise<void> {
   await parseJsonResponse(response);
 }
 
-export async function upgradeToPaid(): Promise<MeResponse> {
+export async function changePlan(
+  plan: "free" | "paid",
+): Promise<PlanChangeResponse> {
   const response = await fetch("/api/subscription/change", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ plan: "paid" }),
+    body: JSON.stringify({ plan }),
   });
-  return parseJsonResponse<MeResponse>(response);
+  return parseJsonResponse<PlanChangeResponse>(response);
+}
+
+export async function upgradeToPaid(): Promise<PlanChangeResponse> {
+  return changePlan("paid");
 }
 
 export async function downloadReport(reportId: string): Promise<void> {
@@ -287,7 +313,7 @@ export async function downloadReport(reportId: string): Promise<void> {
     throw new ApiError(
       apiMessage(code, typeof data?.msg === "string" ? data.msg : undefined),
       code,
-      response.status
+      response.status,
     );
   }
 

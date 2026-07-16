@@ -20,4 +20,4 @@ Free usage is counted in PostgreSQL over an exact rolling 30-day window. Guests 
 - Paid artifacts remain associated with the paid-origin scan after the account later returns to free.
 - Unknown or unvisited AI categories are reported as `unknown`, not as successful checks.
 - Internal worker payloads and public progress/history payloads now include explicit entitlement metadata.
-- Real payment processing remains outside this decision. Until it is integrated, an authenticated profile can activate a server-persisted Paid plan for 30 days; the payment provider must replace this self-service transition later.
+- Real payment processing remains outside this decision. The current MVP lets an authenticated profile activate a server-persisted Paid plan for 30 days without payment or automatic renewal. Pricing must route to that working control and must not expose checkout, invoices, transaction history, or an unsupported price until a payment provider is implemented.

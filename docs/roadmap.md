@@ -40,8 +40,8 @@
     * [#82](https://github.com/TemporaryOrganization1/PDn-control/issues/82) Frontend for History
     * [#83](https://github.com/TemporaryOrganization1/PDn-control/issues/83) Backend for History
 
-**Next sprint**
-* The next sprint will most likely focus on paid subscription handling, account deletion, total fine calculation and connecting of new frontend to backend.
+**Follow-up planned at the time**
+* Paid-plan handling, account deletion, total fine calculation, and frontend/backend integration were identified as later work after Sprint 2.
 
 ## Sprint 3
 
@@ -57,8 +57,8 @@
 https://github.com/TemporaryOrganization1/PDn-control/issues/104
 https://github.com/TemporaryOrganization1/PDn-control/issues/137
 
-**Next sprint**
-* The next sprint will most likely focus on improving the quality of the project and fixing the issues
+**Follow-up planned at the time**
+* Quality improvements and defect fixes were identified as the next focus after Sprint 3.
 
 ## Sprint 4
 
@@ -74,5 +74,14 @@ https://github.com/TemporaryOrganization1/PDn-control/issues/137
 https://github.com/TemporaryOrganization1/PDn-control/issues/24
 https://github.com/TemporaryOrganization1/PDn-control/issues/23
 
-**Next sprint**
-* The next sprint will add paid subscription handling and fix pdf report
+## Sprint 5 (in progress)
+
+**Milestone:** TODO: add the inspectable Sprint 5 milestone link.
+
+**Dates:** TODO: confirm the formal Sprint 5 date range from the team milestone.
+
+**Sprint Goal:** Complete Week 7 maintenance and transition work needed for the final customer-usable course version.
+
+**Current maintenance outcome:** The working tree aligns public pricing and account navigation with the implemented Free/Paid entitlement split and removes unsupported checkout and purchase-history placeholders. Real payment processing, invoices, and automatic renewal remain outside the current MVP scope.
+
+**Remaining Sprint 5 evidence:** Protected-branch CI, issue/PR traceability, Week 7 UAT, final customer transition confirmation, release, and Demo Day evidence are still TODO and must not be inferred from local implementation work.

@@ -26,7 +26,8 @@ export function AnimatedButton({
   variant = "primary",
   size = "md",
 }: AnimatedButtonProps) {
-  const baseClasses = "group inline-flex shrink-0 items-center justify-center rounded-2xl text-sm font-semibold whitespace-nowrap outline-none select-none disabled:pointer-events-none disabled:opacity-55";
+  const baseClasses =
+    "group inline-flex shrink-0 items-center justify-center rounded-2xl text-sm font-semibold whitespace-nowrap outline-none select-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-55";
 
   const sizeClasses = {
     sm: "h-9 px-4 text-xs",
@@ -36,7 +37,8 @@ export function AnimatedButton({
 
   const variantClasses = {
     primary: "premium-cta",
-    outline: "border border-white/10 bg-white/[0.035] text-foreground hover:bg-white/[0.07]",
+    outline:
+      "border border-white/10 bg-white/[0.035] text-foreground hover:bg-white/[0.07]",
     ghost: "bg-transparent text-foreground hover:bg-accent",
   };
 

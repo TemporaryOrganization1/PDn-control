@@ -11,7 +11,6 @@ import {
   FileText,
   Lock,
   Mail,
-  Receipt,
   ShieldCheck,
   Trash2,
   User,
@@ -41,6 +40,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { getReports } from "@/lib/api";
+import { hasActivePaidPlan } from "@/lib/plan";
 
 function formatRegistrationDate(value?: string) {
   if (!value) return "Нет данных";
@@ -71,8 +71,12 @@ function ProfileActionCard({
       <span className="flex min-w-0 items-center gap-4">
         <DashboardIcon icon={Icon} tone={tone} />
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-foreground">{title}</span>
-          <span className="mt-1 block text-xs leading-5 text-muted-foreground">{description}</span>
+          <span className="block text-sm font-semibold text-foreground">
+            {title}
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+            {description}
+          </span>
         </span>
       </span>
       <ArrowRight className="dashboard-action-arrow h-4 w-4 shrink-0 text-muted-foreground" />
@@ -86,7 +90,7 @@ export default function ProfilePage() {
   const [checksCount, setChecksCount] = useState<number | null>(null);
   const registrationDate = useMemo(
     () => formatRegistrationDate(user?.createdAt),
-    [user?.createdAt]
+    [user?.createdAt],
   );
 
   useEffect(() => {
@@ -98,7 +102,9 @@ export default function ProfilePage() {
     getReports()
       .then((items) => {
         if (cancelled) return;
-        const uniqueChecks = new Set(items.map((item) => item.req_id || item.report_id || item.id));
+        const uniqueChecks = new Set(
+          items.map((item) => item.req_id || item.report_id || item.id),
+        );
         setChecksCount(uniqueChecks.size);
       })
       .catch(() => {
@@ -122,8 +128,9 @@ export default function ProfilePage() {
     );
   }
 
-  const isPaid = user.plan === "paid";
-  const checksLabel = checksCount === null ? "Загрузка..." : checksCount.toString();
+  const isPaid = hasActivePaidPlan(user.plan, user.planExpiresAt);
+  const checksLabel =
+    checksCount === null ? "Загрузка..." : checksCount.toString();
 
   return (
     <AuthGuard>
@@ -150,14 +157,25 @@ export default function ProfilePage() {
             <div className="grid gap-4 lg:grid-cols-4">
               <DashboardCard className="lg:col-span-2">
                 <div className="flex items-start justify-between gap-4">
-                  <DashboardIcon icon={Mail} tone={user.isVerified ? "success" : "warning"} />
-                  <DashboardStatusPill tone={user.isVerified ? "success" : "warning"}>
-                    {user.isVerified ? "Почта подтверждена" : "Почта не подтверждена"}
+                  <DashboardIcon
+                    icon={Mail}
+                    tone={user.isVerified ? "success" : "warning"}
+                  />
+                  <DashboardStatusPill
+                    tone={user.isVerified ? "success" : "warning"}
+                  >
+                    {user.isVerified
+                      ? "Почта подтверждена"
+                      : "Почта не подтверждена"}
                   </DashboardStatusPill>
                 </div>
                 <div className="mt-5">
-                  <p className="text-xs uppercase text-muted-foreground">Электронная почта</p>
-                  <p className="mt-2 truncate font-mono text-sm text-foreground">{user.email}</p>
+                  <p className="text-xs uppercase text-muted-foreground">
+                    Электронная почта
+                  </p>
+                  <p className="mt-2 truncate font-mono text-sm text-foreground">
+                    {user.email}
+                  </p>
                 </div>
                 <div className="mt-5 flex justify-end">
                   <AnimatedButton
@@ -172,28 +190,38 @@ export default function ProfilePage() {
 
               <DashboardCard>
                 <DashboardIcon icon={Calendar} />
-                <p className="mt-5 text-xs uppercase text-muted-foreground">Регистрация</p>
-                <p className="mt-2 text-sm font-medium text-foreground">{registrationDate}</p>
+                <p className="mt-5 text-xs uppercase text-muted-foreground">
+                  Регистрация
+                </p>
+                <p className="mt-2 text-sm font-medium text-foreground">
+                  {registrationDate}
+                </p>
               </DashboardCard>
 
               <DashboardCard>
                 <DashboardIcon icon={FileText} />
-                <p className="mt-5 text-xs uppercase text-muted-foreground">Проверок с отчетом</p>
-                <p className="mt-2 text-2xl font-semibold text-foreground">{checksLabel}</p>
+                <p className="mt-5 text-xs uppercase text-muted-foreground">
+                  Проверок с отчетом
+                </p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">
+                  {checksLabel}
+                </p>
               </DashboardCard>
 
               <DashboardCard className="lg:col-span-2">
                 <div className="flex items-start justify-between gap-4">
-                  <DashboardIcon icon={CreditCard} tone={isPaid ? "success" : "neutral"} />
-                  <DashboardStatusPill tone={isPaid ? "success" : "neutral"}>
-                    {isPaid ? "Платный тариф" : "Бесплатный тариф"}
+                  <DashboardIcon icon={CreditCard} />
+                  <DashboardStatusPill>
+                    {isPaid ? "Paid активен" : "Free активен"}
                   </DashboardStatusPill>
                 </div>
-                <p className="mt-5 text-sm font-semibold text-foreground">План и лимиты</p>
+                <p className="mt-5 text-sm font-semibold text-foreground">
+                  План и лимиты
+                </p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   {isPaid
-                    ? "Расширенный режим хранения отчетов и работы с проверками."
-                    : "Базовый доступ. Расширение тарифа доступно в разделе подписки."}
+                    ? "Расширенные проверки без лимита, с PDF, скриншотами и полными доказательствами."
+                    : "3 краткие проверки за 30 дней. Paid можно временно активировать без оплаты."}
                 </p>
                 <div className="mt-5 flex justify-end">
                   <AnimatedButton
@@ -201,7 +229,9 @@ export default function ProfilePage() {
                     size="sm"
                     onClick={() => router.push("/profile/subscription")}
                   >
-                    Управлять тарифом
+                    {isPaid
+                      ? "Управлять тарифом"
+                      : "Активировать Paid на 30 дней"}
                   </AnimatedButton>
                 </div>
               </DashboardCard>
@@ -209,11 +239,16 @@ export default function ProfilePage() {
               <DashboardCard className="lg:col-span-2">
                 <div className="flex items-start justify-between gap-4">
                   <DashboardIcon icon={ShieldCheck} />
-                  <DashboardStatusPill>Рабочая область доказательств</DashboardStatusPill>
+                  <DashboardStatusPill>
+                    Рабочая область доказательств
+                  </DashboardStatusPill>
                 </div>
-                <p className="mt-5 text-sm font-semibold text-foreground">Отчеты и доказательства</p>
+                <p className="mt-5 text-sm font-semibold text-foreground">
+                  Отчеты и доказательства
+                </p>
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                  Free-проверки хранятся 7 дней. PDF и скриншоты создаются только для новых paid-проверок.
+                  Free-проверки хранятся 7 дней. PDF и скриншоты создаются
+                  только для новых paid-проверок.
                 </p>
                 <div className="mt-5 flex justify-end">
                   <AnimatedButton
@@ -229,11 +264,8 @@ export default function ProfilePage() {
           </DashboardPanel>
 
           <DashboardPanel>
-            <DashboardSectionTitle
-              title="Разделы кабинета"
-              description=""
-            />
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <DashboardSectionTitle title="Разделы кабинета" description="" />
+            <div className="grid gap-4 md:grid-cols-2">
               <ProfileActionCard
                 icon={Mail}
                 title="Настройки почты"
@@ -249,8 +281,8 @@ export default function ProfilePage() {
               />
               <ProfileActionCard
                 icon={CreditCard}
-                title="Подписка"
-                description="Текущий тариф, лимиты и управление планом."
+                title="Тариф и доступ"
+                description="Текущий режим, лимиты и временная активация Paid."
                 onClick={() => router.push("/profile/subscription")}
               />
               <ProfileActionCard
@@ -259,12 +291,6 @@ export default function ProfilePage() {
                 description="История проверок; paid-сканы включают PDF и визуальные доказательства."
                 tone="warning"
                 onClick={() => router.push("/profile/history")}
-              />
-              <ProfileActionCard
-                icon={Receipt}
-                title="История покупок"
-                description="Транзакции и счета после подключения платежей."
-                onClick={() => router.push("/profile/purchases")}
               />
             </div>
           </DashboardPanel>
@@ -276,11 +302,16 @@ export default function ProfilePage() {
                   <DashboardIcon icon={Trash2} tone="danger" />
                   <div>
                     <div className="flex flex-wrap items-center gap-3">
-                      <p className="text-sm font-semibold text-foreground">Удаление аккаунта</p>
-                      <DashboardStatusPill tone="danger">Опасная зона</DashboardStatusPill>
+                      <p className="text-sm font-semibold text-foreground">
+                        Удаление аккаунта
+                      </p>
+                      <DashboardStatusPill tone="danger">
+                        Опасная зона
+                      </DashboardStatusPill>
                     </div>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-                      Все данные аккаунта, история проверок и сохраненные отчеты будут безвозвратно удалены.
+                      Все данные аккаунта, история проверок и сохраненные отчеты
+                      будут безвозвратно удалены.
                     </p>
                   </div>
                 </div>
@@ -299,8 +330,8 @@ export default function ProfilePage() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>Удалить аккаунт?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Это действие нельзя отменить. Аккаунт, история проверок и все
-                        сохраненные отчеты будут безвозвратно удалены.
+                        Это действие нельзя отменить. Аккаунт, история проверок
+                        и все сохраненные отчеты будут безвозвратно удалены.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

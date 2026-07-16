@@ -253,7 +253,7 @@ paths:
   /subscription/change:
     post:
       summary: Activate or deactivate the account Paid plan
-      description: Temporary authenticated self-service activation until a payment provider is integrated. Paid activation lasts 30 days.
+      description: Current MVP self-service plan control for authenticated users. Paid activation lasts 30 days and does not process a payment or renew automatically.
       requestBody:
         required: true
         content:
@@ -268,8 +268,16 @@ paths:
       responses:
         '200':
           description: Plan changed and persisted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanChangeResponse'
+        '400':
+          description: Malformed JSON payload or invalid plan value
         '401':
           description: Unauthorized
+        '500':
+          description: Plan persistence failed
 
   /workers:
     get:
@@ -391,6 +399,17 @@ components:
         next_available_at:
           type: string
           format: date-time
+
+    PlanChangeResponse:
+      type: object
+      required: [status, message]
+      properties:
+        status:
+          type: string
+          example: ok
+        message:
+          type: string
+          example: Платный тариф активирован на 30 дней
 
     CheckRequest:
       type: object

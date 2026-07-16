@@ -1,6 +1,6 @@
 # PDn-control
 
-PDn-control is a legal-tech website checker for risks related to Russian personal-data law, especially Federal Law No. 152. It crawls a submitted website, classifies compliance risks, and shows a user-facing report. Guest and free accounts receive three summary scans in a rolling 30-day window; paid-origin scans use a deeper exploration budget and can generate PDF and screenshot evidence.
+PDn-control is a legal-tech website checker for risks related to Russian personal-data law, especially Federal Law No. 152. It crawls a submitted website, classifies compliance risks, and shows a user-facing report. Guest and free accounts receive three summary scans in a rolling 30-day window; paid-origin scans use a deeper exploration budget and can generate PDF and screenshot evidence. In the current MVP, an authenticated user can activate Paid access for 30 days from the profile without payment or automatic renewal.
 
 ## Current Access
 
@@ -83,6 +83,6 @@ On Windows PowerShell, use `npm.cmd` if `npm.ps1` is blocked by execution policy
 
 ## Reports And Releases
 
-- Latest maintained public evidence index: [reports/week5/README.md](reports/week5/README.md)
-- Assignment 6 evidence will be indexed from `reports/week6/README.md` and `reports/week7/README.md` when those reports are completed.
+- Latest completed public evidence index: [reports/week6/README.md](reports/week6/README.md)
+- Week 7 draft evidence and explicit blockers: [reports/week7/README.md](reports/week7/README.md)
 - Changelog: [CHANGELOG.md](CHANGELOG.md)
