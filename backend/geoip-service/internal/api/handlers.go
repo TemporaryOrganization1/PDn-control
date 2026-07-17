@@ -71,14 +71,14 @@ func (s *Server) lookupIP(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid IP address"})
 	}
 
-	// Tier 1: Maxmind MMDB
-	countryCode := s.lookupMaxmind(ipStr, parsedIP)
+	// Tier 1: IP2Location BIN
+	countryCode := s.lookupIP2Location(ipStr)
 	if countryCode != "" {
 		return c.JSON(http.StatusOK, map[string]string{"country_code": countryCode})
 	}
 
-	// Tier 2: IP2Location BIN
-	countryCode = s.lookupIP2Location(ipStr)
+	// Tier 2: Maxmind MMDB
+	countryCode = s.lookupMaxmind(ipStr, parsedIP)
 	if countryCode != "" {
 		return c.JSON(http.StatusOK, map[string]string{"country_code": countryCode})
 	}

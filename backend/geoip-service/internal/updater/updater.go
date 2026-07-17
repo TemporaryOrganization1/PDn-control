@@ -103,29 +103,30 @@ func (u *Updater) loop() {
 func (u *Updater) update(ctx context.Context, tag string) error {
 	log.Printf("[Updater] Updating GeoIP data (tag: %s)", tag)
 	startTime := time.Now()
+	mmdbSucceeded := false
 
 	// 1. Download and load Maxmind MMDB
 	if err := downloader.DownloadMMDB(ctx, u.cfg.MMDBSourceURL, tag, u.cfg.MMDBPath); err != nil {
-		u.recordUpdate(ctx, tag, "failed", 0)
-		return fmt.Errorf("download mmdb: %w", err)
-	}
+		log.Printf("[Updater] Maxmind download failed (non-fatal): %v", err)
+	} else {
+		info, err := os.Stat(u.cfg.MMDBPath)
+		filesize := int64(0)
+		if err == nil {
+			filesize = info.Size()
+		}
 
-	info, err := os.Stat(u.cfg.MMDBPath)
-	filesize := int64(0)
-	if err == nil {
-		filesize = info.Size()
-	}
-
-	newReader, err := maxminddb.Open(u.cfg.MMDBPath)
-	if err != nil {
-		u.recordUpdate(ctx, tag, "failed", filesize)
-		return fmt.Errorf("open mmdb: %w", err)
-	}
-
-	oldReader := u.reader
-	u.reader = newReader
-	if oldReader != nil {
-		oldReader.Close()
+		newReader, err := maxminddb.Open(u.cfg.MMDBPath)
+		if err != nil {
+			log.Printf("[Updater] Maxmind open failed (non-fatal): %v", err)
+		} else {
+			oldReader := u.reader
+			u.reader = newReader
+			if oldReader != nil {
+				oldReader.Close()
+			}
+			mmdbSucceeded = true
+			log.Printf("[Updater] Maxmind loaded: %d bytes", filesize)
+		}
 	}
 
 	// 2. Download and load IP2Location BIN (if token is configured)
@@ -137,8 +138,12 @@ func (u *Updater) update(ctx context.Context, tag string) error {
 		log.Println("[Updater] IP2Location token not configured, skipping IP2Location update")
 	}
 
-	u.recordUpdate(ctx, tag, "success", filesize)
-	log.Printf("[Updater] Update completed in %s: %d bytes", time.Since(startTime), filesize)
+	status := "success"
+	if !mmdbSucceeded {
+		status = "degraded"
+	}
+	u.recordUpdate(ctx, tag, status, 0)
+	log.Printf("[Updater] Update completed in %s (status: %s)", time.Since(startTime), status)
 	return nil
 }
 
