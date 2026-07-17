@@ -47,6 +47,7 @@ Prerequisites:
 
 - Docker and Docker Compose
 - An OpenRouter API key for AI-assisted checks
+- An IP2Location LITE token for GeoIP fallback (optional, get at https://lite.ip2location.com/)
 - Optional SMTP credentials if email verification must be tested
 
 ```bash

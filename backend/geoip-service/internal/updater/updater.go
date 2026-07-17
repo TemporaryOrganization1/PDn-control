@@ -7,9 +7,11 @@ import (
 	"os"
 	"time"
 
+	ip2locationLib "github.com/ip2location/ip2location-go"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service/internal/database"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service/internal/downloader"
+	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service/internal/ip2location"
 )
 
 type Config struct {
@@ -18,6 +20,10 @@ type Config struct {
 	ReleaseTag    string
 	UpdateEvery   time.Duration
 	FirstDelay    time.Duration
+
+	// IP2Location
+	IP2LocationToken string
+	IP2LocationPath  string
 }
 
 type Updater struct {
@@ -26,6 +32,8 @@ type Updater struct {
 	reader *maxminddb.Reader
 	done   chan struct{}
 	stopCh chan struct{}
+
+	ip2LocationDB *ip2locationLib.DB
 }
 
 func New(store *database.Store, cfg Config) *Updater {
@@ -54,6 +62,11 @@ func (u *Updater) RunOnce(ctx context.Context) error {
 
 func (u *Updater) GetReader() *maxminddb.Reader {
 	return u.reader
+}
+
+// GetIP2LocationDB returns the IP2Location database reader, or nil if not loaded.
+func (u *Updater) GetIP2LocationDB() *ip2locationLib.DB {
+	return u.ip2LocationDB
 }
 
 func (u *Updater) loop() {
@@ -91,6 +104,7 @@ func (u *Updater) update(ctx context.Context, tag string) error {
 	log.Printf("[Updater] Updating GeoIP data (tag: %s)", tag)
 	startTime := time.Now()
 
+	// 1. Download and load Maxmind MMDB
 	if err := downloader.DownloadMMDB(ctx, u.cfg.MMDBSourceURL, tag, u.cfg.MMDBPath); err != nil {
 		u.recordUpdate(ctx, tag, "failed", 0)
 		return fmt.Errorf("download mmdb: %w", err)
@@ -114,8 +128,39 @@ func (u *Updater) update(ctx context.Context, tag string) error {
 		oldReader.Close()
 	}
 
+	// 2. Download and load IP2Location BIN (if token is configured)
+	if u.cfg.IP2LocationToken != "" {
+		if err := u.updateIP2Location(ctx); err != nil {
+			log.Printf("[Updater] IP2Location update failed (non-fatal): %v", err)
+		}
+	} else {
+		log.Println("[Updater] IP2Location token not configured, skipping IP2Location update")
+	}
+
 	u.recordUpdate(ctx, tag, "success", filesize)
 	log.Printf("[Updater] Update completed in %s: %d bytes", time.Since(startTime), filesize)
+	return nil
+}
+
+func (u *Updater) updateIP2Location(ctx context.Context) error {
+	log.Println("[Updater] Updating IP2Location database...")
+
+	if err := ip2location.DownloadBIN(ctx, u.cfg.IP2LocationToken, u.cfg.IP2LocationPath); err != nil {
+		return fmt.Errorf("download ip2location: %w", err)
+	}
+
+	newDB, err := ip2locationLib.OpenDB(u.cfg.IP2LocationPath)
+	if err != nil {
+		return fmt.Errorf("open ip2location db: %w", err)
+	}
+
+	oldDB := u.ip2LocationDB
+	u.ip2LocationDB = newDB
+	if oldDB != nil {
+		oldDB.Close()
+	}
+
+	log.Printf("[Updater] IP2Location database loaded from %s", u.cfg.IP2LocationPath)
 	return nil
 }
 

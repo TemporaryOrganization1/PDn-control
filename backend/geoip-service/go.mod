@@ -3,6 +3,7 @@ module github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service
 go 1.25.0
 
 require (
+	github.com/ip2location/ip2location-go v8.3.0+incompatible
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/joho/godotenv v1.5.1
 	github.com/labstack/echo/v4 v4.15.4
