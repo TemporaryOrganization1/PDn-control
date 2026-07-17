@@ -39,6 +39,14 @@ func main() {
 	mmdbPath := filepath.Join(mmdbDir, "GeoLite2-Country.mmdb")
 	downloader.EnsureDirExists(mmdbPath)
 
+	// IP2Location configuration (optional)
+	ip2LocationToken := getEnv("IP2LOCATION_TOKEN", "")
+	ip2LocationDir := getEnv("IP2LOCATION_DIR", "/data/geoip")
+	ip2LocationPath := filepath.Join(ip2LocationDir, "IP2LOCATION-LITE-DB1.BIN")
+	if ip2LocationToken != "" {
+		downloader.EnsureDirExists(ip2LocationPath)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -55,11 +63,13 @@ func main() {
 	}
 
 	svcUpdater := updater.New(store, updater.Config{
-		MMDBSourceURL: mmdbSourceURL,
-		MMDBPath:      mmdbPath,
-		ReleaseTag:    releaseTag,
-		UpdateEvery:   updateInterval,
-		FirstDelay:    firstDelay,
+		MMDBSourceURL:    mmdbSourceURL,
+		MMDBPath:         mmdbPath,
+		ReleaseTag:       releaseTag,
+		UpdateEvery:      updateInterval,
+		FirstDelay:       firstDelay,
+		IP2LocationToken: ip2LocationToken,
+		IP2LocationPath:  ip2LocationPath,
 	})
 	svcUpdater.Start()
 	defer svcUpdater.Stop()
