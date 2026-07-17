@@ -19,14 +19,14 @@ type GeoIPRecord struct {
 
 // IP2LocationRecord holds the result from an IP2Location BIN lookup.
 type IP2LocationRecord struct {
-	CountryShort string `json:"country_short"`
-	CountryLong  string `json:"country_long"`
-	Region       string `json:"region"`
-	City         string `json:"city"`
+	CountryShort string  `json:"country_short"`
+	CountryLong  string  `json:"country_long"`
+	Region       string  `json:"region"`
+	City         string  `json:"city"`
 	Latitude     float32 `json:"latitude"`
 	Longitude    float32 `json:"longitude"`
-	ZipCode      string `json:"zip_code"`
-	TimeZone     string `json:"time_zone"`
+	ZipCode      string  `json:"zip_code"`
+	TimeZone     string  `json:"time_zone"`
 }
 
 type LookupResult struct {

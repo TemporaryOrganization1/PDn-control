@@ -7,11 +7,11 @@ import (
 	"os"
 	"time"
 
+	ip2locationLib "github.com/ip2location/ip2location-go"
 	"github.com/oschwald/maxminddb-golang"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service/internal/database"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service/internal/downloader"
 	"github.com/stecenkoruslanigorevih31-web/PDn-control/backend/geoip-service/internal/ip2location"
-	ip2locationLib "github.com/ip2location/ip2location-go"
 )
 
 type Config struct {
