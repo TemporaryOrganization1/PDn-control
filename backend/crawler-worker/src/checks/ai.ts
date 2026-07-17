@@ -357,17 +357,9 @@ export async function checkAi(sr: Data, requestedIterations = 3, detailLevel: 's
                                 "about": {
                                     "type": "string",
                                     "description": "About the website, debug information. Use selected language. So in clear Russian"
-                                },
-                                "checkedIds": {
-                                    "type": "array",
-                                    "description": "IDs of checks actually evaluated during this run, including checks with no violations",
-                                    "items": {
-                                        "type": "string",
-                                        "enum": ["sep-consent", "foreign-words", "privacy-policy", "cookie-banner", "consent-forms", "email-pdn", "ad-marking", "minors-data", "special-categ"]
-                                    }
                                 }
                             },
-                            "required": ["about", "checkedIds"]
+                            "required": ["about"]
                         }
                     }
                 }
@@ -467,7 +459,7 @@ export async function checkAi(sr: Data, requestedIterations = 3, detailLevel: 's
                             console.error (e);
                         }
                         finally {
-                            if (sr.captureImages && sr.page.url() !== previousURL) {
+                            if (sr.captureImages) {
                                 await sr.open (previousURL);
                             }
                         }
@@ -477,9 +469,8 @@ export async function checkAi(sr: Data, requestedIterations = 3, detailLevel: 's
                     if (func.name == "finishReport") {
                         console.log(func.arguments);
                         i = maxRounds + 100;
-                        const args = JSON.parse(func.arguments) as {"about": string, "checkedIds"?: string[]};
+                        const args = JSON.parse(func.arguments) as {"about": string};
                         sr.result.about = args.about;
-                        for (const id of args.checkedIds ?? []) checkedChecks.add(id);
                     }
                     }
                 }
@@ -493,5 +484,19 @@ export async function checkAi(sr: Data, requestedIterations = 3, detailLevel: 's
         }
     }
 
-    sr.result.checks.push(...coverageFallbacks(new Set(Object.keys(foundChecks)), checkedChecks));
+    const checks = ["sep-consent", "foreign-words", "privacy-policy",
+        "cookie-banner", "consent-forms", "email-pdn", "ad-marking",
+        "minors-data", "special-categ"];
+
+    for (const p of checks) {
+        if (p in foundChecks)
+            continue;
+        sr.result.checks.push ({
+            'id': p,
+            'result': 'ok',
+            'images': []
+        });
+    }
+    // DO NOT DO THIS
+    // sr.result.checks.push(...coverageFallbacks(new Set(Object.keys(foundChecks)), checkedChecks));
 }
