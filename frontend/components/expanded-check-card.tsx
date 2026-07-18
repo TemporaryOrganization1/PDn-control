@@ -171,9 +171,9 @@ export function ExpandedCheckCard({ item, compact = false }: ExpandedCheckCardPr
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm font-semibold text-foreground">{item.label}</p>
             <DashboardStatusPill tone={meta.tone}>{meta.label}</DashboardStatusPill>
-            <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs text-muted-foreground">
+            {/* <span className="rounded-full border border-white/10 bg-white/[0.035] px-2.5 py-1 text-xs text-muted-foreground">
               {item.title}
-            </span>
+            </span> */}
           </div>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">{item.description}</p>
         </div>

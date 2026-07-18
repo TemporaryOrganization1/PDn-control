@@ -29,10 +29,10 @@ export function CheckHints() {
   }, []);
 
   return (
-    <section className="w-full border-b border-white/10 px-5 py-6 sm:px-8 lg:px-10">
+    <section className="w-full border-b border-white/10 px-5 py-4 sm:px-8 lg:px-10">
       <div className="mx-auto max-w-5xl">
         <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
-          <div className="relative h-12">
+          <div className="flex items-center relative h-12">
             {HINTS.map((hint, i) => {
               const Icon = hint.icon;
               return (
