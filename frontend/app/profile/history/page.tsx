@@ -139,7 +139,7 @@ export default function HistoryPage() {
 
   const handleOpenReport = (item: CheckHistoryItem) => {
     saveLastResult(historyItemToTask(item));
-    router.push("/result");
+    router.push(`/result?backUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
   };
 
   const handleDeleteReport = async (item: CheckHistoryItem) => {

@@ -342,6 +342,7 @@ function ErrorResultState({ message }: { message: string }) {
 export default function ResultView() {
   const searchParams = useSearchParams();
   const reqId = searchParams.get("reqId");
+  const backUrl = decodeURIComponent(searchParams.get("backUrl") ?? "/");
   const [task, setTask] = useState<TaskState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -404,7 +405,7 @@ export default function ResultView() {
   return (
     <DashboardPage>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <BackButton />
+        <BackButton href={backUrl} />
         {result.scanProfile.pdf_enabled && result.reportId ? <PdfDownloadButton result={result} /> : null}
       </div>
 
@@ -516,15 +517,15 @@ export default function ResultView() {
                 <p className="mt-2 text-lg font-semibold leading-7 text-foreground">{statusMeta.summary}</p>
               </div>
               <div className="mt-6 grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-center">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-center">
                   <p className="text-xl font-semibold text-foreground">{result.failedCount}</p>
                   <p className="mt-1 text-[10px] uppercase text-muted-foreground">нарушения</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-center">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-center">
                   <p className="text-xl font-semibold text-foreground">{result.warningCount}</p>
                   <p className="mt-1 text-[10px] uppercase text-muted-foreground">предупреждения</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-3 text-center">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-1 text-center">
                   <p className="text-xl font-semibold text-foreground">{result.passedCount}</p>
                   <p className="mt-1 text-[10px] uppercase text-muted-foreground">пройдено</p>
                 </div>
