@@ -925,10 +925,6 @@
     /* Цвет текста */
     -webkit-text-fill-color: var(--foreground) !important;
     
-    /* Фон через внутреннюю тень */
-    -webkit-box-shadow: 0 0 0 1000px var(--background) inset !important;
-    box-shadow: 0 0 0 1000px var(--background) inset !important;
-    
     /* Для цветного курсора */
     caret-color: var(--foreground);
     
