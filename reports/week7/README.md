@@ -1,6 +1,6 @@
-# Week 7 — Sprint 5 Draft Evidence Index
+# Week 7 — Sprint 5
 
-This is the public, sanitized Week 7 report scaffold for PDn-control. It records only inspectable repository facts. Missing Sprint, customer, release, deployment, and presentation evidence remains explicitly marked `TODO`; local implementation work is not treated as customer acceptance or protected-branch CI evidence.
+This is the public Week 7 report for PDn-control.
 
 ## Prior Sprint and Maintained Entry Points
 
@@ -19,12 +19,12 @@ This is the public, sanitized Week 7 report scaffold for PDn-control. It records
 
 ## Sprint 5 Container
 
-- Product Backlog: TODO — add the inspectable board/view link.
-- Sprint 5 Backlog: TODO — add the inspectable board/view link.
-- Sprint 5 milestone: TODO — add the inspectable milestone link.
-- Sprint dates: TODO — confirm from the formal milestone.
-- Sprint size: TODO — report committed and completed Story Points from the authoritative board.
-- Sprint Goal: complete Week 7 maintenance and transition work needed for the final customer-usable course version.
+- Product Backlog: https://github.com/orgs/TemporaryOrganization1/projects/2
+- Sprint 5 Backlog: https://github.com/orgs/TemporaryOrganization1/projects/7
+- Sprint 5 milestone: https://github.com/TemporaryOrganization1/PDn-control/milestone/5?closed=1
+- Sprint dates: 13.07.2026 - 19.07.2026
+- Sprint size: 13
+- Sprint Goal: complete Week 7 transition work needed for the final customer-usable course version, fix pdf-report generation and add subscription plan managemnt
 
 ## Current Week 7 Maintenance
 
@@ -35,30 +35,25 @@ Local frontend verification on 2026-07-16 completed lint (with six pre-existing 
 ## Transition and Customer Evidence
 
 - Current public handover level and limitations: see [customer handover](../../docs/customer-handover.md).
-- Final customer-confirmation status: `TODO — not yet accepted in public evidence`.
-- What was transferred or delegated in Week 7: TODO — record only after an inspectable transition action occurs.
-- Customer-independent use or customer-side operation: TODO — no public evidence currently proves this.
-- Remaining blockers or support expectations: TODO — update after final customer confirmation.
+- Final customer-confirmation status: Status confirmed that product is ready and only needs access to the repository
+- Remaining blockers or support expectations: None
 
 ## Customer Feedback and UAT
 
 | Follow-up item | Current repository response | Evidence status |
 |---|---|---|
-| Make pricing and account-plan navigation match the implemented product | Pricing now describes Free/Paid entitlements and routes Paid activation through the profile; unsupported checkout and purchases pages are removed. | Local implementation and tests only; issue/PR and protected-branch evidence TODO. |
-| Recheck customer-critical Week 7 behavior | A maintained pricing-flow scenario is listed as UAT-010. | Execution and customer result TODO; do not report acceptance yet. |
-| Week 6 PDF layout follow-up | Outside this tariff/navigation change. | TODO — link the responsible issue/PR and rerun the relevant UAT when completed. |
+| Make pricing and account-plan navigation match the implemented product | Pricing now describes Free/Paid entitlements and routes Paid activation through the profile; unsupported checkout and purchases pages are removed. | https://github.com/TemporaryOrganization1/PDn-control/issues/29 |
+| Week 6 PDF layout follow-up | Outside this tariff/navigation change. | https://github.com/TemporaryOrganization1/PDn-control/issues/172 |
 
 ## Final Delivery Evidence Still Required
 
-- Final product access verification: TODO.
-- Hosted documentation verification: TODO.
-- Final SemVer release mapped to `MVP v3`: TODO.
-- Public sanitized demo video: TODO.
-- Sprint 5 Review summary/transcript-or-notes: TODO.
-- Week 7 reflection: TODO.
-- Week 7 retrospective: TODO.
-- Demo Day rehearsal/preparation evidence: TODO.
+- Final product access verification: https://pdn2.neurolife.tech/.
+- Hosted documentation verification: http://194.87.95.22:8088.
+- Final SemVer release mapped to `MVP v3`: https://github.com/TemporaryOrganization1/PDn-control/releases/tag/MVP3.
+- Public sanitized demo video: https://drive.google.com/file/d/1P9FkSNjZCICpxHYrX4GpiMOU7cJkfH1m/view?usp=sharing.
+- Sprint 5 Review summary/transcript:https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week7/sprint-review-summary.md and https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week7/sprint-review-transcript.md
+- Week 7 reflection: https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week7/reflection.md.
+- Week 7 retrospective: https://github.com/TemporaryOrganization1/PDn-control/blob/main/reports/week7/retrospective.md.
+- Demo Day rehearsal/preparation evidence: The presentation for Demo day is finished and team conducted a rehearsal of it.
 - Contribution traceability by team member and inspectable issue/PR/review/test evidence: TODO.
 - Sanitized screenshots under `reports/week7/images/`: TODO; no screenshots are claimed in this draft.
-
-Private identities, credentials, recordings, exact timecodes, customer messages, consent evidence, and private access details must remain in the Week 7 Moodle wrapper rather than this public report.
